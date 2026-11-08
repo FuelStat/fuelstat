@@ -2,7 +2,7 @@
 # - PHP: Syntax aller Dateien (php -l) und die Tests in tests/
 # - API: node --check und die Tests in backend/test gegen eine frische Postgres-Datenbank
 #   (Schema aus backend/database/postgres_init.sql, wie bei einer Neuinstallation)
-# - YAML: OpenAPI-Datei, docker-compose und Workflows müssen gültiges YAML sein
+# - YAML: OpenAPI-Datei, docker-compose und Workflows müssen gültiges YAML sein; jede API-Route steht in der OpenAPI
 name: Tests
 
 on:
@@ -111,3 +111,5 @@ jobs:
                   fehler = 1
           sys.exit(fehler)
           EOF
+      - name: OpenAPI deckt alle Routen ab
+        run: python3 tests/openapi_abgleich.py

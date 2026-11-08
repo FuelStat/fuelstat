@@ -100,6 +100,13 @@ test('Registrierung und Login', async () => {
   assert.ok(ok.body.token);
   const falsch = await api('POST', '/auth/login', { body: { email: u.email, password: 'falsch-falsch' } });
   assert.equal(falsch.status, 401);
+  // Ohne aktive 2FA wird ein mitgeschickter Code ignoriert (Clients mit optionalem Code-Feld, docs/api.md);
+  // er ersetzt nie das Passwort
+  const mitCode = await api('POST', '/auth/login', { body: { email: u.email, password: 'Passwort123', code: '000000' } });
+  assert.equal(mitCode.status, 200);
+  const nurCode = await api('POST', '/auth/login', { body: { email: u.email, password: 'falsch-falsch', code: '000000' } });
+  assert.equal(nurCode.status, 401);
+  assert.equal(nurCode.body.error, 'invalid_credentials');
   assert.equal((await api('GET', '/vehicles')).status, 401, 'ohne Token');
   const me = await api('GET', '/whoami', { token: u.token });
   assert.equal(me.body.email, u.email);

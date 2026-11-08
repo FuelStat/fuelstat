@@ -10,6 +10,7 @@ const path = require('path');
 const fs = require('fs');
 const { getVehicleStats, FUEL_TYPES, unitForFuelType, unitsForFuelType } = require('./services/stats');
 const { getVehicleReminders } = require('./services/reminders');
+const { getVehicleCosts } = require('./services/costs');
 const { encryptSecret, decryptSecret, sendUserMail, resolveSmtpHost, ALLOWED_PORTS, loadDefaultSmtp, withDefaultSmtp } = require('./services/mail');
 const notifier = require('./services/notifier');
 const plans = require('./services/plans');
@@ -2638,6 +2639,24 @@ app.get('/api/v1/vehicles/:vehicleId/stats', auth, async (req, res) => {
   try {
     const data = await getVehicleStats(pool, req.user.sub, vehicleId);
     if (data?.error === 'vehicle_not_found') return res.status(404).json({ error: 'vehicle_not_found' });
+    res.json(data);
+  } catch (e) {
+    serverError(res, e);
+  }
+});
+
+// Kosten je Fahrzeug (#124): Summen, Kosten pro km, laufender Monat, Monatssummen; optional ?year=JJJJ
+app.get('/api/v1/vehicles/:vehicleId/costs', auth, async (req, res) => {
+  const vehicleId = String(req.params.vehicleId || '').trim();
+  let year = null;
+  if (req.query.year !== undefined && req.query.year !== '') {
+    year = Number(req.query.year);
+    if (!Number.isInteger(year) || year < 1900 || year > 2100) return res.status(400).json({ error: 'invalid_year' });
+  }
+  if (!UUID_RE.test(vehicleId)) return res.status(404).json({ error: 'vehicle_not_found' });
+  try {
+    const data = await getVehicleCosts(pool, req.user.sub, vehicleId, { year });
+    if (!data) return res.status(404).json({ error: 'vehicle_not_found' });
     res.json(data);
   } catch (e) {
     serverError(res, e);

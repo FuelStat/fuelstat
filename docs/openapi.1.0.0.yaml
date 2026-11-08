@@ -663,6 +663,73 @@ paths:
         "500":
           $ref: "#/components/responses/ServerError"
 
+  /api/v1/vehicles/{vehicleId}/costs:
+    get:
+      tags: [Stats]
+      summary: Vehicle costs (totals, cost per km, current month, monthly sums)
+      description: "Monate und Jahre in Europe/Berlin. Regeln siehe docs/api.md (#124)."
+      operationId: getVehicleCosts
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+        - { name: year, in: query, required: false, schema: { type: integer, minimum: 1900, maximum: 2100 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  year: { type: integer, nullable: true }
+                  currency: { type: string, example: EUR }
+                  total:
+                    $ref: "#/components/schemas/CostSums"
+                  distanceKm: { type: integer, nullable: true }
+                  costPerKm:
+                    type: object
+                    properties:
+                      energy: { type: number, nullable: true, description: "€/km, Tank-/Ladekosten" }
+                      total: { type: number, nullable: true, description: "€/km, alle Kosten" }
+                  perMonth: { type: number, nullable: true }
+                  monthCount: { type: integer }
+                  currentMonth:
+                    allOf:
+                      - $ref: "#/components/schemas/CostSums"
+                      - { type: object, properties: { month: { type: string, example: "2026-03" } } }
+                  previousMonth:
+                    allOf:
+                      - $ref: "#/components/schemas/CostSums"
+                      - { type: object, properties: { month: { type: string, example: "2026-02" } } }
+                  months:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/CostSums"
+                        - type: object
+                          properties:
+                            month: { type: string, example: "2026-02" }
+                            count: { type: integer }
+                            counts:
+                              type: object
+                              properties:
+                                fuel: { type: integer }
+                                charge: { type: integer }
+                                expense: { type: integer }
+                                trip: { type: integer }
+                                odometer: { type: integer }
+                            byType:
+                              type: object
+                              properties:
+                                fuel: { type: number }
+                                charge: { type: number }
+                                expense: { type: number }
+        "400":
+          description: invalid_year
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/vehicles/{vehicleId}/stats:
     get:
       tags: [Stats]
@@ -2459,6 +2526,13 @@ components:
         diff:
           type: number
       required: [current, avgPrev, diff]
+
+    CostSums:
+      type: object
+      properties:
+        energy: { type: number, description: "Tank- und Ladevorgänge, EUR" }
+        expenses: { type: number, description: "Ausgaben, die als Kosten zählen, EUR" }
+        total: { type: number, description: EUR }
 
     VehicleStatsResponse:
       type: object

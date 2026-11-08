@@ -73,41 +73,23 @@ foreach ($eintraege as $e) {
 uasort($kategorien, fn($a, $b) => $b['summe'] <=> $a['summe']);
 $gesamt = array_sum(array_column($kategorien, 'summe'));
 
-// Gefahrene Kilometer im Zeitraum aus den Tachoständen
-$tachoBis = function (string $bisDatum) use ($alle): ?int {
-    $werte = array_map(fn($e) => (int)$e['tachostand'], array_filter($alle, fn($e) => (int)($e['tachostand'] ?? 0) > 0 && $e['datum'] < $bisDatum));
-    return $werte ? max($werte) : null;
-};
-// Kilometer passend zu den erfassten Ausgaben: ab dem ersten erfassten Tachostand, nicht ab Anschaffung
-// (sonst würden Kilometer ohne erfasste Kosten den Wert pro km verfälschen)
-$kmImJahr = function (int $jahr) use ($alle, $tachoBis): ?int {
-    $ende = $tachoBis(($jahr + 1) . '-01-01');
-    $start = $tachoBis($jahr . '-01-01');
-    if ($start === null) {
-        $imJahr = array_map(fn($e) => (int)$e['tachostand'], array_filter($alle, fn($e) => (int)($e['tachostand'] ?? 0) > 0 && (int)substr($e['datum'], 0, 4) === $jahr));
-        $start = $imJahr ? min($imJahr) : null;
+// Strecke, Kosten pro km und Ø je Monat rechnet die API (#124), damit Web und Apps dieselben Zahlen zeigen.
+// Für den Jahresvergleich werden die Jahre gleichzeitig vorgeladen.
+$kostenPfad = fn(?int $jahr) => '/vehicles/' . rawurlencode($fahrzeug_id) . '/costs' . ($jahr !== null ? '?year=' . $jahr : '');
+$api->vorladen(array_merge([$kostenPfad($selectedYear)], $selectedYear === null ? array_map($kostenPfad, $jahre) : []));
+$kostenApi = function (?int $jahr) use ($api, $fahrzeug_id): ?array {
+    try {
+        return $api->getVehicleCosts($fahrzeug_id, $jahr);
+    } catch (Throwable $e) {
+        return null;
     }
-    return $ende !== null && $start !== null && $ende > $start ? $ende - $start : null;
 };
-if ($selectedYear !== null) {
-    $km = $kmImJahr($selectedYear);
-} else {
-    $ende = $tachoBis('9999-12-31');
-    $odos = array_map(fn($e) => (int)$e['tachostand'], array_filter($alle, fn($e) => (int)($e['tachostand'] ?? 0) > 0));
-    $start = $odos ? min($odos) : null;
-    $km = $ende !== null && $start !== null && $ende > $start ? $ende - $start : null;
-}
-
-// Monate im Zeitraum: vom ersten Eintrag bis heute bzw. bis Jahresende (auch Monate ohne Ausgaben zählen)
-$monate = 0;
-if ($alle) {
-    $erster = new DateTime(substr($alle[0]['datum'], 0, 7) . '-01');
-    $von = $selectedYear !== null ? max($erster, new DateTime($selectedYear . '-01-01')) : $erster;
-    $bis = $selectedYear !== null && $selectedYear < (int)date('Y') ? new DateTime($selectedYear . '-12-01') : new DateTime(date('Y-m-01'));
-    $monate = $bis >= $von ? ((int)$bis->format('Y') - (int)$von->format('Y')) * 12 + (int)$bis->format('n') - (int)$von->format('n') + 1 : 0;
-}
-$proMonat = $monate > 0 ? $gesamt / $monate : null;
-$proKm = $km ? $gesamt / $km : null;
+$kosten = $kostenApi($selectedYear);
+$km = $kosten['distanceKm'] ?? null;
+$kmImJahr = fn(int $jahr): ?int => $kostenApi($jahr)['distanceKm'] ?? null;
+$proMonat = $kosten['perMonth'] ?? null;
+$monate = (int)($kosten['monthCount'] ?? 0);
+$proKm = $kosten['costPerKm']['total'] ?? null;
 $wartungPro10k = $km ? $gruppenSummen['wartung'] / $km * 10000 : null;
 $groessteKategorie = array_key_first($kategorien);
 // Leere Gruppen (z. B. "Sonstiges" ohne Einträge) nicht anzeigen

@@ -168,6 +168,36 @@ test('Tanken: Verbrauch Full-to-Full mit Teilbetankung', async () => {
   assert.equal(s.avgConsumption, 7);
 });
 
+test('Kosten (#124): Summen, Kosten pro km, Jahr, nur eigene Fahrzeuge', async () => {
+  const u = await newUser();
+  const v = await newVehicle(u.token);
+  await fillup(u.token, v, { odometerKm: 10000, amount: 40, totalCostEur: 60, filledAt: '2025-11-10T12:00:00Z' });
+  await fillup(u.token, v, { odometerKm: 10500, amount: 30, totalCostEur: 50, filledAt: '2025-12-20T12:00:00Z' });
+  await api('POST', '/entries', { token: u.token, body: { vehicleId: v, category: 'Versicherung', amountEur: 300, occurredAt: '2026-01-02T12:00:00Z' } });
+  await api('POST', '/entries', { token: u.token, body: { vehicleId: v, category: 'Kilometerstand', amountEur: 0, odometerKm: 10800, occurredAt: '2026-01-15T12:00:00Z' } });
+  await fillup(u.token, v, { odometerKm: 11000, amount: 32, totalCostEur: 55, filledAt: '2026-01-31T23:30:00Z' });
+
+  const c = await api('GET', `/vehicles/${v}/costs`, { token: u.token });
+  assert.equal(c.status, 200);
+  assert.deepEqual(c.body.total, { energy: 165, expenses: 300, total: 465 });
+  assert.equal(c.body.distanceKm, 1000);
+  assert.equal(c.body.costPerKm.total, 0.465);
+  assert.equal(c.body.costPerKm.energy, 0.105);
+  assert.equal(c.body.months[0].month, '2026-02', 'Monat in Europe/Berlin');
+  assert.ok(c.body.currentMonth.month && c.body.previousMonth.month);
+
+  const j = await api('GET', `/vehicles/${v}/costs?year=2026`, { token: u.token });
+  assert.equal(j.body.year, 2026);
+  assert.deepEqual(j.body.total, { energy: 55, expenses: 300, total: 355 });
+  assert.equal(j.body.distanceKm, 500);
+
+  assert.equal((await api('GET', `/vehicles/${v}/costs?year=20x6`, { token: u.token })).body.error, 'invalid_year');
+  assert.equal((await api('GET', `/vehicles/${v}/costs`)).status, 401);
+  const fremd = await newUser();
+  assert.equal((await api('GET', `/vehicles/${v}/costs`, { token: fremd.token })).status, 404, 'fremdes Fahrzeug');
+  assert.equal((await api('GET', '/vehicles/keine-uuid/costs', { token: u.token })).status, 404);
+});
+
 test('Plug-in-Hybrid: Liter und kWh getrennt', async () => {
   const u = await newUser();
   const v = await newVehicle(u.token, 'phev', { batteryCapacity: 17.8 });

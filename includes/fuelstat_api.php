@@ -153,6 +153,12 @@ class FuelstatApi
         if ($this->token !== null && $this->token !== '') {
             $headers[] = 'Authorization: Bearer ' . $this->token;
         }
+        // Client-IP an die API weitergeben (Login-Sperren und Rate-Limits je IP, statt alle Web-Nutzer unter der IP
+        // des Servers zu zählen). Die API übernimmt X-Forwarded-For nur von lokalen bzw. privaten Adressen.
+        $clientIp = filter_var($_SERVER['REMOTE_ADDR'] ?? '', FILTER_VALIDATE_IP);
+        if ($clientIp !== false) {
+            $headers[] = 'X-Forwarded-For: ' . $clientIp;
+        }
         return [
             CURLOPT_CUSTOMREQUEST => $method,
             CURLOPT_HTTPHEADER => $headers,

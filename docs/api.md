@@ -123,6 +123,8 @@ Die Endpunkte unter `/auth/users` und `/auth/tokens` sind auf den eigenen Accoun
 
 Admins werden über die Umgebungsvariable `ADMIN_USER_IDS` (kommagetrennte User-UUIDs) in der `.env` des Backends festgelegt. Ohne diese Variable gibt es keine Admins.
 
+Gelöschte Konten: Tokens eines inzwischen gelöschten Kontos werden mit **401** `{ "error": "account_not_found" }` abgelehnt – auch wenn die ID noch in `ADMIN_USER_IDS` steht.
+
 Fehlende Rechte: **403** `{ "error": "forbidden" }`
 
 ### Tarife (Free / Plus / Flotte)
@@ -506,9 +508,9 @@ Fremde oder ungültige IDs liefern 404 `entry_not_found`.
 * `POST /auth/mfa/enable` `{ "code" }` – aktiviert 2FA nach korrektem Code
 * `POST /auth/mfa/disable` `{ "password", "code" }` – deaktiviert 2FA
 
-Bei aktivem 2FA antwortet `POST /auth/login` ohne `code` mit 401 `{ "error": "mfa_required", "mfaToken": "…" }`. Das `mfaToken` ist 5 Minuten gültig und wird mit dem Code an `POST /auth/login/mfa` `{ "mfaToken", "code" }` geschickt; die Antwort enthält dann das Zugangstoken. Ein falscher Code liefert 401 `invalid_mfa_code`, ein abgelaufenes `mfaToken` 401 `invalid_mfa_token`. Alternativ kann `code` direkt bei `/auth/login` mitgeschickt werden.
+Bei aktivem 2FA antwortet `POST /auth/login` ohne `code` mit 401 `{ "error": "mfa_required", "mfaToken": "…" }`. Das `mfaToken` ist 5 Minuten gültig und wird mit dem Code an `POST /auth/login/mfa` `{ "mfaToken", "code" }` geschickt; die Antwort enthält dann das Zugangstoken. Ein falscher Code liefert 401 `invalid_mfa_code`, ein abgelaufenes `mfaToken` 401 `invalid_mfa_token`. Alternativ kann `code` direkt bei `/auth/login` mitgeschickt werden. **Jeder Code gilt nur einmal** (RFC 6238, 5.2): ein bereits verwendeter oder ein älterer Code als der zuletzt akzeptierte liefert ebenfalls `invalid_mfa_code` – auch beim Aktivieren und Abschalten der 2FA. Clients sollten nach einem erfolgreichen Login also nicht denselben Code erneut senden.
 
-**Fehlversuche:** Nach 10 falschen Passwörtern je E-Mail-Adresse bzw. 5 falschen 2FA-Codes je Benutzer antworten Login, 2FA und Passwortänderung 15 Minuten lang mit 429 `too_many_attempts`.
+**Fehlversuche:** Login: nach 10 falschen Versuchen je Kombination aus IP-Adresse und E-Mail sowie nach 50 falschen Versuchen je IP-Adresse über alle Konten antwortet `/auth/login` dieser IP 15 Minuten lang mit 429 `too_many_attempts`; andere IP-Adressen sind nicht betroffen, ein Konto lässt sich also nicht von Fremden aussperren. Eine erfolgreiche Anmeldung hebt nur die Sperre dieser IP für dieses Konto auf. 2FA und Passwortänderung: nach 5 falschen 2FA-Codes bzw. 10 falschen Passwörtern je Konto 429 `too_many_attempts` (setzt jeweils ein korrektes Passwort bzw. eine Anmeldung voraus). Die IP-Adresse kommt über `X-Forwarded-For` von nginx bzw. dem PHP-Frontend; die API übernimmt den Header nur von lokalen bzw. privaten Adressen.
 
 **Registrierung:** Mit `REGISTRATION_ENABLED=false` antwortet `POST /auth/register` mit 403 `registration_disabled`. TOTP: 30 Sekunden, 6 Stellen, SHA1 (kompatibel mit Google Authenticator, Aegis, 1Password usw.).
 

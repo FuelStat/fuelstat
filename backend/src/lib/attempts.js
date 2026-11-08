@@ -28,11 +28,14 @@ setInterval(() => {
   for (const [key, entry] of failedAttempts) if (entry.resetAt < now) failedAttempts.delete(key);
 }, 10 * 60 * 1000).unref();
 
+// Login: 10 Fehlversuche je Kombination aus IP und E-Mail, zusätzlich 50 je IP über alle Konten (gegen das Durchprobieren
+// vieler Konten). Bewusst keine Sperre nur je E-Mail: Sonst könnte jeder ein fremdes Konto per Absicht aussperren.
 const LOGIN_MAX_FAILURES = 10;
+const LOGIN_IP_MAX_FAILURES = 50;
 const MFA_MAX_FAILURES = 5;
 
 function tooManyAttempts(res) {
   return res.status(429).json({ error: 'too_many_attempts', retry_after_minutes: 15 });
 }
 
-module.exports = { ATTEMPT_WINDOW_MS, LOGIN_MAX_FAILURES, MFA_MAX_FAILURES, clearFailures, failedAttempts, isLockedOut, recordFailure, tooManyAttempts };
+module.exports = { ATTEMPT_WINDOW_MS, LOGIN_IP_MAX_FAILURES, LOGIN_MAX_FAILURES, MFA_MAX_FAILURES, clearFailures, failedAttempts, isLockedOut, recordFailure, tooManyAttempts };

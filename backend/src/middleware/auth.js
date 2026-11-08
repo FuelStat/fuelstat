@@ -1,5 +1,5 @@
 // Anmeldung: Token ausstellen und prüfen, zuletzt aktiv/letzter Login, Admin- und Eigentümer-Prüfung.
-// Aus backend/src/server.js ausgelagert (#110), Inhalt unverändert.
+// Aus backend/src/server.js ausgelagert (#110); auth() prüft seitdem auch, ob das Konto noch existiert.
 const jwt = require('jsonwebtoken');
 const { randomUUID } = require('crypto');
 const { pool } = require('../db');
@@ -53,30 +53,26 @@ async function auth(req, res, next) {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+    const sub = String(payload.sub || '');
+    if (!UUID_RE.test(sub)) return res.status(401).json({ error: 'invalid_token' });
 
-    // Falls Token eine jti besitzt, prüfen wir, ob es widerrufen wurde
-    if (payload.jti) {
-      const revoked = await pool.query(
-        'SELECT 1 FROM revoked_tokens WHERE jti = $1',
-        [payload.jti]
-      );
-      if (revoked.rowCount > 0) {
-        return res.status(401).json({ error: 'token_revoked' });
-      }
-    }
+    // Eine Abfrage für drei Prüfungen: Konto existiert noch (gelöschte Konten – auch Admins aus ADMIN_USER_IDS –
+    // dürfen mit alten Tokens nichts mehr tun), Token einzeln widerrufen (jti), alle Tokens des Kontos widerrufen
+    const r = await pool.query(
+      `SELECT EXISTS (SELECT 1 FROM revoked_tokens WHERE jti = $2) AS jti_revoked,
+              (SELECT revoked_after FROM user_token_revocations WHERE user_id = u.id) AS revoked_after
+         FROM users u WHERE u.id = $1`,
+      [sub, payload.jti ? String(payload.jti) : null]
+    );
+    if (r.rowCount === 0) return res.status(401).json({ error: 'account_not_found' });
+    if (r.rows[0].jti_revoked) return res.status(401).json({ error: 'token_revoked' });
 
     // User-weite Revocation: alle Tokens vor revoked_after sind ungültig
-    if (payload.sub) {
-      const r2 = await pool.query(
-        'SELECT revoked_after FROM user_token_revocations WHERE user_id = $1',
-        [payload.sub]
-      );
-      if (r2.rowCount === 1 && payload.iat) {
-        const revokedAfter = new Date(r2.rows[0].revoked_after);
-        const tokenIat = new Date(payload.iat * 1000); // iat ist in Sekunden
-        if (tokenIat < revokedAfter) {
-          return res.status(401).json({ error: 'token_revoked_for_user' });
-        }
+    if (r.rows[0].revoked_after && payload.iat) {
+      const revokedAfter = new Date(r.rows[0].revoked_after);
+      const tokenIat = new Date(payload.iat * 1000); // iat ist in Sekunden
+      if (tokenIat < revokedAfter) {
+        return res.status(401).json({ error: 'token_revoked_for_user' });
       }
     }
 

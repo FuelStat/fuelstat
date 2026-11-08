@@ -1,5 +1,5 @@
 -- backend/database/postgres_init.sql
--- Vollständiges Schema für eine NEUE Installation (Stand: Migration 015).
+-- Vollständiges Schema für eine NEUE Installation (Stand: Migration 016).
 -- Beim ersten Start der Datenbank spielt Docker diese Datei automatisch ein (siehe infra/docker-compose.yml).
 -- Bestehende Installationen nutzen stattdessen die Migrationen postgres_0XX_*.sql.
 BEGIN;
@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash text NOT NULL,             -- bcrypt
   username text NULL UNIQUE,
   mfa_secret text NULL,                    -- TOTP-Secret, nur bei aktiver 2FA genutzt
+  mfa_last_counter bigint NULL,            -- zuletzt akzeptierter TOTP-Zähler: jeder 2FA-Code gilt nur einmal
   mfa_enabled boolean NOT NULL DEFAULT false,
   profile_image_url text NULL,
   beta_tester boolean NOT NULL DEFAULT false,

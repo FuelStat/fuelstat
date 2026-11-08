@@ -6,10 +6,10 @@ const jwt = require('jsonwebtoken');
 const { randomBytes } = require('crypto');
 const { isBetaPhase } = require('../config');
 const { pool } = require('../db');
-const { LOGIN_MAX_FAILURES, MFA_MAX_FAILURES, clearFailures, isLockedOut, recordFailure, tooManyAttempts } = require('../lib/attempts');
+const { LOGIN_IP_MAX_FAILURES, LOGIN_MAX_FAILURES, MFA_MAX_FAILURES, clearFailures, isLockedOut, recordFailure, tooManyAttempts } = require('../lib/attempts');
 const { serverError } = require('../lib/http');
 const { MAX_SESSION_DAYS, auth, isAdmin, recordLogin, signToken } = require('../middleware/auth');
-const { MFA_TOKEN_SECRET, base32Encode, readMfaSecret, storeMfaSecret, verifyTotp } = require('../services/mfa');
+const { MFA_TOKEN_SECRET, base32Encode, consumeTotp, readMfaSecret, storeMfaSecret } = require('../services/mfa');
 
 const router = express.Router();
 
@@ -70,20 +70,24 @@ router.post('/auth/login', async (req, res) => {
        FROM users WHERE email = $1`,
       [email]
     );
-    const loginKey = `login:${email}`;
-    if (isLockedOut(loginKey, LOGIN_MAX_FAILURES)) return tooManyAttempts(res);
-
-    if (r.rowCount === 0) {
+    // Fehlversuche je IP + E-Mail und je IP (siehe lib/attempts.js). Die IP kommt bei der Web-App über
+    // X-Forwarded-For vom PHP-Frontend, bei den Apps von nginx; die API vertraut dem nur von lokalen Adressen.
+    const ip = String(req.ip || '');
+    const loginKey = `login:${ip}:${email}`;
+    const ipKey = `login-ip:${ip}`;
+    if (isLockedOut(loginKey, LOGIN_MAX_FAILURES) || isLockedOut(ipKey, LOGIN_IP_MAX_FAILURES)) return tooManyAttempts(res);
+    const fehlversuch = () => {
       recordFailure(loginKey);
+      recordFailure(ipKey);
       return res.status(401).json({ error: 'invalid_credentials' });
-    }
+    };
+
+    if (r.rowCount === 0) return fehlversuch();
 
     const user = r.rows[0];
     const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) {
-      recordFailure(loginKey);
-      return res.status(401).json({ error: 'invalid_credentials' });
-    }
+    if (!ok) return fehlversuch();
+    // Erfolg hebt nur die Sperre dieser IP für dieses Konto auf, nicht den Zähler der IP über alle Konten
     clearFailures(loginKey);
 
     // 2FA: erst nach korrektem Passwort nach dem Code fragen
@@ -95,7 +99,7 @@ router.post('/auth/login', async (req, res) => {
       if (!code) return res.status(401).json({ error: 'mfa_required', mfaToken });
       const mfaKey = `mfa:${user.id}`;
       if (isLockedOut(mfaKey, MFA_MAX_FAILURES)) return tooManyAttempts(res);
-      if (!verifyTotp(readMfaSecret(user.mfa_secret), code)) {
+      if (!(await consumeTotp(pool, user.id, readMfaSecret(user.mfa_secret), code))) {
         recordFailure(mfaKey);
         return res.status(401).json({ error: 'invalid_mfa_code' });
       }
@@ -129,7 +133,7 @@ router.post('/auth/login/mfa', async (req, res) => {
     );
     if (r.rowCount === 0 || !r.rows[0].mfa_enabled) return res.status(401).json({ error: 'invalid_mfa_token' });
     const user = r.rows[0];
-    if (!verifyTotp(readMfaSecret(user.mfa_secret), req.body?.code)) {
+    if (!(await consumeTotp(pool, user.id, readMfaSecret(user.mfa_secret), req.body?.code))) {
       recordFailure(mfaKey);
       return res.status(401).json({ error: 'invalid_mfa_code' });
     }
@@ -205,7 +209,7 @@ router.post('/auth/mfa/enable', auth, async (req, res) => {
     if (!r.rows[0].mfa_secret) return res.status(400).json({ error: 'mfa_not_set_up' });
     const mfaKey = `mfa:${req.user.sub}`;
     if (isLockedOut(mfaKey, MFA_MAX_FAILURES)) return tooManyAttempts(res);
-    if (!verifyTotp(readMfaSecret(r.rows[0].mfa_secret), req.body?.code)) {
+    if (!(await consumeTotp(pool, req.user.sub, readMfaSecret(r.rows[0].mfa_secret), req.body?.code))) {
       recordFailure(mfaKey);
       return res.status(400).json({ error: 'invalid_mfa_code' });
     }
@@ -227,7 +231,7 @@ router.post('/auth/mfa/disable', auth, async (req, res) => {
     const mfaKey = `mfa:${req.user.sub}`;
     if (isLockedOut(mfaKey, MFA_MAX_FAILURES)) return tooManyAttempts(res);
     const ok = await bcrypt.compare(String(req.body?.password || ''), r.rows[0].password_hash);
-    if (!ok || !verifyTotp(readMfaSecret(r.rows[0].mfa_secret), req.body?.code)) {
+    if (!ok || !(await consumeTotp(pool, req.user.sub, readMfaSecret(r.rows[0].mfa_secret), req.body?.code))) {
       recordFailure(mfaKey);
       return res.status(ok ? 400 : 401).json({ error: ok ? 'invalid_mfa_code' : 'invalid_current_password' });
     }

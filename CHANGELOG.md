@@ -7,6 +7,9 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 ## [Unreleased]
 
 ### Sicherheit
+- Gelöschte Konten: Bereits ausgestellte Tokens gelten nicht mehr – die API prüft bei jeder Anfrage, ob das Konto noch existiert. Vorher blieb ein Token bis zu 7 Tage gültig, bei Admins aus `ADMIN_USER_IDS` sogar mit Admin-Rechten.
+- Login-Sperre je IP-Adresse und E-Mail statt nur je E-Mail, dazu ein Limit je IP über alle Konten: Fremde können ein Konto nicht mehr durch absichtliche Fehlversuche 15 Minuten lang aussperren. Das PHP-Frontend gibt dafür die Besucher-IP an die API weiter.
+- 2FA-Codes gelten nur noch einmal (RFC 6238); ein abgefangener Code lässt sich nicht innerhalb seines Zeitfensters erneut verwenden.
 - Abgewiesene Admin-Zugriffe werden mit dem Routenmuster statt der aufgerufenen Adresse protokolliert, damit keine Eingaben des Clients ins Log gelangen (Code-Scanning, Log-Injection).
 - Rate-Limit: Ob eine Anfrage je Konto oder je IP gezählt wird, entscheidet nur noch das geprüfte Token, nicht ob der Client überhaupt eines mitschickt (Code-Scanning).
 - Tankstellen- und Ladestationssuche nehmen Koordinaten und Radius nur noch als Dezimalzahlen an (z. B. `48.85235`); Hex- oder Exponent-Schreibweisen wie `0x10` werden mit 400 abgelehnt.
@@ -31,7 +34,9 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ### Hinweise zum Update
 - **Vor dem `git pull`** die API-Keys umziehen, sonst bricht der Pull wegen `api/ocm.key` ab: Tankerkönig-Key (aus `api/key.key`) als `TANKERKOENIG_API_KEY` und Open-Charge-Map-Key (aus `api/ocm.key`) als `OCM_API_KEY` in `infra/.env` eintragen; danach `git update-index --no-skip-worktree api/ocm.key && git checkout -- api/ocm.key`. Nach dem Ausrollen `api/key.key` löschen.
-- Migration einspielen, **bevor** die API neu startet: `cd infra && sudo docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_015_plan_changes.sql`
+- Migration einspielen, **bevor** die API neu startet: `cd infra && sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_015_plan_changes.sql`
+- Migration einspielen, **bevor** die API neu startet: `cd infra && sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_016_mfa_last_counter.sql`
+- Läuft die Seite hinter Cloudflare: in nginx `real_ip` für die Cloudflare-Adressen einrichten (siehe `docs/installation.md`, „Hinter Cloudflare“), damit Login-Sperren je IP nicht viele Nutzer gemeinsam treffen. Ohne Cloudflare ist nichts zu tun.
 
 ## [0.9.1] - 2026-11-06
 

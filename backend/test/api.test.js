@@ -68,13 +68,15 @@ async function fillup(token, vehicleId, data) {
 }
 
 // TOTP (RFC 6238) für den 2FA-Test
-function totp(secretBase32) {
+// delta: Zeitfenster relativ zu jetzt (je 30 s). Jeder Code gilt nur einmal, die Tests nutzen deshalb aufeinanderfolgende
+// Fenster im erlaubten Bereich -1 … +1.
+function totp(secretBase32, delta = 0) {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
   let bits = '';
   for (const ch of secretBase32.replace(/=+$/, '').toUpperCase()) bits += alphabet.indexOf(ch).toString(2).padStart(5, '0');
   const key = Buffer.from(bits.match(/.{8}/g).map((b) => parseInt(b, 2)));
   const counter = Buffer.alloc(8);
-  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000)));
+  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000) + delta));
   const h = crypto.createHmac('sha1', key).update(counter).digest();
   const o = h[19] & 15;
   return String((h.readUInt32BE(o) & 0x7fffffff) % 1e6).padStart(6, '0');
@@ -110,7 +112,7 @@ test('2FA: einrichten, Login ohne/mit Code, zweistufig', async () => {
   const setup = await api('POST', '/auth/mfa/setup', { token: u.token });
   assert.equal(setup.status, 200);
   const secret = setup.body.secret;
-  assert.equal((await api('POST', '/auth/mfa/enable', { token: u.token, body: { code: totp(secret) } })).status, 200);
+  assert.equal((await api('POST', '/auth/mfa/enable', { token: u.token, body: { code: totp(secret, -1) } })).status, 200);
   // Secret liegt verschlüsselt in der Datenbank (#55)
   const db = await pool.query('SELECT mfa_secret FROM users WHERE id = $1', [u.id]);
   assert.match(db.rows[0].mfa_secret, /^v1:/);
@@ -121,11 +123,66 @@ test('2FA: einrichten, Login ohne/mit Code, zweistufig', async () => {
   assert.ok(ohne.body.mfaToken);
   const falsch = await api('POST', '/auth/login', { body: { email: u.email, password: 'Passwort123', code: '000000' } });
   assert.equal(falsch.body.error, 'invalid_mfa_code');
-  const mit = await api('POST', '/auth/login', { body: { email: u.email, password: 'Passwort123', code: totp(secret) } });
+  const code = totp(secret, 0);
+  const mit = await api('POST', '/auth/login', { body: { email: u.email, password: 'Passwort123', code } });
   assert.equal(mit.status, 200);
-  const schritt2 = await api('POST', '/auth/login/mfa', { body: { mfaToken: ohne.body.mfaToken, code: totp(secret) } });
+  // Derselbe Code ein zweites Mal: abgelehnt (RFC 6238, 5.2) – im Login wie im zweiten Schritt
+  const nochmal = await api('POST', '/auth/login', { body: { email: u.email, password: 'Passwort123', code } });
+  assert.equal(nochmal.body.error, 'invalid_mfa_code', 'Code darf nur einmal gelten');
+  assert.equal((await api('POST', '/auth/login/mfa', { body: { mfaToken: ohne.body.mfaToken, code } })).body.error, 'invalid_mfa_code');
+  // Ein älteres, noch im Fenster liegendes Code-Fenster gilt nach einem neueren auch nicht mehr
+  assert.equal((await api('POST', '/auth/login/mfa', { body: { mfaToken: ohne.body.mfaToken, code: totp(secret, -1) } })).body.error, 'invalid_mfa_code');
+  const schritt2 = await api('POST', '/auth/login/mfa', { body: { mfaToken: ohne.body.mfaToken, code: totp(secret, 1) } });
   assert.equal(schritt2.status, 200);
   assert.ok(schritt2.body.token);
+});
+
+test('2FA (#Sicherheit): gleichzeitige Anfragen mit demselben Code – genau eine gelingt', async () => {
+  const u = await newUser();
+  const secret = (await api('POST', '/auth/mfa/setup', { token: u.token })).body.secret;
+  assert.equal((await api('POST', '/auth/mfa/enable', { token: u.token, body: { code: totp(secret, -1) } })).status, 200);
+  const code = totp(secret, 0);
+  const antworten = await Promise.all(Array.from({ length: 5 }, () =>
+    api('POST', '/auth/login', { body: { email: u.email, password: 'Passwort123', code } })));
+  assert.equal(antworten.filter((r) => r.status === 200).length, 1, antworten.map((r) => r.status).join(','));
+});
+
+test('Gelöschtes Konto: alte Tokens gelten nicht mehr, auch nicht für Admins', async () => {
+  const u = await newUser();
+  const admin = await newUser();
+  const vorher = process.env.ADMIN_USER_IDS;
+  process.env.ADMIN_USER_IDS = admin.id;
+  try {
+    assert.equal((await api('GET', '/auth/users', { token: admin.token })).status, 200);
+    assert.equal((await api('DELETE', `/auth/users/${admin.id}`, { token: admin.token })).status, 204);
+    // ID steht weiter in ADMIN_USER_IDS, das Token ist noch nicht abgelaufen – trotzdem kein Zugriff mehr
+    const r = await api('GET', '/auth/users', { token: admin.token });
+    assert.equal(r.status, 401);
+    assert.equal(r.body.error, 'account_not_found');
+    assert.equal((await api('PUT', `/auth/users/${u.id}/plan`, { token: admin.token, body: { plan: 'fleet' } })).status, 401);
+    assert.equal((await api('GET', '/whoami', { token: admin.token })).status, 401);
+  } finally {
+    if (vorher === undefined) delete process.env.ADMIN_USER_IDS; else process.env.ADMIN_USER_IDS = vorher;
+  }
+  assert.equal((await api('DELETE', `/auth/users/${u.id}`, { token: u.token })).status, 204);
+  assert.equal((await api('GET', '/vehicles', { token: u.token })).body.error, 'account_not_found');
+});
+
+test('Login-Sperre (#Sicherheit): je IP und E-Mail, Fremde können ein Konto nicht aussperren', async () => {
+  const opfer = await newUser();
+  const ip = (n) => ({ 'x-forwarded-for': `198.51.100.${n}` });
+  const login = (email, password, n) => api('POST', '/auth/login', { body: { email, password }, headers: ip(n) });
+  // Angreifer (IP .10) probiert 10-mal falsch: diese IP ist für dieses Konto gesperrt …
+  for (let i = 0; i < 10; i++) assert.equal((await login(opfer.email, 'falsch-falsch', 10)).status, 401);
+  assert.equal((await login(opfer.email, 'Passwort123', 10)).status, 429, 'Angreifer-IP gesperrt');
+  // … das Opfer meldet sich von seiner IP (.20) trotzdem an
+  assert.equal((await login(opfer.email, 'Passwort123', 20)).status, 200, 'Opfer nicht ausgesperrt');
+
+  // Viele Konten von einer IP durchprobieren: nach 50 Fehlversuchen ist die IP gesperrt, auch für richtige Passwörter
+  const anderer = await newUser();
+  for (let i = 0; i < 50; i++) await login(`unbekannt-${i}-${unique()}@example.test`, 'falsch-falsch', 30);
+  assert.equal((await login(anderer.email, 'Passwort123', 30)).status, 429, 'IP über alle Konten gesperrt');
+  assert.equal((await login(anderer.email, 'Passwort123', 31)).status, 200, 'andere IP nicht betroffen');
 });
 
 test('Fremde Fahrzeuge und Einträge sind nicht erreichbar (404)', async () => {

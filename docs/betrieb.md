@@ -86,7 +86,7 @@ sudo docker compose exec api node scripts/bilder-optimieren.js           # umste
 
 ## Datenbank-Migrationen
 
-Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält bereits alles bis einschließlich 015. Bestehende Installationen spielen alle noch fehlenden Migrationen der Reihe nach ein:
+Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält bereits alles bis einschließlich 016. Bestehende Installationen spielen alle noch fehlenden Migrationen der Reihe nach ein:
 
 | Datei | Inhalt |
 |---|---|
@@ -101,6 +101,7 @@ Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält ber
 | `postgres_013_vehicle_details.sql` | Fahrzeugangaben: Kennzeichen, FIN, Erstzulassung, Kauf/Verkauf, Intervalle, Versicherung, Steuer, Reifen |
 | `postgres_014_expense_categories.sql` | Eigene Kategorien für Ausgaben (Plus) |
 | `postgres_015_plan_changes.sql` | Protokoll der Tarifänderungen (#102) |
+| `postgres_016_mfa_last_counter.sql` | Zuletzt akzeptierter 2FA-Code je Konto, damit jeder Code nur einmal gilt |
 
 Alle Migrationen laufen in einer Transaktion und lassen sich gefahrlos ein zweites Mal ausführen. Einspielen wie unter [Aktualisieren](#aktualisieren), Schritt 4, z. B. `< ../backend/database/postgres_014_expense_categories.sql`.
 

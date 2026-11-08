@@ -75,18 +75,36 @@ async function encryptLegacyMfaSecrets() {
   if (r.rowCount) console.log(`[mfa] ${r.rowCount} 2FA-Secret(s) verschlüsselt`);
 }
 
-function verifyTotp(secretBase32, code) {
+// Zeitzähler des passenden Codes (aktuelles Fenster ±1, je 30 s) oder null
+function matchTotpCounter(secretBase32, code) {
   const given = String(code || '').replace(/\s/g, '');
-  if (!secretBase32 || !/^\d{6}$/.test(given)) return false;
+  if (!secretBase32 || !/^\d{6}$/.test(given)) return null;
   const counter = Math.floor(Date.now() / 1000 / 30);
   for (const delta of [-1, 0, 1]) {
     const expected = Buffer.from(totpCode(secretBase32, counter + delta));
-    if (timingSafeEqual(expected, Buffer.from(given))) return true;
+    if (timingSafeEqual(expected, Buffer.from(given))) return counter + delta;
   }
-  return false;
+  return null;
+}
+
+function verifyTotp(secretBase32, code) {
+  return matchTotpCounter(secretBase32, code) !== null;
+}
+
+// Code prüfen und verbrauchen: Jeder Code gilt nur einmal (RFC 6238, Abschnitt 5.2). Der zuletzt akzeptierte
+// Zähler steht in users.mfa_last_counter; das UPDATE greift nur, wenn der neue Zähler größer ist – atomar, also auch
+// bei zwei gleichzeitigen Anfragen mit demselben Code nur einmal erfolgreich.
+async function consumeTotp(db, userId, secretBase32, code) {
+  const counter = matchTotpCounter(secretBase32, code);
+  if (counter === null) return false;
+  const r = await db.query(
+    'UPDATE users SET mfa_last_counter = $2 WHERE id = $1 AND (mfa_last_counter IS NULL OR mfa_last_counter < $2) RETURNING id',
+    [userId, counter]
+  );
+  return r.rowCount === 1;
 }
 
 // Kurzlebiges Token für den 2FA-Schritt (eigener Schlüssel, kann nicht als Zugangstoken benutzt werden)
 const MFA_TOKEN_SECRET = `${process.env.JWT_SECRET}:mfa-step`;
 
-module.exports = { BASE32_ALPHABET, MFA_TOKEN_SECRET, base32Decode, base32Encode, encryptLegacyMfaSecrets, readMfaSecret, storeMfaSecret, totpCode, verifyTotp };
+module.exports = { consumeTotp, matchTotpCounter, BASE32_ALPHABET, MFA_TOKEN_SECRET, base32Decode, base32Encode, encryptLegacyMfaSecrets, readMfaSecret, storeMfaSecret, totpCode, verifyTotp };

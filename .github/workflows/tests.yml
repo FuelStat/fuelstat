@@ -81,7 +81,7 @@ jobs:
         run: npm ci
 
       - name: Syntax (node --check)
-        run: for f in src/*.js src/services/*.js test/*.js; do node --check "$f"; done
+        run: for f in src/*.js src/*/*.js test/*.js scripts/*.js; do node --check "$f"; done
 
       - name: Schema anlegen
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f database/postgres_init.sql

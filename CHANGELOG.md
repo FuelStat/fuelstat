@@ -22,6 +22,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - Tankstellen- und Ladestationssuche im Erfassungsformular laufen über die API: gleiche Ergebnisse wie in den Apps, und die Tankstellensuche nutzt jetzt den Zwischenspeicher der API (vorher fragte die Web-App bei jeder Suche Tankerkönig) (#123).
 
 ### Technik
+- API aufgeteilt (#110): `server.js` startet nur noch, `app.js` baut die Middleware-Kette, Endpunkte liegen je Fachbereich unter `backend/src/routes/`, Querschnitt unter `middleware/` und `lib/`, 2FA als Service. Verhalten und Endpunkte unverändert; Aufbau beschrieben in `docs/backend.md`.
 - Die doppelte Verbrauchsrechnung im PHP-Frontend ist entfernt; ihre Testfälle laufen jetzt als API-Tests (#82).
 - Die Web-App ruft Tankerkönig und Open Charge Map nicht mehr selbst auf; die API-Keys liegen nur noch in `infra/.env` statt in `api/key.key` und `api/ocm.key` (#123).
 - Betriebsdoku: Reihenfolge beim Aktualisieren korrigiert – Datenbank-Migrationen werden jetzt ausdrücklich **vor** dem Neustart der API eingespielt, mit Sicherung vorab und Kontrolle der Version danach (`docs/betrieb.md`, README).

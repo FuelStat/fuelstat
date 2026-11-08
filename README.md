@@ -147,6 +147,7 @@ Die API ist die zentrale Schnittstelle für Datenzugriffe. Dadurch können neben
 Weitere technische Informationen:
 
 - [API-Dokumentation](docs/api.md)
+- [Aufbau der API (Backend)](docs/backend.md)
 - [OpenAPI-Spezifikation](docs/openapi.1.0.0.yaml)
 
 ---

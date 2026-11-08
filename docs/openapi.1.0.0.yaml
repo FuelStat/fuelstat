@@ -156,6 +156,7 @@ paths:
             example:
               email: "mario@test.local"
               password: "SuperSecret123!"
+              code: "000000"
       responses:
         "200":
           description: OK

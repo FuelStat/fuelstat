@@ -6,6 +6,8 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-08
+
 ### Sicherheit
 - Gelöschte Konten: Bereits ausgestellte Tokens gelten nicht mehr – die API prüft bei jeder Anfrage, ob das Konto noch existiert. Vorher blieb ein Token bis zu 7 Tage gültig, bei Admins aus `ADMIN_USER_IDS` sogar mit Admin-Rechten.
 - Login-Sperre je IP-Adresse und E-Mail statt nur je E-Mail, dazu ein Limit je IP über alle Konten: Fremde können ein Konto nicht mehr durch absichtliche Fehlversuche 15 Minuten lang aussperren. Das PHP-Frontend gibt dafür die Besucher-IP an die API weiter.
@@ -93,6 +95,7 @@ Erste Version mit Versionsnummer: alles, was Fuelstat bis zu diesem Stand kann.
 - Einmalig vorhandene Bilder umstellen: `sudo docker compose exec api node scripts/bilder-optimieren.js`
 - nginx: `/uploads/` sperren, `FUELSTAT_API_BASE_URL` direkt auf `127.0.0.1:3000` setzen (`docs/installation.md`)
 
-[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/FuelStat/fuelstat/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/FuelStat/fuelstat/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/FuelStat/fuelstat/releases/tag/v0.9.0

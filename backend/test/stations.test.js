@@ -17,6 +17,16 @@ test('Suchparameter: Standardwerte und Grenzen', () => {
   assert.deepEqual(parseQuery({ lat: 'abc', lng: '13.4' }), { error: 'invalid_coordinates' });
   assert.deepEqual(parseQuery({ lat: '52', lng: '13', radius: '26' }), { error: 'invalid_radius' });
   assert.deepEqual(parseQuery({ lat: '52', lng: '13', radius: '0' }), { error: 'invalid_radius' });
+  // nur Dezimalzahlen
+  assert.deepEqual(parseQuery({ lat: '0x10', lng: '13' }), { error: 'invalid_coordinates' });
+  assert.deepEqual(parseQuery({ lat: '5e1', lng: '13' }), { error: 'invalid_coordinates' });
+  assert.deepEqual(parseQuery({ lat: 'Infinity', lng: '13' }), { error: 'invalid_coordinates' });
+  assert.deepEqual(parseQuery({ lat: ['52', '53'], lng: '13' }), { error: 'invalid_coordinates' }, 'mehrfacher Parameter');
+  assert.deepEqual(parseQuery({ lat: '52', lng: '13', radius: '0x5' }), { error: 'invalid_radius' });
+  assert.deepEqual(parseQuery({ lat: ' -33.8688 ', lng: '151.2093', radius: '12.5' }), { lat: -33.8688, lng: 151.2093, radius: 12.5, type: 'all' });
+  // Browser (Web-App) schickt die Koordinaten ungekürzt, iOS mit 5 Nachkommastellen
+  assert.equal(parseQuery({ lat: String(48.85234567890123), lng: String(10.098765432109876) }).lat, 48.85234567890123);
+  assert.equal(parseQuery({ lat: '48.85235', lng: '10.09877' }).lng, 10.09877);
 });
 
 test('eine Sorte: Preis aus "price", nach Entfernung sortiert, Key nur im Aufruf an Tankerkönig', async () => {

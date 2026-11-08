@@ -18,14 +18,17 @@ const cache = new Map();
  * Suchparameter aus der Query prüfen.
  * @returns {{ lat: number, lng: number, radius: number, type: string } | { error: string }}
  */
+// Nur Dezimalzahlen wie "52.52" oder "-13.4" – keine Hex-, Exponent- oder Sonderschreibweisen ("0x10", "1e2", "Infinity")
+const DECIMAL = /^-?\d{1,4}(\.\d{1,20})?$/;
+const decimal = (v) => (typeof v === 'string' && DECIMAL.test(v.trim()) ? Number(v) : NaN);
+
 function parseQuery(query) {
-  const lat = Number(query?.lat);
-  const lng = Number(query?.lng);
-  if (query?.lat === undefined || query?.lng === undefined || query.lat === '' || query.lng === ''
-      || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+  const lat = decimal(query?.lat);
+  const lng = decimal(query?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
     return { error: 'invalid_coordinates' };
   }
-  const radius = query?.radius === undefined || query.radius === '' ? 5 : Number(query.radius);
+  const radius = query?.radius === undefined || query.radius === '' ? 5 : decimal(query.radius);
   if (!Number.isFinite(radius) || radius < 1 || radius > MAX_RADIUS_KM) {
     return { error: 'invalid_radius' };
   }

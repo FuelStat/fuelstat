@@ -612,7 +612,7 @@ Fremddienste fragt ausschließlich die API (#123): Web-App und Apps nutzen diese
 
 Tankstellen im Umkreis mit aktuellen Preisen von [Tankerkönig](https://www.tankerkoenig.de) (Lizenz CC BY 4.0, die Quelle muss angezeigt werden). Für die Erfassung in Web-App und Apps; der API-Key bleibt auf dem Server (`TANKERKOENIG_API_KEY`).
 
-* `lat`, `lng`: Standort (Pflicht)
+* `lat`, `lng`: Standort (Pflicht), als Dezimalzahl wie `52.52` (bis 20 Nachkommastellen; `0x10`, `5e1` o. Ä. ergeben 400)
 * `radius`: 1–25 km, Standard 5
 * `type`: `e5`, `e10`, `diesel` oder `all` (Standard). Andere Werte (z. B. Elektro) gelten als `all`.
 * Sortiert nach Entfernung. Ergebnisse werden 2 Minuten zwischengespeichert (Standort auf etwa 100 m gerundet), höchstens 30 Abfragen pro Minute und Konto.

@@ -1493,6 +1493,59 @@ paths:
         "503":
           description: stations_not_configured (TANKERKOENIG_API_KEY fehlt)
 
+  /api/v1/charging-stations:
+    get:
+      tags: [Stations]
+      summary: Nearby charging stations (Open Charge Map, CC BY 4.0)
+      description: "Nach Entfernung sortiert, höchstens 30 Treffer, 6 Stunden gecacht, 30 Abfragen pro Minute und Konto. Die Quelle Open Charge Map muss angezeigt werden."
+      operationId: getChargingStations
+      parameters:
+        - { name: lat, in: query, required: true, schema: { type: number, minimum: -90, maximum: 90 } }
+        - { name: lng, in: query, required: true, schema: { type: number, minimum: -180, maximum: 180 } }
+        - { name: radius, in: query, required: false, schema: { type: number, minimum: 1, maximum: 25, default: 5 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, nullable: true }
+                        name: { type: string }
+                        operator: { type: string, nullable: true }
+                        street: { type: string, nullable: true }
+                        place: { type: string, nullable: true }
+                        postCode: { type: string, nullable: true }
+                        lat: { type: number, nullable: true }
+                        lng: { type: number, nullable: true }
+                        distanceKm: { type: number, nullable: true }
+                        points: { type: integer, nullable: true, description: Anzahl Ladepunkte }
+                        maxKw: { type: number, nullable: true, description: Höchste Ladeleistung in kW }
+                        connectors: { type: array, items: { type: string }, description: "Steckertypen, z. B. CCS, Typ 2" }
+                        usageCost: { type: string, nullable: true, description: Kostenhinweis des Betreibers (Freitext) }
+                        isOperational: { type: boolean }
+                      required: [name, connectors, isOperational]
+                  source: { type: string, example: Open Charge Map }
+                  license: { type: string, example: CC BY 4.0 }
+                  sourceUrl: { type: string }
+                required: [stations]
+        "400":
+          description: invalid_coordinates | invalid_radius
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          description: too_many_requests
+        "502":
+          description: charging_stations_unavailable (Open Charge Map nicht erreichbar)
+        "503":
+          description: charging_stations_not_configured (OCM_API_KEY fehlt)
+
   /api/v1/media/upload:
     post:
       tags: [Media]

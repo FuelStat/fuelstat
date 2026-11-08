@@ -87,5 +87,5 @@ Vor dem PR prüfen und am Ende einer Aufgabe daran erinnern, was davon fehlt:
 - Änderungen an der API nur abwärtskompatibel unter `/api/v1`; Brüche nur über `/api/v2`.
   Doku in `docs/api.md` und `docs/openapi.1.0.0.yaml` mit anpassen.
 - Tarifregeln setzt ausschließlich die API durch (#102).
-- Keine Secrets committen (`.env`, `api/key.key`, `api/ocm.key`, Tokens).
+- Keine Secrets committen (`.env`, Keys, Tokens).
 - Oberfläche, Doku und Commit-Texte auf Deutsch; PRs folgen `.github/pull_request_template.md`.

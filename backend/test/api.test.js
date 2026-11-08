@@ -374,7 +374,7 @@ test('Tarifstatus nur serverseitig (#102): verbotene und erlaubte Änderungen, P
   // Manipuliertes Profil-Update: Tarif-, Laufzeit- und Beta-Felder werden ignoriert
   const patch = await api('PATCH', `/auth/users/${u.id}`, {
     token: u.token,
-    body: { username: 'neu', plan: 'fleet', plan_until: '2099-01-01', planUntil: '2099-01-01', beta_tester: false, betaTester: false, is_admin: true }
+    body: { username: `neu-${unique()}`, plan: 'fleet', plan_until: '2099-01-01', planUntil: '2099-01-01', beta_tester: false, betaTester: false, is_admin: true }
   });
   assert.equal(patch.status, 200);
   assert.equal(await tarif(u.token), 'free');
@@ -590,6 +590,27 @@ test('Anmeldung verlängern (#56)', async () => {
   await new Promise((res) => setTimeout(res, 1100));
   assert.equal((await api('POST', `/auth/users/${u.id}/revoke-all`, { token: r.body.token })).status, 201);
   assert.equal((await api('POST', '/auth/refresh', { token: r.body.token })).status, 401);
+});
+
+test('Ladestationssuche (#123): nur angemeldet, prüft Eingaben, ohne Key 503', async () => {
+  const u = await newUser();
+  const vorher = process.env.OCM_API_KEY;
+  try {
+    assert.equal((await api('GET', '/charging-stations?lat=48.9&lng=10.1')).status, 401, 'ohne Token');
+
+    delete process.env.OCM_API_KEY;
+    const ohneKey = await api('GET', '/charging-stations?lat=48.9&lng=10.1', { token: u.token });
+    assert.equal(ohneKey.status, 503);
+    assert.equal(ohneKey.body.error, 'charging_stations_not_configured');
+
+    process.env.OCM_API_KEY = 'test-key';
+    const falsch = await api('GET', '/charging-stations?lat=48.9&lng=200', { token: u.token });
+    assert.equal(falsch.status, 400);
+    assert.equal(falsch.body.error, 'invalid_coordinates');
+    assert.equal((await api('GET', '/charging-stations?lat=48&lng=10&radius=0', { token: u.token })).body.error, 'invalid_radius');
+  } finally {
+    if (vorher === undefined) delete process.env.OCM_API_KEY; else process.env.OCM_API_KEY = vorher;
+  }
 });
 
 test('CORS ist ohne CORS_ORIGINS aus', async () => {

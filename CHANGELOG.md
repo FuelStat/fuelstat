@@ -10,12 +10,18 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - Tarifänderungen werden protokolliert (wer, wann, von welchem zu welchem Tarif, über welchen Weg); abgewiesene Zugriffe auf Admin-Funktionen erscheinen im Log. Admins sehen den Verlauf je Konto über die API. Automatische Tests belegen, dass normale Konten ihren oder fremde Tarife nicht ändern können (#102).
 
 ### Neu
+- API: `GET /api/v1/charging-stations` liefert Ladestationen in der Nähe (Open Charge Map) für Web-App und Apps (#123).
 - Betreiber können Tarife auch ohne Web-Oberfläche setzen: `node scripts/tarif-setzen.js` im API-Container (siehe `docs/betrieb.md`, „Tarife verwalten“).
 
+### Verbessert
+- Tankstellen- und Ladestationssuche im Erfassungsformular laufen über die API: gleiche Ergebnisse wie in den Apps, und die Tankstellensuche nutzt jetzt den Zwischenspeicher der API (vorher fragte die Web-App bei jeder Suche Tankerkönig) (#123).
+
 ### Technik
+- Die Web-App ruft Tankerkönig und Open Charge Map nicht mehr selbst auf; die API-Keys liegen nur noch in `infra/.env` statt in `api/key.key` und `api/ocm.key` (#123).
 - Betriebsdoku: Reihenfolge beim Aktualisieren korrigiert – Datenbank-Migrationen werden jetzt ausdrücklich **vor** dem Neustart der API eingespielt, mit Sicherung vorab und Kontrolle der Version danach (`docs/betrieb.md`, README).
 
 ### Hinweise zum Update
+- **Vor dem `git pull`** die API-Keys umziehen, sonst bricht der Pull wegen `api/ocm.key` ab: Tankerkönig-Key (aus `api/key.key`) als `TANKERKOENIG_API_KEY` und Open-Charge-Map-Key (aus `api/ocm.key`) als `OCM_API_KEY` in `infra/.env` eintragen; danach `git update-index --no-skip-worktree api/ocm.key && git checkout -- api/ocm.key`. Nach dem Ausrollen `api/key.key` löschen.
 - Migration einspielen, **bevor** die API neu startet: `cd infra && sudo docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_015_plan_changes.sql`
 
 ## [0.9.1] - 2026-11-06

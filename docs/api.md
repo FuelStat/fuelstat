@@ -36,6 +36,7 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | GET · PATCH · DELETE | `/vehicles/:vehicleId` | ✓ | Fahrzeug lesen, ändern, löschen (samt Einträgen) |
 | GET | `/vehicles/:vehicleId/stats` | ✓ | Tachostand, Ø Preis, Verbrauchsabschnitte, Trend je Einheit |
 | GET | `/stations?lat=&lng=&radius=&type=` | ✓ | Tankstellen in der Nähe mit aktuellen Preisen (Tankerkönig) |
+| GET | `/charging-stations?lat=&lng=&radius=` | ✓ | Ladestationen in der Nähe (Open Charge Map) |
 | GET | `/vehicles/:vehicleId/reminders` | ✓ | Fälligkeiten TÜV, Wartung, Versicherung, Steuer |
 | POST | `/vehicles/:vehicleId/import` | ✓ | Massenimport (CSV) |
 | GET | `/vehicles/:vehicleId/fillups` | ✓ | Tank- und Ladevorgänge (`limit`, `offset`) |
@@ -533,11 +534,13 @@ Bestehende Bilder umstellen (einmalig, wiederholbar): `docker compose exec api n
 * `POST /vehicles/:vehicleId/media/upload` → Fahrzeugbild; danach `PATCH /vehicles/:vehicleId { "imageUrl": url }`
 * Fehler: 400 `missing_file`, 400 `invalid_image`, 404 `vehicle_not_found` bzw. `media_not_found`
 
-## Tankstellen (Auth required)
+## Tankstellen und Ladestationen (Auth required)
+
+Fremddienste fragt ausschließlich die API (#123): Web-App und Apps nutzen dieselben Endpunkte, die Keys liegen nur in `infra/.env`.
 
 ### GET /stations?lat=52.52&lng=13.40&radius=5&type=e10
 
-Tankstellen im Umkreis mit aktuellen Preisen von [Tankerkönig](https://www.tankerkoenig.de) (Lizenz CC BY 4.0, die Quelle muss angezeigt werden). Gedacht für die Erfassung in den Apps; der API-Key bleibt auf dem Server (`TANKERKOENIG_API_KEY`).
+Tankstellen im Umkreis mit aktuellen Preisen von [Tankerkönig](https://www.tankerkoenig.de) (Lizenz CC BY 4.0, die Quelle muss angezeigt werden). Für die Erfassung in Web-App und Apps; der API-Key bleibt auf dem Server (`TANKERKOENIG_API_KEY`).
 
 * `lat`, `lng`: Standort (Pflicht)
 * `radius`: 1–25 km, Standard 5
@@ -559,6 +562,30 @@ Tankstellen im Umkreis mit aktuellen Preisen von [Tankerkönig](https://www.tank
 Bei `type=all` enthält `prices` die Felder `e5`, `e10` und `diesel`; fehlt eine Sorte, ist der Wert `null`.
 
 Fehler: 400 `invalid_coordinates` bzw. `invalid_radius`, 429 `too_many_requests`, 502 `stations_unavailable` (Tankerkönig nicht erreichbar), 503 `stations_not_configured` (kein Key gesetzt).
+
+### GET /charging-stations?lat=48.96&lng=10.13&radius=15
+
+Ladestationen im Umkreis von [Open Charge Map](https://openchargemap.org) (Lizenz CC BY 4.0 bzw. die des jeweiligen Datenanbieters, die Quelle muss angezeigt werden). Key auf dem Server: `OCM_API_KEY`.
+
+* `lat`, `lng`, `radius` wie bei `/stations`; höchstens 30 Treffer, nach Entfernung sortiert
+* Ergebnisse werden 6 Stunden zwischengespeichert (Standort auf etwa 100 m gerundet), höchstens 30 Abfragen pro Minute und Konto
+
+```json
+{
+  "stations": [
+    { "id": "123456", "name": "EnBW HPC Ellwangen", "operator": "EnBW mobility+",
+      "street": "Rotenbacher Str. 1", "place": "Ellwangen", "postCode": "73479",
+      "lat": 48.96, "lng": 10.13, "distanceKm": 12.3,
+      "points": 4, "maxKw": 300, "connectors": ["CCS", "Typ 2"],
+      "usageCost": "0,59 €/kWh", "isOperational": true }
+  ],
+  "source": "Open Charge Map", "license": "CC BY 4.0", "sourceUrl": "https://openchargemap.org"
+}
+```
+
+* `operator`: `null`, wenn unbekannt; `connectors`: Steckertypen kurz und deutsch (`CCS`, `Typ 2`, `CHAdeMO`, `Schuko` …); `usageCost`: Freitext des Betreibers oder `null`; `isOperational: false` = außer Betrieb
+
+Fehler: 400 `invalid_coordinates` bzw. `invalid_radius`, 429 `too_many_requests`, 502 `charging_stations_unavailable` (Open Charge Map nicht erreichbar), 503 `charging_stations_not_configured` (kein Key gesetzt).
 
 ## Common error format
 

@@ -21,7 +21,8 @@ location ^~ /vendor/node_modules/ { return 404; }
 # Versteckte Dateien und Verzeichnisse (.git, .env, .github, .htaccess …)
 location ~ /\.(?!well-known/) { return 404; }
 
-# API-Schlüssel (api/key.key für Tankerkönig, api/ocm.key für Open Charge Map und künftige *.key-Dateien)
+# Schlüsseldateien (*.key). Die API-Keys liegen inzwischen in infra/.env (#123); die Regel schützt alte
+# api/key.key- bzw. api/ocm.key-Dateien auf bestehenden Servern und künftige *.key-Dateien.
 location ~* \.key$ { return 404; }
 
 # Doku-, Konfigurations- und Skriptdateien aus dem Repository (README.md, SECURITY.md, *.yml, Backups, Logs …)

@@ -17,6 +17,7 @@ const planChanges = require('./services/planChanges');
 const categories = require('./services/categories');
 const media = require('./services/media');
 const stations = require('./services/stations');
+const chargingStations = require('./services/chargingStations');
 // Version der API (#111): aus package.json, das neue-version.js zusammen mit VERSION pflegt
 const API_VERSION = require('../package.json').version;
 const { checkOdometer, loadOdometerPoints, odometerWarnings } = require('./services/odometer');
@@ -66,6 +67,8 @@ const uploadLimiter = limiter(10 * 60 * 1000, 30, 30);
 const importLimiter = limiter(10 * 60 * 1000, 60, 60);
 // Tankstellensuche: schont das Kontingent des Tankerkönig-Keys (Ergebnisse sind zusätzlich 2 Minuten gecacht)
 const stationsLimiter = limiter(60 * 1000, 30, 30);
+// Ladestationssuche (#123): schont das Open-Charge-Map-Kontingent (Ergebnisse sind zusätzlich 6 Stunden gecacht)
+const chargingStationsLimiter = limiter(60 * 1000, 30, 30);
 // Signierte Bilder (#103): ohne Anmeldung, zählen je IP; großzügig, eine Seite lädt mehrere Bilder
 const fileLimiter = limiter(60 * 1000, 2000, 2000);
 
@@ -2654,6 +2657,19 @@ app.get('/api/v1/stations', auth, stationsLimiter, async (req, res) => {
   const list = await stations.nearbyStations(params, { apiKey });
   if (!list) return res.status(502).json({ error: 'stations_unavailable' });
   res.json({ stations: list, source: 'Tankerkönig', license: 'CC BY 4.0', sourceUrl: 'https://www.tankerkoenig.de' });
+});
+
+// Ladestationen in der Nähe (Open Charge Map, #123), für Web-App und Apps. Der Key verlässt den Server nie.
+app.get('/api/v1/charging-stations', auth, chargingStationsLimiter, async (req, res) => {
+  const apiKey = String(process.env.OCM_API_KEY || '').trim();
+  if (!apiKey) return res.status(503).json({ error: 'charging_stations_not_configured' });
+
+  const params = chargingStations.parseQuery(req.query);
+  if (params.error) return res.status(400).json({ error: params.error });
+
+  const list = await chargingStations.nearbyChargingStations(params, { apiKey });
+  if (!list) return res.status(502).json({ error: 'charging_stations_unavailable' });
+  res.json({ stations: list, source: 'Open Charge Map', license: 'CC BY 4.0', sourceUrl: 'https://openchargemap.org' });
 });
 
 // ============================================

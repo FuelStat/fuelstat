@@ -14,24 +14,22 @@ $verbrauchswerte = $d['verbrauchswerte'];
 $verbrauchProMonat = $d['verbrauchProMonat'];
 $kostenProMonat = $d['kostenProMonat'];
 $jahresdaten = $d['jahresdaten'];
-// Kraftstoffkosten pro km: Kosten aller Tankfüllungen nach der ersten / gefahrene km dazwischen
-$kraftstoffKostenProKm = null;
-$tankRows = [];
-foreach (getMergedEintraegeFromApi($api, $fahrzeug_id)['eintraege'] as $monatsEintraege) {
-    foreach ($monatsEintraege as $e) {
-        // Kosten pro km: nur Einträge mit echtem Tachostand bilden die Spanne
-        if (($e['kategorie'] ?? '') === 'Tankfuellung' && hatEchtenTachostand($e)) {
-            $tankRows[] = $e;
+// Energiekosten pro km rechnet die API (#124): Kosten aller Tank-/Ladevorgänge mit echtem Tachostand nach dem
+// ersten, geteilt durch die Strecke dazwischen. Kosten pro Monat ebenfalls aus der API.
+try {
+    $kostenApi = $api->getVehicleCosts($fahrzeug_id);
+} catch (Throwable $e) {
+    $kostenApi = null;
+}
+$kraftstoffKostenProKm = $kostenApi['costPerKm']['energy'] ?? null;
+if ($kostenApi !== null) {
+    $kostenProMonat = [];
+    foreach ($kostenApi['months'] as $m) {
+        if ($m['total'] > 0) {
+            $kostenProMonat[$m['month']] = (float)$m['total'];
         }
     }
-}
-usort($tankRows, fn($a, $b) => [(int)$a['tachostand'], $a['datum']] <=> [(int)$b['tachostand'], $b['datum']]);
-if (count($tankRows) >= 2) {
-    $kmSpanne = (int)end($tankRows)['tachostand'] - (int)$tankRows[0]['tachostand'];
-    $kostenNachErster = array_sum(array_map(fn($e) => (float)$e['kosten'], array_slice($tankRows, 1)));
-    if ($kmSpanne > 0) {
-        $kraftstoffKostenProKm = $kostenNachErster / $kmSpanne;
-    }
+    ksort($kostenProMonat);
 }
 
 $fuelTypeStat = (string)($fahrzeug['fuel_type'] ?? '');

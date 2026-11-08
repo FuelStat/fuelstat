@@ -10,10 +10,12 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - Tarifänderungen werden protokolliert (wer, wann, von welchem zu welchem Tarif, über welchen Weg); abgewiesene Zugriffe auf Admin-Funktionen erscheinen im Log. Admins sehen den Verlauf je Konto über die API. Automatische Tests belegen, dass normale Konten ihren oder fremde Tarife nicht ändern können (#102).
 
 ### Neu
+- API: `GET /api/v1/vehicles/:vehicleId/costs` liefert Kosten je Fahrzeug – Summen nach Energie und Ausgaben, Kosten pro km, Ø je Monat, laufender Monat und Vormonat sowie Monatssummen je Eintragsart, optional für ein Jahr (#124).
 - API: `GET /api/v1/charging-stations` liefert Ladestationen in der Nähe (Open Charge Map) für Web-App und Apps (#123).
 - Betreiber können Tarife auch ohne Web-Oberfläche setzen: `node scripts/tarif-setzen.js` im API-Container (siehe `docs/betrieb.md`, „Tarife verwalten“).
 
 ### Verbessert
+- Kosten pro km, Ø je Monat, Strecke und Kosten je Monat in den Reitern „Ausgaben“ und „Statistiken“ kommen aus der API und sind damit in Web-App und Apps gleich. Die Strecke zählt jetzt nur echte Tachostände, dafür auch „Kilometerstand notieren“; geschätzte Stände zählen nicht mehr mit (#124).
 - Tankstellen- und Ladestationssuche im Erfassungsformular laufen über die API: gleiche Ergebnisse wie in den Apps, und die Tankstellensuche nutzt jetzt den Zwischenspeicher der API (vorher fragte die Web-App bei jeder Suche Tankerkönig) (#123).
 
 ### Technik

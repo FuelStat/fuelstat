@@ -35,6 +35,7 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | GET · POST | `/vehicles` | ✓ | Fahrzeuge auflisten, anlegen |
 | GET · PATCH · DELETE | `/vehicles/:vehicleId` | ✓ | Fahrzeug lesen, ändern, löschen (samt Einträgen) |
 | GET | `/vehicles/:vehicleId/stats` | ✓ | Tachostand, Ø Preis, Verbrauchsabschnitte, Trend je Einheit |
+| GET | `/vehicles/:vehicleId/costs?year=` | ✓ | Kosten: Summen, Kosten pro km, laufender Monat, Monatssummen |
 | GET | `/stations?lat=&lng=&radius=&type=` | ✓ | Tankstellen in der Nähe mit aktuellen Preisen (Tankerkönig) |
 | GET | `/charging-stations?lat=&lng=&radius=` | ✓ | Ladestationen in der Nähe (Open Charge Map) |
 | GET | `/vehicles/:vehicleId/reminders` | ✓ | Fälligkeiten TÜV, Wartung, Versicherung, Steuer |
@@ -386,6 +387,38 @@ Authorization: Bearer <jwt>
 * 401: `missing_token` | `invalid_token`
 * 404: `vehicle_not_found`
 * 500: `server_error`
+
+### GET /vehicles/:vehicleId/costs?year=2026
+
+Kosten eines Fahrzeugs (#124), gerechnet in der API, damit Web-App und Apps dieselben Zahlen zeigen. Ohne `year` gesamter Zeitraum, mit `year` ein Kalenderjahr. Monate und Jahre in **Europe/Berlin**.
+
+```json
+{
+  "year": null,
+  "currency": "EUR",
+  "total": { "energy": 165, "expenses": 300, "total": 465 },
+  "distanceKm": 1000,
+  "costPerKm": { "energy": 0.105, "total": 0.465 },
+  "perMonth": 93,
+  "monthCount": 5,
+  "currentMonth": { "month": "2026-03", "energy": 0, "expenses": 0, "total": 0 },
+  "previousMonth": { "month": "2026-02", "energy": 55, "expenses": 0, "total": 55 },
+  "months": [
+    { "month": "2026-02", "energy": 55, "expenses": 0, "total": 55, "count": 2,
+      "counts": { "fuel": 1, "charge": 0, "expense": 0, "trip": 1, "odometer": 0 },
+      "byType": { "fuel": 55, "charge": 0, "expense": 0 } }
+  ]
+}
+```
+
+* **Kosten:** `energy` = Tank- und Ladevorgänge, `expenses` = Ausgaben, deren Kategorie als Kosten zählt (nicht Fahrt, Kilometerstand). Beträge in EUR, auf Cent gerundet.
+* **`distanceKm`:** Strecke im Zeitraum aus echten Tachoständen (Tank-/Ladevorgänge ohne Schätzung und Ausgaben mit Tachostand, auch „Kilometerstand notieren“). Kilometer zählen erst ab dem ersten erfassten Tachostand; im Jahr vom letzten Stand vor Jahresbeginn (sonst dem ersten im Jahr) bis zum letzten im Jahr.
+* **`costPerKm.total`:** alle Kosten im Zeitraum ÷ `distanceKm`. **`costPerKm.energy`:** Kosten der Tank-/Ladevorgänge mit echtem Tachostand nach dem ersten ÷ Strecke vom ersten bis zum letzten (die erste Füllung bezahlt die Strecke davor). Beide in €/km auf 4 Stellen, `null` ohne Strecke (nie 0).
+* **`perMonth`:** Kosten ÷ `monthCount`, gezählt vom ersten Monat mit Kosten (im Jahr: frühestens Januar) bis zum laufenden Monat bzw. Dezember; Monate ohne Kosten zählen mit.
+* **`currentMonth`, `previousMonth`:** laufender Monat und Vormonat, unabhängig von `year`.
+* **`months`:** nur Monate mit Einträgen, neueste zuerst. `counts` je Eintragsart (`fuel`, `charge`, `expense`, `trip`, `odometer`) und `byType` (Kosten je Art) – so kann eine gefilterte Eintragsliste ihre Monatssumme selbst bilden, ohne zu rechnen.
+
+Fehler: 400 `invalid_year`, 404 `vehicle_not_found` (auch für fremde Fahrzeuge).
 
 ## Ausgaben (Entries) (Auth required)
 

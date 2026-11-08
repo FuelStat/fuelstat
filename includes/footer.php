@@ -148,6 +148,32 @@
   })();
 </script>
 
+<!-- Offline (#1): Der Service Worker zeigt ohne Verbindung den zuletzt geladenen Stand der Übersicht bzw. Fahrzeugseite
+     und setzt data-offline-stand am <html>. Hier der Hinweis dazu; Formulare sind offline gesperrt. -->
+<script>
+  (function () {
+    var stand = document.documentElement.getAttribute('data-offline-stand');
+    if (!stand) return;
+    var zeit = new Date(stand);
+    var text = isNaN(zeit) ? '' : ' vom ' + zeit.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+    var hinweis = document.createElement('div');
+    hinweis.className = 'alert alert-warning d-flex align-items-center gap-2 mb-3';
+    hinweis.setAttribute('role', 'status');
+    hinweis.innerHTML = '<i class="fas fa-wifi" aria-hidden="true"></i><span class="flex-grow-1"></span>'
+      + '<button type="button" class="btn btn-sm btn-outline-dark d-none">Neu laden</button>';
+    hinweis.querySelector('span').textContent = 'Offline: Du siehst den zuletzt geladenen Stand' + text + '. Ändern geht erst wieder mit Verbindung.';
+    var neuLaden = hinweis.querySelector('button');
+    neuLaden.addEventListener('click', function () { location.reload(); });
+    var ziel = document.querySelector('.hauptinhalt') || document.body;
+    ziel.insertBefore(hinweis, ziel.firstChild);
+    window.addEventListener('online', function () { neuLaden.classList.remove('d-none'); });
+    document.addEventListener('submit', function (event) {
+      event.preventDefault();
+      alert('Offline kann nichts gespeichert werden. Bitte mit Verbindung neu laden.');
+    }, true);
+  })();
+</script>
+
 <!-- Service Worker for PWA -->
 <script>
   if ('serviceWorker' in navigator) {

@@ -1,10 +1,19 @@
-// Service Worker (#89)
-// - Seiten (Navigation): immer vom Netz, mit Navigation Preload. Die Anfrage startet so parallel zum Aufwecken
-//   des Service Workers und wartet nicht auf ihn. Seiten werden nie gespeichert (persönliche Daten).
+// Service Worker (#89, #1)
+// - Seiten (Navigation): immer zuerst vom Netz, mit Navigation Preload. Die Anfrage startet so parallel zum Aufwecken
+//   des Service Workers und wartet nicht auf ihn.
+// - Offline lesen (#1): Die Übersicht und die Fahrzeugseiten werden nach jedem erfolgreichen Laden gemerkt. Ohne
+//   Verbindung zeigt der Service Worker den zuletzt geladenen Stand mit Hinweis (data-offline-stand am <html>).
+//   Andere Seiten (Formulare, Einstellungen, Admin) werden nie gespeichert.
+//   Datenschutz: Der Seiten-Cache wird geleert beim Abmelden und bei jedem Aufruf von Anmelden/Registrieren, also auch,
+//   wenn eine abgelaufene Sitzung auf die Anmeldung umleitet. Seiten älter als SEITEN_MAX_ALTER werden nicht mehr
+//   gezeigt; der Cache enthält höchstens SEITEN_MAX Seiten.
 // - CSS/JS/Schriften/Bilder der App mit ?v=… (Version) oder fester Datei: aus dem Cache, sonst vom Netz und merken.
 //   Neue Versionen haben eine neue Adresse (?v=Änderungszeit), veraltete Dateien gibt es dadurch nicht.
 // - API, signierte Bilder (/api/v1/files/…) und alles andere: nicht abfangen.
-const cacheName = 'fuelstat-v8';
+const cacheName = 'fuelstat-v9';
+const seitenCache = 'fuelstat-seiten-v1';
+const SEITEN_MAX = 20;
+const SEITEN_MAX_ALTER = 7 * 24 * 60 * 60 * 1000;
 const vorab = [
   './images/platzhalter.jpg',
   './images/icon-192x192.png',
@@ -19,13 +28,81 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const namen = await caches.keys();
-    await Promise.all(namen.filter((n) => n !== cacheName).map((n) => caches.delete(n)));
+    await Promise.all(namen.filter((n) => n !== cacheName && n !== seitenCache).map((n) => caches.delete(n)));
     if (self.registration.navigationPreload) {
       await self.registration.navigationPreload.enable().catch(() => {});
     }
     await self.clients.claim();
   })());
 });
+
+// Pfad relativ zum Scope, z. B. "index.php" oder "pages/fahrzeug_detail.php"
+function pfadImScope(url) {
+  const scope = new URL(self.registration.scope);
+  if (url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return null;
+  return url.pathname.slice(scope.pathname.length);
+}
+
+// Seiten, die offline lesbar sein sollen: Übersicht und Fahrzeugseite
+function offlineLesbar(url) {
+  const pfad = pfadImScope(url);
+  return pfad === '' || pfad === 'index.php' || pfad === 'pages/fahrzeug_detail.php';
+}
+
+// Beim Abmelden und Anmelden die gemerkten Seiten löschen (anderes Konto, geteiltes Gerät)
+function leertSeitenCache(url) {
+  const pfad = pfadImScope(url);
+  return pfad === 'pages/logout.php' || pfad === 'pages/login.php' || pfad === 'pages/register.php';
+}
+
+function seitenLeeren() {
+  return caches.delete(seitenCache).catch(() => {});
+}
+
+async function seiteMerken(req, antwort) {
+  const typ = antwort.headers.get('Content-Type') || '';
+  if (!antwort.ok || antwort.type !== 'basic' || !typ.includes('text/html')) return;
+  const kopf = new Headers(antwort.headers);
+  kopf.set('X-Fuelstat-Gespeichert', String(Date.now()));
+  const gemerkt = new Response(await antwort.blob(), { status: 200, headers: kopf });
+  const cache = await caches.open(seitenCache);
+  // Vorher löschen, damit die Seite ans Ende rückt: keys() liefert die Einträge in Einfügereihenfolge
+  await cache.delete(req.url);
+  await cache.put(req.url, gemerkt);
+  const schluessel = await cache.keys();
+  // Die ältesten über SEITEN_MAX hinaus entfernen
+  for (const alt of schluessel.slice(0, Math.max(0, schluessel.length - SEITEN_MAX))) await cache.delete(alt);
+}
+
+async function gemerkteSeite(url) {
+  const cache = await caches.open(seitenCache);
+  const treffer = await cache.match(url);
+  if (!treffer) return null;
+  const zeit = Number(treffer.headers.get('X-Fuelstat-Gespeichert')) || 0;
+  if (Date.now() - zeit > SEITEN_MAX_ALTER) {
+    await cache.delete(url);
+    return null;
+  }
+  // Hinweis für die Seite: Stand der Daten (wird in includes/footer.php angezeigt)
+  const html = (await treffer.text()).replace('<html ', `<html data-offline-stand="${new Date(zeit).toISOString()}" `);
+  return new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+}
+
+async function offlineSeite() {
+  const start = new URL('index.php', self.registration.scope);
+  const startGemerkt = await (await caches.open(seitenCache)).match(start.href);
+  const link = startGemerkt
+    ? `<p><a href="${start.pathname}">Zur Übersicht (zuletzt geladener Stand)</a></p>`
+    : '';
+  return new Response(
+    '<!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    + '<title>Offline – Fuelstat</title><body style="font-family:system-ui;padding:2rem;text-align:center">'
+    + '<h1>Keine Verbindung</h1><p>Diese Seite ist offline nicht verfügbar. Bitte später erneut versuchen.</p>'
+    + link
+    + '<p><a href="" onclick="location.reload();return false">Erneut versuchen</a></p></html>',
+    { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+  );
+}
 
 // Statische Datei der App, die sich unter derselben Adresse nie ändert
 function istStatisch(url) {
@@ -34,34 +111,31 @@ function istStatisch(url) {
   return /\.(woff2?|ttf|png|jpe?g|webp|svg|ico|gif)$/.test(url.pathname) && !url.pathname.includes('/uploads/');
 }
 
-function offlineSeite() {
-  return new Response(
-    '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-    + '<title>Offline</title><body style="font-family:system-ui;padding:2rem;text-align:center">'
-    + '<h1>Keine Verbindung</h1><p>Fuelstat braucht eine Internetverbindung. Bitte später erneut versuchen.</p>'
-    + '<p><a href="" onclick="location.reload();return false">Erneut versuchen</a></p>',
-    { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-  );
-}
-
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
+  const url = new URL(req.url);
 
   if (req.mode === 'navigate') {
+    if (leertSeitenCache(url)) event.waitUntil(seitenLeeren());
     event.respondWith((async () => {
       try {
         const vorgeladen = await event.preloadResponse;
-        if (vorgeladen) return vorgeladen;
-        return await fetch(req);
+        const antwort = vorgeladen || await fetch(req);
+        // Umleitungen (z. B. abgelaufene Sitzung → Anmeldung) kommen als eigene Navigation wieder hier an
+        if (offlineLesbar(url)) event.waitUntil(seiteMerken(req, antwort.clone()).catch(() => {}));
+        return antwort;
       } catch (e) {
+        if (offlineLesbar(url)) {
+          const gemerkt = await gemerkteSeite(req.url).catch(() => null);
+          if (gemerkt) return gemerkt;
+        }
         return offlineSeite();
       }
     })());
     return;
   }
 
-  const url = new URL(req.url);
   if (!istStatisch(url)) return;
   event.respondWith((async () => {
     const cache = await caches.open(cacheName);

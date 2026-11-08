@@ -90,6 +90,8 @@ class FuelstatApi
     public function patchFillup(string $fillupId, array $data): array { return $this->request('PATCH', '/fillups/' . rawurlencode($fillupId), $data); }
     public function deleteFillup(string $fillupId): array { return $this->request('DELETE', '/fillups/' . rawurlencode($fillupId)); }
     public function getVehicleStats(string $vehicleId): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/stats'); }
+    /** Verbrauch, Mengen und CO₂ je Einheit (#82) */
+    public function getVehicleConsumption(string $vehicleId): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/consumption'); }
     /** Kosten je Fahrzeug (#124): Summen, Kosten pro km, Monate; $jahr = null für den gesamten Zeitraum */
     public function getVehicleCosts(string $vehicleId, ?int $jahr = null): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/costs' . ($jahr !== null ? '?year=' . $jahr : '')); }
     public function getVehicleEntries(string $vehicleId, int $limit = 50): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/entries?limit=' . $limit); }

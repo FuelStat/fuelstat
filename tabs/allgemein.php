@@ -6,7 +6,7 @@ $stats = getVehicleStatsForDisplay($api, $fahrzeug_id);
 $currentOdo = $stats['currentOdo'] ?? null;
 $trend = $stats['trend'] ?? null;
 $avgPrice = $stats['avgPricePerLiter'] ?? null;
-$fahrleistung = getFahrleistungFromApi($api, $fahrzeug_id, $fahrzeug, $currentOdo);
+$fahrleistung = getFahrleistungFromApi($stats);
 $faelligkeiten = getFaelligkeitenFromApi($api, $fahrzeug_id);
 
 $letzterReifen = getLetzterEintragApi($api, $fahrzeug_id, 'Reifen');
@@ -48,23 +48,12 @@ foreach ($faelligkeiten as $f) {
         break;
     }
 }
-// Kosten dieses Jahr und Verlauf der letzten 6 Monate (Kosten als Balken, Verbrauch als Linie)
-$alleEintraege = getMergedEintraegeFromApi($api, $fahrzeug_id)['eintraege'];
-$diesesJahr = (int)date('Y');
-$kostenJahr = 0.0;
-$kostenMonat = [];
-foreach ($alleEintraege as $monat => $liste) {
-    foreach ($liste as $e) {
-        if (istEintragOhneKosten($e['kategorie'] ?? '')) {
-            continue;
-        }
-        if ((int)substr($e['datum'], 0, 4) === $diesesJahr) {
-            $kostenJahr += (float)($e['kosten'] ?? 0);
-        }
-        $kostenMonat[$monat] = ($kostenMonat[$monat] ?? 0) + (float)($e['kosten'] ?? 0);
-    }
-}
-$verbrauchMonat = getStatistikDatenFromApi($api, $fahrzeug_id)['verbrauchProMonat'] ?? [];
+// Kosten dieses Jahr und Verlauf der letzten 6 Monate (Kosten als Balken, Verbrauch als Linie); Werte aus der API (#82)
+$statistik = getStatistikDatenFromApi($api, $fahrzeug_id);
+$diesesJahr = (string)date('Y');
+$kostenMonat = $statistik['kostenProMonat'];
+$kostenJahr = array_sum(array_filter($kostenMonat, fn($monat) => str_starts_with((string)$monat, $diesesJahr), ARRAY_FILTER_USE_KEY));
+$verbrauchMonat = $statistik['verbrauchProMonat'];
 $verlauf = [];
 for ($i = 5; $i >= 0; $i--) {
     $m = date('Y-m', strtotime(date('Y-m-01') . " -$i months"));

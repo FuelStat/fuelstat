@@ -11,6 +11,7 @@ const fs = require('fs');
 const { getVehicleStats, FUEL_TYPES, unitForFuelType, unitsForFuelType } = require('./services/stats');
 const { getVehicleReminders } = require('./services/reminders');
 const { getVehicleCosts } = require('./services/costs');
+const { getVehicleConsumption } = require('./services/consumption');
 const { encryptSecret, decryptSecret, sendUserMail, resolveSmtpHost, ALLOWED_PORTS, loadDefaultSmtp, withDefaultSmtp } = require('./services/mail');
 const notifier = require('./services/notifier');
 const plans = require('./services/plans');
@@ -461,8 +462,12 @@ function isAdmin(req) {
 
 function requireAdmin(req, res, next) {
   if (!isAdmin(req)) {
-    // Abgewiesene Zugriffe auf Admin-Funktionen protokollieren (#102): Konto, Methode, Pfad – ohne Body und Token
-    console.warn(`[admin] abgewiesen: ${req.method} ${req.originalUrl.split('?')[0]} von Konto ${req.user?.sub || '-'}`);
+    // Abgewiesene Zugriffe auf Admin-Funktionen protokollieren (#102): Konto, Methode, Route – ohne Body und Token.
+    // Routenmuster statt der aufgerufenen URL, damit kein Text vom Client ins Log gelangt (Log-Injection).
+    const route = String(req.baseUrl || '') + String(req.route?.path || '');
+    const konto = UUID_RE.test(String(req.user?.sub || '')) ? req.user.sub : '-';
+    const methode = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) ? req.method : 'ANDERE';
+    console.warn(`[admin] abgewiesen: ${methode} ${route || '(unbekannte Route)'} von Konto ${konto}`);
     return res.status(403).json({ error: 'forbidden' });
   }
   return next();
@@ -2639,6 +2644,19 @@ app.get('/api/v1/vehicles/:vehicleId/stats', auth, async (req, res) => {
   try {
     const data = await getVehicleStats(pool, req.user.sub, vehicleId);
     if (data?.error === 'vehicle_not_found') return res.status(404).json({ error: 'vehicle_not_found' });
+    res.json(data);
+  } catch (e) {
+    serverError(res, e);
+  }
+});
+
+// Verbrauch, Mengen und CO₂ je Einheit (#82): Abschnitte, Monate, Jahre, Ø/Min/Max, Stromanteil
+app.get('/api/v1/vehicles/:vehicleId/consumption', auth, async (req, res) => {
+  const vehicleId = String(req.params.vehicleId || '').trim();
+  if (!UUID_RE.test(vehicleId)) return res.status(404).json({ error: 'vehicle_not_found' });
+  try {
+    const data = await getVehicleConsumption(pool, req.user.sub, vehicleId);
+    if (!data) return res.status(404).json({ error: 'vehicle_not_found' });
     res.json(data);
   } catch (e) {
     serverError(res, e);

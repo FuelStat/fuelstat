@@ -54,6 +54,12 @@ test('gesamter Zeitraum: Summen, Strecke, Kosten pro km, Ø je Monat, Monatssumm
 
   assert.deepEqual(c.currentMonth, { month: '2026-03', energy: 0, expenses: 0, total: 0 });
   assert.deepEqual(c.previousMonth, { month: '2026-02', energy: 55, expenses: 0, total: 55 });
+  assert.deepEqual(c.categories, [
+    { key: 'Versicherung', total: 300, count: 1 },
+    { key: 'Tankfuellung:l', total: 165, count: 3 }
+  ], 'nur Kosten, größte zuerst');
+  assert.deepEqual(c.years, [2026, 2025]);
+  assert.deepEqual(jan.byCategory, { Versicherung: 300 }, 'Kilometerstand zählt nicht');
 });
 
 test('einzelnes Jahr: Strecke ab Jahresbeginn bzw. ab erstem Tachostand im Jahr', async () => {
@@ -90,6 +96,7 @@ test('Laden zählt als Energie (Plug-in-Hybrid), geschätzte Stände fehlen als 
   assert.equal(c.distanceKm, 200);
   assert.equal(c.costPerKm.energy, 0.045, 'nur Füllungen mit Tachostand: 9 / 200');
   assert.deepEqual(c.months[0].byType, { fuel: 70, charge: 17, expense: 0 });
+  assert.deepEqual(c.months[0].byCategory, { 'Tankfuellung:l': 70, 'Tankfuellung:kwh': 17 }, 'Plug-in-Hybrid getrennt');
 });
 
 test('fremdes oder unbekanntes Fahrzeug: null', async () => {

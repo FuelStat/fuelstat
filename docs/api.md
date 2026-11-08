@@ -35,7 +35,8 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | GET · POST | `/vehicles` | ✓ | Fahrzeuge auflisten, anlegen |
 | GET · PATCH · DELETE | `/vehicles/:vehicleId` | ✓ | Fahrzeug lesen, ändern, löschen (samt Einträgen) |
 | GET | `/vehicles/:vehicleId/stats` | ✓ | Tachostand, Ø Preis, Verbrauchsabschnitte, Trend je Einheit |
-| GET | `/vehicles/:vehicleId/costs?year=` | ✓ | Kosten: Summen, Kosten pro km, laufender Monat, Monatssummen |
+| GET | `/vehicles/:vehicleId/costs?year=` | ✓ | Kosten: Summen, Kosten pro km, laufender Monat, Monats- und Kategoriesummen |
+| GET | `/vehicles/:vehicleId/consumption` | ✓ | Verbrauch je Einheit: Abschnitte, Monate, Jahre, Ø/Min/Max, Mengen, CO₂, Stromanteil |
 | GET | `/stations?lat=&lng=&radius=&type=` | ✓ | Tankstellen in der Nähe mit aktuellen Preisen (Tankerkönig) |
 | GET | `/charging-stations?lat=&lng=&radius=` | ✓ | Ladestationen in der Nähe (Open Charge Map) |
 | GET | `/vehicles/:vehicleId/reminders` | ✓ | Fälligkeiten TÜV, Wartung, Versicherung, Steuer |
@@ -381,6 +382,7 @@ Authorization: Bearer <jwt>
 * `missingOdometer`: Anzahl Tank-/Ladevorgänge ohne echten Tachostand (fehlt oder geschätzt). `currentOdo` berücksichtigt nur echte Werte.
 * `avgConsumption`: Ø Verbrauch pro 100 km über alle Abschnitte, nach km gewichtet. Abschnitte ohne Strecke (zwei volle Einträge beim selben Tachostand) zählen nicht. `trend.current` ist nur der letzte Abschnitt.
 * `l_per_100km` ist je nach Einheit l, kWh oder kg pro 100 km.
+* `distance`: gefahrene km `{ "km": 9400, "since": "purchase" }` – seit Anschaffung (Tachostand beim Anlegen des Fahrzeugs), sonst seit dem ersten echten Tachostand eines Tank-/Ladevorgangs (`"since": "firstEntry"`); `null` ohne Tachostand (#82).
 
 **Errors**
 
@@ -416,9 +418,44 @@ Kosten eines Fahrzeugs (#124), gerechnet in der API, damit Web-App und Apps dies
 * **`costPerKm.total`:** alle Kosten im Zeitraum ÷ `distanceKm`. **`costPerKm.energy`:** Kosten der Tank-/Ladevorgänge mit echtem Tachostand nach dem ersten ÷ Strecke vom ersten bis zum letzten (die erste Füllung bezahlt die Strecke davor). Beide in €/km auf 4 Stellen, `null` ohne Strecke (nie 0).
 * **`perMonth`:** Kosten ÷ `monthCount`, gezählt vom ersten Monat mit Kosten (im Jahr: frühestens Januar) bis zum laufenden Monat bzw. Dezember; Monate ohne Kosten zählen mit.
 * **`currentMonth`, `previousMonth`:** laufender Monat und Vormonat, unabhängig von `year`.
-* **`months`:** nur Monate mit Einträgen, neueste zuerst. `counts` je Eintragsart (`fuel`, `charge`, `expense`, `trip`, `odometer`) und `byType` (Kosten je Art) – so kann eine gefilterte Eintragsliste ihre Monatssumme selbst bilden, ohne zu rechnen.
+* **`months`:** nur Monate mit Einträgen, neueste zuerst. `counts` je Eintragsart (`fuel`, `charge`, `expense`, `trip`, `odometer`), `byType` (Kosten je Art) und `byCategory` (Kosten je Kategorie) – so kann eine gefilterte Eintragsliste ihre Monatssumme bilden und ein Diagramm nach Kostengruppen stapeln, ohne zu rechnen.
+* **`categories`:** Summe und Anzahl je Kategorie im Zeitraum, größte zuerst: `[{ "key": "Versicherung", "total": 300, "count": 1 }]`. Tank- und Ladevorgänge heißen `Tankfuellung:<Einheit>` (`Tankfuellung:l`, `Tankfuellung:kwh`, `Tankfuellung:kg`), damit Plug-in-Hybride Kraftstoff und Strom getrennt zeigen können; Namen, Farben und Gruppen liefert `GET /categories`.
+* **`years`:** Jahre mit Kosten (gesamter Zeitraum, unabhängig von `year`), neueste zuerst – für eine Jahresauswahl.
 
 Fehler: 400 `invalid_year`, 404 `vehicle_not_found` (auch für fremde Fahrzeuge).
+
+### GET /vehicles/:vehicleId/consumption
+
+Verbrauch, Mengen und CO₂ je Einheit (#82). Grundlage sind dieselben Full-to-Full-Abschnitte wie bei `/stats`; die Clients rechnen nichts nach.
+
+```json
+{
+  "fuelType": "phev",
+  "units": ["l", "kwh"],
+  "byUnit": {
+    "l": {
+      "unit": "l", "avg": 4, "min": 4, "max": 4,
+      "kmConsumed": 1000, "amountConsumed": 40, "amountBought": 70, "cost": 122.5, "avgPrice": 1.75, "fillCount": 2,
+      "co2": { "factor": 2.37, "totalKg": 165.9, "gPerKm": 94.8 },
+      "segments": [{ "fullId": "<fillup-uuid>", "date": "2026-01-20", "month": "2026-01", "km": 1000, "amount": 40, "consumption": 4 }],
+      "months": [{ "month": "2026-01", "km": 1000, "amount": 40, "consumption": 4 }],
+      "years": [{ "year": 2026, "fillCount": 2, "amountBought": 70, "cost": 122.5, "amountConsumed": 40, "kmConsumed": 1000, "consumption": 4, "co2Kg": 165.9 }]
+    },
+    "kwh": { "unit": "kwh", "...": "…" }
+  },
+  "energyCost": 140.7,
+  "electricShare": 12.9,
+  "co2": { "totalKg": 189.5, "gPerKm": 167.4 }
+}
+```
+
+* `units`: vorhandene Einheiten, die zur Antriebsart passende zuerst (Plug-in-Hybrid: Liter, dann kWh); ohne Einträge die Standardeinheit
+* `consumption`, `avg`, `min`, `max`: Einheit pro 100 km (l, kWh oder kg). Ein Abschnitt gehört zu Tag, Monat und Jahr der vollen Füllung, die ihn abschließt (Europe/Berlin). Monats-, Jahres- und Ø-Werte sind Menge ÷ Strecke aller Abschnitte im Zeitraum (nach km gewichtet), nicht der Mittelwert der Einzelwerte
+* `amountBought`, `cost`, `fillCount`: alle Tank-/Ladevorgänge, auch ohne Tachostand; `amountConsumed`, `kmConsumed`: nur abgeschlossene Abschnitte
+* CO₂: gekaufte Menge × Faktor (`factor` in kg je Einheit: Benzin 2,37, Diesel 2,65, Autogas 1,64, Erdgas 2,79, Strom 0,363 deutscher Strommix, Wasserstoff 0; Plug-in-Hybrid: Liter wie Benzin, kWh wie Strom); `gPerKm` aus dem Ø-Verbrauch. `null`, wenn kein Faktor bekannt ist
+* `electricShare`: Anteil der Ladekosten an den Energiekosten in %, nur bei mehreren Einheiten
+
+Fehler: 404 `vehicle_not_found` (auch für fremde Fahrzeuge).
 
 ## Ausgaben (Entries) (Auth required)
 

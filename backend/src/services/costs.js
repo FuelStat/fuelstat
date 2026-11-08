@@ -66,6 +66,8 @@ async function loadRows(db, userId, vehicleId) {
     const type = typeOf(row);
     return {
       type,
+      // Kategorie-Schlüssel wie in /categories; Tank-/Ladevorgänge je Einheit ("Tankfuellung:l", "Tankfuellung:kwh")
+      category: row.src === 'fillup' ? `Tankfuellung:${row.kind}` : row.kind,
       cost: Number(row.cost) || 0,
       countsAsCost: type === 'fuel' || type === 'charge' || (type === 'expense' && !NON_COST_KEYS.includes(row.kind)),
       odo: row.odo === null || row.odo === undefined ? null : Number(row.odo),
@@ -147,11 +149,13 @@ async function getVehicleCosts(db, userId, vehicleId, { year = null, now = new D
     const m = byMonth.get(r.month) ?? {
       month: r.month, energy: 0, expenses: 0, total: 0,
       count: 0, counts: { fuel: 0, charge: 0, expense: 0, trip: 0, odometer: 0 },
-      byType: { fuel: 0, charge: 0, expense: 0 }
+      byType: { fuel: 0, charge: 0, expense: 0 },
+      byCategory: {}
     };
     m.count += 1;
     m.counts[r.type] += 1;
     if (r.countsAsCost) {
+      m.byCategory[r.category] = (m.byCategory[r.category] ?? 0) + r.cost;
       m.byType[r.type] += r.cost;
       if (r.type === 'expense') m.expenses += r.cost; else m.energy += r.cost;
       m.total += r.cost;
@@ -165,8 +169,21 @@ async function getVehicleCosts(db, userId, vehicleId, { year = null, now = new D
       energy: round2(m.energy),
       expenses: round2(m.expenses),
       total: round2(m.total),
-      byType: { fuel: round2(m.byType.fuel), charge: round2(m.byType.charge), expense: round2(m.byType.expense) }
+      byType: { fuel: round2(m.byType.fuel), charge: round2(m.byType.charge), expense: round2(m.byType.expense) },
+      byCategory: Object.fromEntries(Object.entries(m.byCategory).map(([k, x]) => [k, round2(x)]))
     }));
+
+  // Summe und Anzahl je Kategorie im Zeitraum, größte zuerst (#82)
+  const catMap = new Map();
+  for (const r of costRows) {
+    const c = catMap.get(r.category) ?? { key: r.category, total: 0, count: 0 };
+    c.total += r.cost;
+    c.count += 1;
+    catMap.set(r.category, c);
+  }
+  const categories = [...catMap.values()]
+    .map((c) => ({ ...c, total: round2(c.total) }))
+    .sort((a, b) => b.total - a.total || a.key.localeCompare(b.key));
 
   const monthSums = (month) => ({ month, ...sums(all.filter((r) => r.month === month)) });
 
@@ -184,6 +201,9 @@ async function getVehicleCosts(db, userId, vehicleId, { year = null, now = new D
     monthCount,
     currentMonth: monthSums(currentMonth),
     previousMonth: monthSums(previousMonth(currentMonth)),
+    categories,
+    // Jahre mit Kosten (gesamter Zeitraum), neueste zuerst – für die Jahresauswahl
+    years: [...new Set(all.filter((r) => r.countsAsCost).map((r) => r.year))].sort((a, b) => b - a),
     months
   };
 }

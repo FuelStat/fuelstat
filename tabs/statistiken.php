@@ -15,43 +15,17 @@ $verbrauchProMonat = $d['verbrauchProMonat'];
 $kostenProMonat = $d['kostenProMonat'];
 $jahresdaten = $d['jahresdaten'];
 // Energiekosten pro km rechnet die API (#124): Kosten aller Tank-/Ladevorgänge mit echtem Tachostand nach dem
-// ersten, geteilt durch die Strecke dazwischen. Kosten pro Monat ebenfalls aus der API.
-try {
-    $kostenApi = $api->getVehicleCosts($fahrzeug_id);
-} catch (Throwable $e) {
-    $kostenApi = null;
-}
-$kraftstoffKostenProKm = $kostenApi['costPerKm']['energy'] ?? null;
-if ($kostenApi !== null) {
-    $kostenProMonat = [];
-    foreach ($kostenApi['months'] as $m) {
-        if ($m['total'] > 0) {
-            $kostenProMonat[$m['month']] = (float)$m['total'];
-        }
-    }
-    ksort($kostenProMonat);
-}
+// ersten, geteilt durch die Strecke dazwischen.
+$kraftstoffKostenProKm = $d['kosten']['costPerKm']['energy'] ?? null;
 
 $fuelTypeStat = (string)($fahrzeug['fuel_type'] ?? '');
 $zahl = fn($wert, int $stellen = 2) => number_format((float)$wert, $stellen, ',', '.');
-$durchschnittPreise = [];
-try {
-    $stats = $api->getVehicleStats($fahrzeug_id);
-    foreach ($stats['units'] ?? [] as $u => $werte) {
-        $durchschnittPreise[$u] = $werte['avgPrice'] ?? null;
-    }
-} catch (Throwable $e) {
-}
-
-// Kennzahlen je Einheit; Plug-in-Hybride haben zwei (Liter und kWh), alle anderen eine
-$einheitenDaten = $d['einheiten'] ?: [getEinheitFuerKraftstoff($fuelTypeStat) => ['verbrauchswerte' => [], 'verbrauchProMonat' => [], 'jahresdaten' => $jahresdaten]];
+// Kennzahlen je Einheit kommen fertig aus der API (#82); Plug-in-Hybride haben zwei Einheiten (Liter und kWh)
+$einheitenDaten = $d['einheiten'] ?: [getEinheitFuerKraftstoff($fuelTypeStat) => ['verbrauchswerte' => [], 'verbrauchProMonat' => [], 'jahresdaten' => $jahresdaten, 'api' => null]];
 $mehrereEinheiten = count($einheitenDaten) > 1;
 $proEinheit = [];
 foreach ($einheitenDaten as $u => $ud) {
-    $menge = array_sum(array_column($ud['jahresdaten'], 'verbrauch_menge'));
-    $km = array_sum(array_column($ud['jahresdaten'], 'verbrauch_km'));
-    $gekauft = array_sum(array_column($ud['jahresdaten'], 'gekauft_menge'));
-    $faktor = getCo2Faktor($fuelTypeStat, $u);
+    $a = $ud['api'] ?? [];
     $monate = array_filter($ud['verbrauchProMonat'], fn($v) => $v > 0);
     ksort($monate);
     $proEinheit[$u] = [
@@ -60,32 +34,24 @@ foreach ($einheitenDaten as $u => $ud) {
         'werte' => $ud['verbrauchswerte'],
         'monate' => $monate,
         'jahre' => $ud['jahresdaten'],
-        'schnitt' => $km > 0 ? $menge / $km * 100 : null,
-        'min' => $ud['verbrauchswerte'] ? min($ud['verbrauchswerte']) : null,
-        'max' => $ud['verbrauchswerte'] ? max($ud['verbrauchswerte']) : null,
-        'gekauft' => $gekauft,
-        'kosten' => array_sum(array_column($ud['jahresdaten'], 'gekauft_ausgaben')),
-        'preis' => $durchschnittPreise[$u] ?? null,
-        'co2_faktor' => $faktor,
-        // CO₂: getankte bzw. geladene Menge × Emissionsfaktor
-        'co2' => $faktor !== null ? $gekauft * $faktor : null,
+        'schnitt' => $a['avg'] ?? null,
+        'min' => $a['min'] ?? null,
+        'max' => $a['max'] ?? null,
+        'gekauft' => (float)($a['amountBought'] ?? 0),
+        'kosten' => (float)($a['cost'] ?? 0),
+        'preis' => $a['avgPrice'] ?? null,
+        // CO₂: gekaufte Menge × Emissionsfaktor (API)
+        'co2_faktor' => $a['co2']['factor'] ?? null,
+        'co2' => $a['co2']['totalKg'] ?? null,
     ];
 }
 $haupt = reset($proEinheit);
 $hauptEinheit = array_key_first($proEinheit);
 
-// Für einzelne Einheit wie bisher; beim Plug-in-Hybrid Summe aus Kraftstoff und Strom
+// Summen über alle Einheiten (Plug-in-Hybrid: Kraftstoff und Strom) aus der API
 $co2Faktor = $haupt['co2_faktor'];
-$co2Gesamt = null;
-$co2ProKm = null;
-foreach ($proEinheit as $p) {
-    if ($p['co2'] !== null) {
-        $co2Gesamt = ($co2Gesamt ?? 0) + $p['co2'];
-        if ($p['schnitt'] !== null) {
-            $co2ProKm = ($co2ProKm ?? 0) + $p['schnitt'] / 100 * $p['co2_faktor'] * 1000; // g/km
-        }
-    }
-}
+$co2Gesamt = $d['verbrauch']['co2']['totalKg'] ?? null;
+$co2ProKm = $d['verbrauch']['co2']['gPerKm'] ?? null;
 $durchschnittPreis = $haupt['preis'];
 $minVerbrauch = $haupt['min'];
 $maxVerbrauch = $haupt['max'];
@@ -93,8 +59,8 @@ $durchschnittVerbrauch = $haupt['schnitt'];
 $gekauftMenge = $haupt['gekauft'];
 $gekauftKosten = $haupt['kosten'];
 $verbrauchswerte = $haupt['werte'];
-$energieKosten = array_sum(array_column($proEinheit, 'kosten'));
-$stromAnteil = $mehrereEinheiten && $energieKosten > 0 && isset($proEinheit['kwh']) ? $proEinheit['kwh']['kosten'] / $energieKosten * 100 : null;
+$energieKosten = (float)($d['verbrauch']['energyCost'] ?? array_sum(array_column($proEinheit, 'kosten')));
+$stromAnteil = $d['verbrauch']['electricShare'] ?? null;
 
 ksort($kostenProMonat);
 $verbrauchProMonatFormatted = formatLabels($haupt['monate']);
@@ -142,8 +108,8 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
         $j = $p['jahre'][$jahr] ?? null;
         if (!$j) continue;
         $kosten += $j['gekauft_ausgaben'];
-        if ($p['co2_faktor'] !== null) {
-            $co2 = ($co2 ?? 0) + $j['gekauft_menge'] * $p['co2_faktor'];
+        if (($j['co2_kg'] ?? null) !== null) {
+            $co2 = ($co2 ?? 0) + $j['co2_kg'];
         }
     }
     return ['kosten' => $kosten, 'co2' => $co2];

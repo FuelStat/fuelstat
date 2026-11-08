@@ -663,6 +663,90 @@ paths:
         "500":
           $ref: "#/components/responses/ServerError"
 
+  /api/v1/vehicles/{vehicleId}/consumption:
+    get:
+      tags: [Stats]
+      summary: Consumption, amounts and CO₂ per unit (segments, months, years)
+      description: "Grundlage sind die Full-to-Full-Abschnitte von /stats; Regeln siehe docs/api.md (#82)."
+      operationId: getVehicleConsumption
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fuelType: { type: string, nullable: true }
+                  units: { type: array, items: { type: string, enum: [l, kwh, kg] } }
+                  byUnit:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        unit: { type: string, enum: [l, kwh, kg] }
+                        avg: { type: number, nullable: true }
+                        min: { type: number, nullable: true }
+                        max: { type: number, nullable: true }
+                        kmConsumed: { type: number }
+                        amountConsumed: { type: number }
+                        amountBought: { type: number }
+                        cost: { type: number }
+                        avgPrice: { type: number, nullable: true }
+                        fillCount: { type: integer }
+                        co2:
+                          type: object
+                          properties:
+                            factor: { type: number, nullable: true }
+                            totalKg: { type: number, nullable: true }
+                            gPerKm: { type: number, nullable: true }
+                        segments:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              fullId: { type: string, format: uuid }
+                              date: { type: string, format: date }
+                              month: { type: string, example: "2026-01" }
+                              km: { type: number }
+                              amount: { type: number }
+                              consumption: { type: number, nullable: true }
+                        months:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              month: { type: string }
+                              km: { type: number }
+                              amount: { type: number }
+                              consumption: { type: number, nullable: true }
+                        years:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              year: { type: integer }
+                              fillCount: { type: integer }
+                              amountBought: { type: number }
+                              cost: { type: number }
+                              amountConsumed: { type: number }
+                              kmConsumed: { type: number }
+                              consumption: { type: number, nullable: true }
+                              co2Kg: { type: number, nullable: true }
+                  energyCost: { type: number }
+                  electricShare: { type: number, nullable: true, description: "Anteil Ladekosten an Energiekosten in %" }
+                  co2:
+                    type: object
+                    properties:
+                      totalKg: { type: number, nullable: true }
+                      gPerKm: { type: number, nullable: true }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/vehicles/{vehicleId}/costs:
     get:
       tags: [Stats]
@@ -723,6 +807,23 @@ paths:
                                 fuel: { type: number }
                                 charge: { type: number }
                                 expense: { type: number }
+                            byCategory:
+                              type: object
+                              description: "Kosten je Kategorie; Tank-/Ladevorgänge als Tankfuellung:<Einheit>"
+                              additionalProperties: { type: number }
+                  categories:
+                    type: array
+                    description: Summe und Anzahl je Kategorie im Zeitraum, größte zuerst
+                    items:
+                      type: object
+                      properties:
+                        key: { type: string, example: "Tankfuellung:l" }
+                        total: { type: number }
+                        count: { type: integer }
+                  years:
+                    type: array
+                    description: Jahre mit Kosten (gesamter Zeitraum), neueste zuerst
+                    items: { type: integer }
         "400":
           description: invalid_year
         "401":
@@ -2548,6 +2649,13 @@ components:
         missingOdometer:
           type: integer
           description: Anzahl Tank-/Ladevorgänge ohne echten Tachostand (fehlt oder geschätzt)
+        distance:
+          type: object
+          nullable: true
+          description: Gefahrene km seit Anschaffung (since=purchase) bzw. seit dem ersten echten Tachostand (since=firstEntry)
+          properties:
+            km: { type: integer }
+            since: { type: string, enum: [purchase, firstEntry] }
         avgConsumption:
           type: number
           nullable: true

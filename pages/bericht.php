@@ -21,7 +21,7 @@ try {
 $einheit = einheitKurz(getEinheitFuerKraftstoff($fahrzeug['fuel_type'] ?? null));
 $fuelType = (string)($fahrzeug['fuel_type'] ?? 'other');
 $begriffe = verbrauchsBegriffe($fuelType);
-$daten = getStatistikDatenFromApiForYear($api, $fahrzeug_id, $jahr);
+$daten = getStatistikDatenFromApi($api, $fahrzeug_id, $jahr);
 $jahresdaten = $jahr === null ? $daten['jahresdaten'] : array_intersect_key($daten['jahresdaten'], [$jahr => true]);
 $kategorien = $daten['detailAusgabenDaten'];
 uasort($kategorien, fn($a, $b) => $b['summe'] <=> $a['summe']);
@@ -36,14 +36,13 @@ foreach (getMergedEintraegeFromApi($api, $fahrzeug_id)['eintraege'] as $monatsEi
     }
 }
 usort($eintraege, fn($a, $b) => strcmp($a['datum'], $b['datum']));
-$co2Faktor = getCo2Faktor($fahrzeug['fuel_type'] ?? null);
 // Jahresübersicht je Einheit (Plug-in-Hybrid: eine Tabelle für Kraftstoff, eine für Strom)
 $tabellen = [];
 foreach ($daten['einheiten'] ?: [getEinheitFuerKraftstoff($fuelType) => ['jahresdaten' => $daten['jahresdaten']]] as $u => $ud) {
     $tabellen[$u] = [
         'kurz' => einheitKurz($u),
         'begriffe' => begriffeFuerEinheit($fuelType, $u),
-        'faktor' => getCo2Faktor($fuelType, $u),
+        'faktor' => $ud['api']['co2']['factor'] ?? null,
         'jahre' => $jahr === null ? $ud['jahresdaten'] : array_intersect_key($ud['jahresdaten'], [$jahr => true]),
     ];
 }
@@ -88,7 +87,7 @@ $f2 = fn($v) => number_format((float)$v, 2, ',', '.');
                 <td><?= $f2($d['gekauft_menge']) ?></td>
                 <td><?= $f2($d['gekauft_ausgaben']) ?> €</td>
                 <td><?= $d['verbrauch_l100km'] > 0 ? $f2($d['verbrauch_l100km']) : '–' ?></td>
-                <?php if ($t['faktor'] !== null): ?><td><?= number_format($d['gekauft_menge'] * $t['faktor'], 0, ',', '.') ?> kg</td><?php endif; ?>
+                <?php if ($t['faktor'] !== null): ?><td><?= number_format((float)($d['co2_kg'] ?? 0), 0, ',', '.') ?> kg</td><?php endif; ?>
             </tr>
         <?php endforeach; ?>
         </tbody>

@@ -43,24 +43,21 @@ app.use((req, res, next) => {
   next();
 });
 
-// Routen nach Fachbereich (Pfade relativ zu /api/v1)
-for (const bereich of [
-  'system', // health, whoami, db-ping
-  'auth', // Registrierung, Login, 2FA, Passwort, Token
-  'users', // Konten, Tarife, Beta (Admin bzw. eigenes Konto)
-  'mailSettings', // E-Mail-Einstellungen, Test- und Sofortversand
-  'vehicles', // Fahrzeuge
-  'fillups', // Tank- und Ladevorgänge
-  'categories', // Ausgaben-Kategorien
-  'entries', // Ausgaben, Fahrten, Kilometerstände
-  'import', // CSV-Import je Fahrzeug
-  'statistics', // Kennzahlen, Verbrauch, Kosten, Fälligkeiten
-  'stations', // Tankstellen und Ladestationen
-  'media', // Profil- und Fahrzeugbilder
-  'feedback'
-]) {
-  app.use('/api/v1', require(`./routes/${bereich}`));
-}
+// Routen nach Fachbereich (Pfade relativ zu /api/v1). Bewusst einzeln und statisch eingebunden: so ist für
+// Leser und für das Code-Scanning (CodeQL) erkennbar, dass alle Routen hinter dem Rate-Limit oben liegen.
+app.use('/api/v1', require('./routes/system')); // health, whoami, db-ping
+app.use('/api/v1', require('./routes/auth')); // Registrierung, Login, 2FA, Passwort, Token
+app.use('/api/v1', require('./routes/users')); // Konten, Tarife, Beta (Admin bzw. eigenes Konto)
+app.use('/api/v1', require('./routes/mailSettings')); // E-Mail-Einstellungen, Test- und Sofortversand
+app.use('/api/v1', require('./routes/vehicles')); // Fahrzeuge
+app.use('/api/v1', require('./routes/fillups')); // Tank- und Ladevorgänge
+app.use('/api/v1', require('./routes/categories')); // Ausgaben-Kategorien
+app.use('/api/v1', require('./routes/entries')); // Ausgaben, Fahrten, Kilometerstände
+app.use('/api/v1', require('./routes/import')); // CSV-Import je Fahrzeug
+app.use('/api/v1', require('./routes/statistics')); // Kennzahlen, Verbrauch, Kosten, Fälligkeiten
+app.use('/api/v1', require('./routes/stations')); // Tankstellen und Ladestationen
+app.use('/api/v1', require('./routes/media')); // Profil- und Fahrzeugbilder
+app.use('/api/v1', require('./routes/feedback'));
 
 app.use(uploadErrorHandler);
 

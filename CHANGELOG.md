@@ -8,6 +8,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ### Sicherheit
 - Abgewiesene Admin-Zugriffe werden mit dem Routenmuster statt der aufgerufenen Adresse protokolliert, damit keine Eingaben des Clients ins Log gelangen (Code-Scanning, Log-Injection).
+- Rate-Limit: Ob eine Anfrage je Konto oder je IP gezählt wird, entscheidet nur noch das geprüfte Token, nicht ob der Client überhaupt eines mitschickt (Code-Scanning).
 - Tarifänderungen werden protokolliert (wer, wann, von welchem zu welchem Tarif, über welchen Weg); abgewiesene Zugriffe auf Admin-Funktionen erscheinen im Log. Admins sehen den Verlauf je Konto über die API. Automatische Tests belegen, dass normale Konten ihren oder fremde Tarife nicht ändern können (#102).
 
 ### Neu

@@ -45,3 +45,15 @@ test('services/mfa: Base32 und TOTP nach RFC 6238', () => {
   assert.equal(verifyTotp(secret, '12345'), false, 'nur 6 Ziffern');
   assert.equal(verifyTotp('', '123456'), false, 'ohne Secret');
 });
+
+test('middleware/rateLimits: Zähler je Konto nur mit gültig signiertem Token, sonst je IP', () => {
+  const jwt = require('jsonwebtoken');
+  const { limitKey } = require('../src/middleware/rateLimits');
+  const req = (authorization) => ({ ip: '203.0.113.7', header: (n) => (n === 'Authorization' ? authorization : undefined) });
+  const gueltig = jwt.sign({ sub: 'konto-1' }, process.env.JWT_SECRET, { algorithm: 'HS256' });
+  const gefaelscht = jwt.sign({ sub: 'konto-1' }, 'anderer-schluessel-0123456789', { algorithm: 'HS256' });
+  assert.equal(limitKey(req(`Bearer ${gueltig}`)), 'u:konto-1');
+  assert.match(limitKey(req(`Bearer ${gefaelscht}`)), /^ip:/, 'falsch signiert zählt als anonym');
+  assert.match(limitKey(req('Bearer kaputt')), /^ip:/);
+  assert.match(limitKey(req(undefined)), /^ip:/, 'ohne Token je IP');
+});

@@ -1,21 +1,24 @@
 // Rate-Limits je Konto bzw. IP für die API, Uploads, Import, Stationssuchen und Bilder.
-// Aus backend/src/server.js ausgelagert (#110), Inhalt unverändert.
+// Aus backend/src/server.js ausgelagert (#110); limitKey entscheidet nur noch über das geprüfte Token.
 const jwt = require('jsonwebtoken');
 const { ipKeyGenerator, rateLimit } = require('express-rate-limit');
 const { bearerToken } = require('./auth');
 
 // Rate Limiting. Das PHP-Frontend ruft die API über den Server selbst auf, alle Nutzer kämen also von
 // derselben IP: angemeldete Anfragen zählen deshalb je Konto, nur anonyme je IP.
-function limitKey(req) {
-  const token = bearerToken(req);
-  if (token) {
-    try {
-      return 'u:' + jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] }).sub;
-    } catch {
-      // ungültiges Token: wie anonym behandeln
-    }
+// Nur ein gültig signiertes Token zählt als Konto; fehlendes oder ungültiges Token ergibt null (= anonym).
+// Entschieden wird über das geprüfte Ergebnis, nicht darüber, ob der Client ein Token mitschickt (Code-Scanning).
+function verifiedAccount(req) {
+  try {
+    const sub = jwt.verify(String(bearerToken(req) || ''), process.env.JWT_SECRET, { algorithms: ['HS256'] }).sub;
+    return typeof sub === 'string' && sub ? sub : null;
+  } catch {
+    return null;
   }
-  return 'ip:' + ipKeyGenerator(req.ip || '');
+}
+function limitKey(req) {
+  const account = verifiedAccount(req);
+  return account !== null ? 'u:' + account : 'ip:' + ipKeyGenerator(req.ip || '');
 }
 const limiter = (windowMs, angemeldet, anonym) => rateLimit({
   windowMs,

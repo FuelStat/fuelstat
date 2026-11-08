@@ -41,7 +41,7 @@ $email = ($b['email'] ?? '') !== '' ? htmlspecialchars(str_replace('@', '[at]', 
     <li>bei Verbrennern an die Tankerkönig-API (<a href="https://creativecommons.tankerkoenig.de" target="_blank" rel="noopener">creativecommons.tankerkoenig.de</a>), um Tankstellen und aktuelle Preise abzufragen,</li>
     <li>bei E-Autos an die API von Open Charge Map (<a href="https://openchargemap.org" target="_blank" rel="noopener">openchargemap.org</a>), um Ladestationen abzufragen.</li>
   </ul>
-  <p>Die Dienste erhalten dabei nur die Koordinaten und die Adresse des Fuelstat-Servers, keine Konto- oder Fahrzeugdaten. Die Ergebnisse der Ladestationssuche hält der Server einige Stunden für den gerundeten Standort vor, ohne Bezug zu deinem Konto. Dein Standort selbst wird nicht gespeichert, nur die Station, die du auswählst.</p>
+  <p>Die Dienste erhalten dabei nur die Koordinaten und die Adresse des Fuelstat-Servers, keine Konto- oder Fahrzeugdaten. Die Ergebnisse hält der Server für den gerundeten Standort kurz vor (Tankstellen einige Minuten, Ladestationen einige Stunden), ohne Bezug zu deinem Konto. Dein Standort selbst wird nicht gespeichert, nur die Station, die du auswählst.</p>
   <p>Gibst du deinen Standort nicht frei, kannst du stattdessen eine Postleitzahl oder einen Ort eingeben. Diese Eingabe sendet dein Browser direkt an den Ortssuchdienst Nominatim von OpenStreetMap (<a href="https://osmfoundation.org/wiki/Privacy_Policy" target="_blank" rel="noopener">OpenStreetMap Foundation</a>), um die Koordinaten zu ermitteln; dabei erhält OpenStreetMap deine IP-Adresse.</p>
 
   <h2 class="h5 mt-4">6. E-Mail-Benachrichtigungen</h2>

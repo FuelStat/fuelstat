@@ -249,34 +249,3 @@ function getKategorieName($kategorie, ?string $fuelType = null, ?string $einheit
     // Anzeigenamen kommen mit den Kategorien vom API (#95); unbekannte (alte Importe) heißen wie gespeichert
     return kategorieInfo((string)$kategorie)['name'] ?? (string)$kategorie;
 }
-
-/**
- * Holt Tankstellen in der Nähe per Tankerkönig-API
- *
- * @param float $lat   Breitengrad
- * @param float $lng   Längengrad
- * @param int   $radius Suchradius in km
- * @param string $type  Spritsorte ('e5', 'e10', 'diesel', 'all')
- * @param string $apikey Tankerkönig-API-Key
- * @return array|null   Array der Tankstellen oder null bei Fehler
- */
-function getNearbyStationsTankerkoenig(float $lat, float $lng, int $radius, string $type, string $apikey): ?array {
-    $url = 'https://creativecommons.tankerkoenig.de/json/list.php'
-        . '?lat=' . urlencode($lat)
-        . '&lng=' . urlencode($lng)
-        . '&rad=' . urlencode($radius)
-        . '&type=' . urlencode($type)
-        . '&sort=dist'
-        . '&apikey=' . urlencode($apikey);
-
-    $context = stream_context_create(['http' => ['timeout' => 10]]);
-    $json = @file_get_contents($url, false, $context);
-    if ($json === false) {
-        return null;
-    }
-    $data = json_decode($json, true);
-    if (!isset($data['stations'])) {
-        return null;
-    }
-    return $data['stations'];
-}

@@ -227,15 +227,8 @@ Die API sollte serverseitig direkt angesprochen werden, nicht über die öffentl
 
 Zusätzlich müssen folgende Angaben eingerichtet werden:
 
-- Tankerkönig-API-Key in `api/key.key`
-- Open-Charge-Map-API-Key in `api/ocm.key`
+- Tankerkönig-API-Key als `TANKERKOENIG_API_KEY` und Open-Charge-Map-API-Key als `OCM_API_KEY` in `infra/.env` (die Web-App fragt beide Dienste nur über die API)
 - Betreiberangaben in `includes/betreiber.php`
-
-Die Datei `api/ocm.key` ist versioniert. Nach dem Eintragen des eigenen Schlüssels:
-
-```bash
-git update-index --skip-worktree api/ocm.key
-```
 
 ### 4. nginx konfigurieren
 

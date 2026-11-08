@@ -462,7 +462,7 @@ function sucheBeenden() {
     btnSuche.innerHTML = '<i class="fas fa-map-marker-alt"></i>';
 }
 
-function zeigeTankstellen(stations, mitPreis, ortHinweis) {
+function zeigeTankstellen(stations, mitPreis, sorte, ortHinweis) {
     vorschlaege.replaceChildren();
     if (!stations || stations.length === 0) {
         zeigeHinweis('warning', 'Keine Tankstellen gefunden.', ortHinweis);
@@ -475,7 +475,9 @@ function zeigeTankstellen(stations, mitPreis, ortHinweis) {
         const marke = String(station.brand || '').trim();
         const ort = station.place ? ' (' + station.place + ')' : '';
         const eintrag = (marke && marke === name ? marke + ort : (marke + ort + ' ' + name)).trim();
-        const preis = mitPreis && typeof station.price === 'number' ? station.price.toFixed(3) : null;
+        // API (#123): Preise je Sorte, z. B. { e10: 1.759 }; null, wenn die Sorte fehlt
+        const wert = mitPreis && station.prices ? station.prices[sorte] : null;
+        const preis = typeof wert === 'number' ? wert.toFixed(3) : null;
 
         const li = document.createElement('li');
         li.className = 'list-group-item list-group-item-action';
@@ -507,7 +509,7 @@ function sucheTankstellen(lat, lng, radius, ortHinweis) {
             if (!response.ok) throw new Error(data.error || ('Status ' + response.status));
             return data;
         }))
-        .then(data => zeigeTankstellen(data.stations, mitPreis, ortHinweis))
+        .then(data => zeigeTankstellen(data.stations, mitPreis, type, ortHinweis))
         .catch(err => zeigeHinweis('danger', 'Fehler bei der Tankstellenabfrage.', err.message))
         .finally(sucheBeenden);
 }
@@ -536,31 +538,31 @@ function zeigeLadestationen(stations, ortHinweis) {
     liste.className = 'list-group';
     stations.forEach(station => {
         const li = document.createElement('li');
-        li.className = 'list-group-item list-group-item-action' + (station.in_betrieb ? '' : ' text-body-secondary');
+        li.className = 'list-group-item list-group-item-action' + (station.isOperational ? '' : ' text-body-secondary');
         li.style.cursor = 'pointer';
         const titel = document.createElement('div');
         titel.className = 'fw-semibold';
         // Betreiber nur nennen, wenn er nicht schon im Namen steckt ("Aldi Süd Bopfingen")
-        const betreiber = station.betreiber && !station.name.toLowerCase().includes(station.betreiber.toLowerCase()) ? station.betreiber : '';
+        const betreiber = station.operator && !station.name.toLowerCase().includes(station.operator.toLowerCase()) ? station.operator : '';
         titel.textContent = station.name + (betreiber ? ' – ' + betreiber : '');
         const details = document.createElement('div');
         details.className = 'small text-body-secondary';
         details.textContent = [
-            station.entfernung !== null ? String(station.entfernung).replace('.', ',') + ' km' : '',
-            station.max_kw ? 'bis ' + String(station.max_kw).replace('.', ',') + ' kW' : '',
-            (station.stecker || []).join(', '),
-            station.punkte ? station.punkte + ' Ladepunkte' : '',
-            station.in_betrieb ? '' : 'außer Betrieb',
+            station.distanceKm !== null ? String(station.distanceKm).replace('.', ',') + ' km' : '',
+            station.maxKw ? 'bis ' + String(station.maxKw).replace('.', ',') + ' kW' : '',
+            (station.connectors || []).join(', '),
+            station.points ? station.points + ' Ladepunkte' : '',
+            station.isOperational ? '' : 'außer Betrieb',
         ].filter(Boolean).join(' · ');
         li.append(titel, details);
-        if (station.kosten) {
+        if (station.usageCost) {
             const kosten = document.createElement('div');
             kosten.className = 'small';
-            kosten.textContent = 'Kosten laut Betreiber: ' + station.kosten;
+            kosten.textContent = 'Kosten laut Betreiber: ' + station.usageCost;
             li.append(kosten);
         }
         li.addEventListener('click', () => {
-            const ort = station.ort && !station.name.includes(station.ort) ? station.name + ' (' + station.ort + ')' : station.name;
+            const ort = station.place && !station.name.includes(station.place) ? station.name + ' (' + station.place + ')' : station.name;
             document.getElementById('standort').value = ort;
             preisAusHistorie(ort);
             vorschlaegeAusblenden();

@@ -177,6 +177,9 @@ class FuelstatApi
     public function patchEntry(string $entryId, array $data): array { return $this->request('PATCH', '/entries/' . rawurlencode($entryId), $data); }
     public function deleteEntry(string $entryId): void { $this->request('DELETE', '/entries/' . rawurlencode($entryId)); }
     public function getCategories(): array { return $this->request('GET', '/categories'); }
+    /** Tankstellen bzw. Ladestationen in der Nähe (#123): Fremddienste fragt nur die API, Keys liegen nur dort */
+    public function getStations(array $query): array { return $this->request('GET', '/stations?' . http_build_query($query)); }
+    public function getChargingStations(array $query): array { return $this->request('GET', '/charging-stations?' . http_build_query($query)); }
     public function postCategory(array $data): array { return $this->request('POST', '/categories', $data); }
     public function patchCategory(string $id, array $data): array { return $this->request('PATCH', '/categories/' . rawurlencode($id), $data); }
     public function deleteCategory(string $id, ?string $moveTo = null): array { return $this->request('DELETE', '/categories/' . rawurlencode($id) . ($moveTo !== null ? '?moveTo=' . rawurlencode($moveTo) : '')); }
@@ -255,7 +258,8 @@ class FuelstatApi
 
         if ($httpCode >= 400) {
             $message = $data['error'] ?? $data['message'] ?? ('HTTP ' . $httpCode);
-            error_log('[FuelstatApi] ' . $method . ' ' . $url . ' => ' . $httpCode . ' ' . (string)$message);
+            // Ohne Query loggen: sie kann z. B. Koordinaten der Stationssuche enthalten
+            error_log('[FuelstatApi] ' . $method . ' ' . strtok($url, '?') . ' => ' . $httpCode . ' ' . (string)$message);
             throw new FuelstatApiException((string)$message, $httpCode, isset($data['detail']) ? (string)$data['detail'] : null, $data);
         }
 

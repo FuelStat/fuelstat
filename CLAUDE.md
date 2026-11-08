@@ -83,9 +83,9 @@ Vor dem PR prüfen und am Ende einer Aufgabe daran erinnern, was davon fehlt:
 - **API-first:** Fachliche Berechnungen gehören in die API, nicht ins PHP-Frontend (#82). Clients
   stellen nur dar.
 - **Externe Dienste nur über die API** (Tankerkönig, Open Charge Map, später weitere): kein
-  direkter Aufruf aus PHP oder den Apps; API-Keys nur in der Server-Konfiguration (#127).
+  direkter Aufruf aus PHP oder den Apps; API-Keys nur in der Server-Konfiguration (#123).
 - Änderungen an der API nur abwärtskompatibel unter `/api/v1`; Brüche nur über `/api/v2`.
   Doku in `docs/api.md` und `docs/openapi.1.0.0.yaml` mit anpassen.
 - Tarifregeln setzt ausschließlich die API durch (#102).
-- Keine Secrets committen (`.env`, `api/key.key`, `api/ocm.key`, Tokens).
+- Keine Secrets committen (`.env`, Keys, Tokens).
 - Oberfläche, Doku und Commit-Texte auf Deutsch; PRs folgen `.github/pull_request_template.md`.

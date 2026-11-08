@@ -42,9 +42,8 @@ $RECYCLE.BIN/
 includes/db_connect.php
 .env
 .user.ini
+# Alte Key-Dateien des Frontends; die Keys liegen seit #123 nur noch in infra/.env
 api/key.key
-# Open Charge Map: leere Datei ist versioniert, damit sie auf dem Server existiert. Den Schlüssel dort eintragen
-# und mit "git update-index --skip-worktree api/ocm.key" vor versehentlichem Commit schützen.
 api/ocm.key
 
 # --- Projekt-spezifische Demos ---

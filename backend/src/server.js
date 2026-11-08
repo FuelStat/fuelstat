@@ -13,9 +13,11 @@ const { getVehicleReminders } = require('./services/reminders');
 const { encryptSecret, decryptSecret, sendUserMail, resolveSmtpHost, ALLOWED_PORTS, loadDefaultSmtp, withDefaultSmtp } = require('./services/mail');
 const notifier = require('./services/notifier');
 const plans = require('./services/plans');
+const planChanges = require('./services/planChanges');
 const categories = require('./services/categories');
 const media = require('./services/media');
 const stations = require('./services/stations');
+const chargingStations = require('./services/chargingStations');
 // Version der API (#111): aus package.json, das neue-version.js zusammen mit VERSION pflegt
 const API_VERSION = require('../package.json').version;
 const { checkOdometer, loadOdometerPoints, odometerWarnings } = require('./services/odometer');
@@ -65,6 +67,8 @@ const uploadLimiter = limiter(10 * 60 * 1000, 30, 30);
 const importLimiter = limiter(10 * 60 * 1000, 60, 60);
 // Tankstellensuche: schont das Kontingent des Tankerkönig-Keys (Ergebnisse sind zusätzlich 2 Minuten gecacht)
 const stationsLimiter = limiter(60 * 1000, 30, 30);
+// Ladestationssuche (#123): schont das Open-Charge-Map-Kontingent (Ergebnisse sind zusätzlich 6 Stunden gecacht)
+const chargingStationsLimiter = limiter(60 * 1000, 30, 30);
 // Signierte Bilder (#103): ohne Anmeldung, zählen je IP; großzügig, eine Seite lädt mehrere Bilder
 const fileLimiter = limiter(60 * 1000, 2000, 2000);
 
@@ -455,7 +459,11 @@ function isAdmin(req) {
 }
 
 function requireAdmin(req, res, next) {
-  if (!isAdmin(req)) return res.status(403).json({ error: 'forbidden' });
+  if (!isAdmin(req)) {
+    // Abgewiesene Zugriffe auf Admin-Funktionen protokollieren (#102): Konto, Methode, Pfad – ohne Body und Token
+    console.warn(`[admin] abgewiesen: ${req.method} ${req.originalUrl.split('?')[0]} von Konto ${req.user?.sub || '-'}`);
+    return res.status(403).json({ error: 'forbidden' });
+  }
   return next();
 }
 
@@ -813,30 +821,43 @@ function parsePlanBody(body) {
     if (Number.isNaN(d.getTime())) return { error: 'invalid_planUntil' };
     planUntil = d.toISOString();
   }
+  // Notiz fürs Protokoll (z. B. "Tester", "Kulanz"), optional und gekürzt
+  const note = body?.note ? String(body.note).trim().slice(0, 200) || null : null;
   // Free ist immer unbefristet
-  return { plan, planUntil: plan === 'free' ? null : planUntil };
+  return { plan, planUntil: plan === 'free' ? null : planUntil, note };
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Tarif setzen (nur Admin), z. B. Plus für Tester und Freunde. planUntil: ISO-Datum oder null (unbefristet)
 app.put('/api/v1/auth/users/:userId/plan', auth, requireAdmin, async (req, res) => {
   const p = parsePlanBody(req.body);
   if (p.error) return res.status(400).json({ error: p.error, allowed: plans.PLAN_NAMES });
+  const userId = String(req.params.userId || '').trim();
+  if (!UUID_RE.test(userId)) return res.status(404).json({ error: 'user_not_found' });
   try {
-    const r = await pool.query(
-      `UPDATE users SET plan = $2, plan_until = $3, updated_at = now() WHERE id = $1
-       RETURNING id, email, plan, plan_until`,
-      [String(req.params.userId || '').trim(), p.plan, p.planUntil]
-    );
-    if (r.rowCount === 0) return res.status(404).json({ error: 'user_not_found' });
-    res.json({ id: r.rows[0].id, email: r.rows[0].email, ...plans.planInfo(r.rows[0]) });
+    const [u] = await planChanges.setPlans(pool, {
+      userIds: [userId], plan: p.plan, planUntil: p.planUntil, source: 'admin', changedBy: req.user.sub, note: p.note
+    });
+    if (!u) return res.status(404).json({ error: 'user_not_found' });
+    res.json({ id: u.id, email: u.email, ...plans.planInfo(u) });
   } catch (e) {
-    if (e.code === '22P02') return res.status(404).json({ error: 'user_not_found' });
+    serverError(res, e);
+  }
+});
+
+// Verlauf der Tarifänderungen eines Kontos (nur Admin, #102)
+app.get('/api/v1/auth/users/:userId/plan-history', auth, requireAdmin, async (req, res) => {
+  const userId = String(req.params.userId || '').trim();
+  if (!UUID_RE.test(userId)) return res.status(404).json({ error: 'user_not_found' });
+  try {
+    res.json({ changes: await planChanges.history(pool, userId) });
+  } catch (e) {
     serverError(res, e);
   }
 });
 
 // Tarif für mehrere Konten auf einmal setzen (nur Admin): { userIds: [...], plan, planUntil }
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 app.put('/api/v1/auth/plans', auth, requireAdmin, async (req, res) => {
   const p = parsePlanBody(req.body);
   if (p.error) return res.status(400).json({ error: p.error, allowed: plans.PLAN_NAMES });
@@ -845,11 +866,11 @@ app.put('/api/v1/auth/plans', auth, requireAdmin, async (req, res) => {
     return res.status(400).json({ error: 'invalid_userIds' });
   }
   try {
-    const r = await pool.query(
-      `UPDATE users SET plan = $2, plan_until = $3, updated_at = now() WHERE id = ANY($1::uuid[]) RETURNING id`,
-      [ids, p.plan, p.planUntil]
-    );
-    res.json({ updated: r.rowCount, plan: p.plan, planUntil: p.planUntil });
+    const r = await planChanges.setPlans(pool, {
+      userIds: ids, plan: p.plan, planUntil: p.planUntil, source: 'admin', changedBy: req.user.sub, note: p.note
+    });
+    // updated = gefundene Konten (wie bisher), changed = davon tatsächlich geändert
+    res.json({ updated: r.length, changed: r.filter((u) => u.changed).length, plan: p.plan, planUntil: p.planUntil });
   } catch (e) {
     serverError(res, e);
   }
@@ -2636,6 +2657,19 @@ app.get('/api/v1/stations', auth, stationsLimiter, async (req, res) => {
   const list = await stations.nearbyStations(params, { apiKey });
   if (!list) return res.status(502).json({ error: 'stations_unavailable' });
   res.json({ stations: list, source: 'Tankerkönig', license: 'CC BY 4.0', sourceUrl: 'https://www.tankerkoenig.de' });
+});
+
+// Ladestationen in der Nähe (Open Charge Map, #123), für Web-App und Apps. Der Key verlässt den Server nie.
+app.get('/api/v1/charging-stations', auth, chargingStationsLimiter, async (req, res) => {
+  const apiKey = String(process.env.OCM_API_KEY || '').trim();
+  if (!apiKey) return res.status(503).json({ error: 'charging_stations_not_configured' });
+
+  const params = chargingStations.parseQuery(req.query);
+  if (params.error) return res.status(400).json({ error: params.error });
+
+  const list = await chargingStations.nearbyChargingStations(params, { apiKey });
+  if (!list) return res.status(502).json({ error: 'charging_stations_unavailable' });
+  res.json({ stations: list, source: 'Open Charge Map', license: 'CC BY 4.0', sourceUrl: 'https://openchargemap.org' });
 });
 
 // ============================================

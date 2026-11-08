@@ -1,5 +1,5 @@
 -- backend/database/postgres_init.sql
--- Vollständiges Schema für eine NEUE Installation (Stand: Migration 014).
+-- Vollständiges Schema für eine NEUE Installation (Stand: Migration 015).
 -- Beim ersten Start der Datenbank spielt Docker diese Datei automatisch ein (siehe infra/docker-compose.yml).
 -- Bestehende Installationen nutzen stattdessen die Migrationen postgres_0XX_*.sql.
 BEGIN;
@@ -206,5 +206,21 @@ CREATE TABLE IF NOT EXISTS feedback (
 );
 
 CREATE INDEX IF NOT EXISTS idx_feedback_created ON feedback(created_at DESC);
+
+-- Protokoll der Tarifänderungen (#102)
+CREATE TABLE IF NOT EXISTS plan_changes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  old_plan text NOT NULL,
+  old_plan_until timestamptz NULL,
+  new_plan text NOT NULL,
+  new_plan_until timestamptz NULL,
+  source text NOT NULL CHECK (source IN ('admin', 'cli', 'webhook')),
+  changed_by uuid NULL,  -- Admin-Konto bei source = 'admin'; bewusst ohne Fremdschlüssel, damit das Protokoll bleibt
+  note text NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_plan_changes_user ON plan_changes(user_id, created_at DESC);
 
 COMMIT;

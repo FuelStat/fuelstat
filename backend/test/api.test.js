@@ -357,6 +357,76 @@ test('Tarife (#44): Grenzen nur mit PLAN_LIMITS_ENABLED', async () => {
   assert.equal((await api('PUT', '/auth/plans', { token: u.token, body: { userIds: [u.id], plan: 'plus' } })).status, 403);
 });
 
+test('Tarifstatus nur serverseitig (#102): verbotene und erlaubte Änderungen, Protokoll', async () => {
+  const u = await newUser();
+  const andere = await newUser();
+  const admin = await newUser();
+  const tarif = async (token) => (await api('GET', '/whoami', { token })).body.plan;
+
+  // Normale Konten: weder sich selbst noch andere hochstufen, weder einzeln noch gesammelt
+  for (const [ziel, label] of [[u.id, 'selbst'], [andere.id, 'anderes Konto']]) {
+    assert.equal((await api('PUT', `/auth/users/${ziel}/plan`, { token: u.token, body: { plan: 'plus' } })).status, 403, label);
+    assert.equal((await api('PUT', `/auth/users/${ziel}/beta`, { token: u.token, body: { betaTester: true } })).status, 403, label);
+  }
+  assert.equal((await api('PUT', '/auth/plans', { token: u.token, body: { userIds: [u.id], plan: 'fleet' } })).status, 403);
+  assert.equal((await api('GET', `/auth/users/${u.id}/plan-history`, { token: u.token })).status, 403);
+
+  // Manipuliertes Profil-Update: Tarif-, Laufzeit- und Beta-Felder werden ignoriert
+  const patch = await api('PATCH', `/auth/users/${u.id}`, {
+    token: u.token,
+    body: { username: `neu-${unique()}`, plan: 'fleet', plan_until: '2099-01-01', planUntil: '2099-01-01', beta_tester: false, betaTester: false, is_admin: true }
+  });
+  assert.equal(patch.status, 200);
+  assert.equal(await tarif(u.token), 'free');
+  const ohneErlaubtesFeld = await api('PATCH', `/auth/users/${u.id}`, { token: u.token, body: { plan: 'plus' } });
+  assert.equal(ohneErlaubtesFeld.status, 400);
+  assert.equal(ohneErlaubtesFeld.body.error, 'nothing_to_update');
+  assert.equal(await tarif(u.token), 'free');
+
+  // Registrierung mit Tarif im Body bleibt free
+  const reg = await api('POST', '/auth/register', { body: { email: `test-${unique()}@example.test`, password: 'Passwort123', plan: 'plus' } });
+  assert.equal(reg.status, 201);
+  assert.equal(await tarif(reg.body.token), 'free');
+
+  // Betreiber (Admin): setzen, ändern, zurücksetzen – mit Protokoll
+  const vorher = process.env.ADMIN_USER_IDS;
+  process.env.ADMIN_USER_IDS = admin.id;
+  try {
+    assert.equal((await api('PUT', `/auth/users/${u.id}/plan`, { token: admin.token, body: { plan: 'gold' } })).status, 400);
+    assert.equal((await api('PUT', '/auth/users/keine-uuid/plan', { token: admin.token, body: { plan: 'plus' } })).status, 404);
+
+    const plus = await api('PUT', `/auth/users/${u.id}/plan`, { token: admin.token, body: { plan: 'plus', planUntil: '2030-01-31', note: 'Tester' } });
+    assert.equal(plus.status, 200);
+    assert.equal(plus.body.plan, 'plus');
+    assert.equal(await tarif(u.token), 'plus');
+
+    // Gleicher Tarif noch einmal: kein neuer Protokolleintrag
+    const gleich = await api('PUT', '/auth/plans', { token: admin.token, body: { userIds: [u.id], plan: 'plus', planUntil: '2030-01-31' } });
+    assert.equal(gleich.status, 200);
+    assert.equal(gleich.body.updated, 1);
+    assert.equal(gleich.body.changed, 0);
+
+    assert.equal((await api('PUT', `/auth/users/${u.id}/plan`, { token: admin.token, body: { plan: 'free', planUntil: '2031-01-01' } })).status, 200);
+    assert.equal(await tarif(u.token), 'free');
+
+    const verlauf = await api('GET', `/auth/users/${u.id}/plan-history`, { token: admin.token });
+    assert.equal(verlauf.status, 200);
+    assert.equal(verlauf.body.changes.length, 2);
+    const [zurueck, hoch] = verlauf.body.changes;
+    assert.equal(zurueck.oldPlan, 'plus');
+    assert.equal(zurueck.newPlan, 'free');
+    assert.equal(zurueck.newPlanUntil, null, 'Free ist immer unbefristet');
+    assert.equal(hoch.oldPlan, 'free');
+    assert.equal(hoch.newPlan, 'plus');
+    assert.equal(hoch.source, 'admin');
+    assert.equal(hoch.changedBy, admin.id);
+    assert.equal(hoch.note, 'Tester');
+    assert.ok(hoch.newPlanUntil.startsWith('2030-01-31'));
+  } finally {
+    if (vorher === undefined) delete process.env.ADMIN_USER_IDS; else process.env.ADMIN_USER_IDS = vorher;
+  }
+});
+
 test('Kategorien (#95): Liste, Premium, eigene Kategorien', async () => {
   const u = await newUser();
   const v = await newVehicle(u.token);
@@ -520,6 +590,27 @@ test('Anmeldung verlängern (#56)', async () => {
   await new Promise((res) => setTimeout(res, 1100));
   assert.equal((await api('POST', `/auth/users/${u.id}/revoke-all`, { token: r.body.token })).status, 201);
   assert.equal((await api('POST', '/auth/refresh', { token: r.body.token })).status, 401);
+});
+
+test('Ladestationssuche (#123): nur angemeldet, prüft Eingaben, ohne Key 503', async () => {
+  const u = await newUser();
+  const vorher = process.env.OCM_API_KEY;
+  try {
+    assert.equal((await api('GET', '/charging-stations?lat=48.9&lng=10.1')).status, 401, 'ohne Token');
+
+    delete process.env.OCM_API_KEY;
+    const ohneKey = await api('GET', '/charging-stations?lat=48.9&lng=10.1', { token: u.token });
+    assert.equal(ohneKey.status, 503);
+    assert.equal(ohneKey.body.error, 'charging_stations_not_configured');
+
+    process.env.OCM_API_KEY = 'test-key';
+    const falsch = await api('GET', '/charging-stations?lat=48.9&lng=200', { token: u.token });
+    assert.equal(falsch.status, 400);
+    assert.equal(falsch.body.error, 'invalid_coordinates');
+    assert.equal((await api('GET', '/charging-stations?lat=48&lng=10&radius=0', { token: u.token })).body.error, 'invalid_radius');
+  } finally {
+    if (vorher === undefined) delete process.env.OCM_API_KEY; else process.env.OCM_API_KEY = vorher;
+  }
 });
 
 test('CORS ist ohne CORS_ORIGINS aus', async () => {

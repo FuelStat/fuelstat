@@ -167,33 +167,17 @@ function getVehicleStatsForDisplay($api, string $vehicleId): array
 }
 
 /**
- * Gefahrene Kilometer: aktueller Tachostand minus Anfangs-Tachostand des Fahrzeugs,
- * ersatzweise minus Tachostand der ersten erfassten Tankfüllung.
+ * Gefahrene Kilometer aus der API (/stats → distance, #82): seit Anschaffung, sonst seit dem ersten Eintrag.
+ * @param array $stats Antwort von getVehicleStatsForDisplay()
  * @return array|null [ 'km' => int, 'basis' => string ]
  */
-function getFahrleistungFromApi($api, string $vehicleId, array $fahrzeug, $currentOdo): ?array
+function getFahrleistungFromApi(array $stats): ?array
 {
-    if ($currentOdo === null) {
+    $d = $stats['distance'] ?? null;
+    if (!is_array($d) || !isset($d['km'])) {
         return null;
     }
-    $currentOdo = (int)$currentOdo;
-
-    $initial = $fahrzeug['odometer_km'] ?? null;
-    if ($initial !== null && (int)$initial <= $currentOdo) {
-        return ['km' => $currentOdo - (int)$initial, 'basis' => 'seit Anschaffung'];
-    }
-
-    try {
-        $fillups = $api->getAllVehicleFillups($vehicleId);
-    } catch (Throwable $e) {
-        return null;
-    }
-    // Nur echte Tachostände (fehlende und geschätzte zählen nicht, #41)
-    $odos = array_filter(array_map(fn($f) => empty($f['odometer_estimated']) ? ($f['odometer_km'] ?? null) : null, $fillups), fn($o) => $o !== null);
-    if (!$odos) {
-        return null;
-    }
-    return ['km' => $currentOdo - (int)min($odos), 'basis' => 'seit dem ersten Eintrag'];
+    return ['km' => (int)$d['km'], 'basis' => ($d['since'] ?? '') === 'purchase' ? 'seit Anschaffung' : 'seit dem ersten Eintrag'];
 }
 
 /**
@@ -225,210 +209,96 @@ function hatEchtenTachostand(array $row): bool
 }
 
 /**
- * Statistik- und Ausgabendaten aus API (Fillups + Entries) für Statistiken-/Ausgaben-Tabs.
+ * Statistik- und Ausgabendaten für Statistik, Übersicht und Bericht. Alle Werte rechnet die API (#82):
+ * Verbrauch, Mengen und CO₂ aus /vehicles/:id/consumption, Kosten aus /vehicles/:id/costs.
+ * Diese Funktion bringt sie nur in die Form, die die Seiten erwarten.
+ *
+ * @param int|null $jahr Kosten (Kategorien, Monate) nur für dieses Jahr; Verbrauch immer gesamt
  */
-function getStatistikDatenFromApi($api, string $vehicleId): array
+function getStatistikDatenFromApi($api, string $vehicleId, ?int $jahr = null): array
 {
-    $merged = getMergedEintraegeFromApi($api, $vehicleId);
-    $flat = [];
-    foreach ($merged['eintraege'] as $entries) {
-        foreach ($entries as $e) {
-            $flat[] = $e;
-        }
+    $leer = ['verbrauchswerte' => [], 'verbrauchProMonat' => [], 'kostenProMonat' => [], 'jahresdaten' => [],
+        'ausgabenDaten' => [], 'detailAusgabenDaten' => [], 'verfuegbareJahre' => [], 'einheiten' => [],
+        'verbrauch' => null, 'kosten' => null];
+    $pfad = '/vehicles/' . rawurlencode($vehicleId);
+    $api->vorladen([$pfad . '/consumption', $pfad . '/costs' . ($jahr !== null ? '?year=' . $jahr : '')]);
+    try {
+        $verbrauch = $api->getVehicleConsumption($vehicleId);
+        $kosten = $api->getVehicleCosts($vehicleId, $jahr);
+    } catch (Throwable $e) {
+        return $leer;
     }
 
-    $verbrauchProMonat = [];
-    $kostenProMonat = [];
-    $verbrauchswerte = [];
-    $jahresdaten = [];
-    $ausgabenDaten = [];
-    $detailAusgabenDaten = [];
-    $verfuegbareJahre = [];
-
-    $fillupsOnly = array_filter($flat, function ($e) {
-        return ($e['kategorie'] ?? '') === 'Tankfuellung' && !empty($e['datum']);
-    });
-    // Bei mehreren Tankfüllungen/Ladungen am selben Tag entscheidet der Tachostand; Einträge ohne Tachostand
-    // kommen danach (wie in backend/src/services/stats.js), ihre Menge zählt zum nächsten Abschnitt
-    usort($fillupsOnly, fn($a, $b) => [$a['datum'], $a['tachostand'] ?? PHP_INT_MAX] <=> [$b['datum'], $b['tachostand'] ?? PHP_INT_MAX]);
-    // Je Einheit getrennt rechnen: beim Plug-in-Hybrid Liter von Tankfüllung zu Tankfüllung, kWh von Ladung zu Ladung
-    $nachEinheit = [];
-    foreach ($fillupsOnly as $row) {
-        $nachEinheit[$row['einheit'] ?? 'l'][] = $row;
-    }
-    uksort($nachEinheit, fn($a, $b) => array_search($a, ['l', 'kwh', 'kg']) <=> array_search($b, ['l', 'kwh', 'kg']));
-
-    foreach ($flat as $e) {
-        $datum = $e['datum'] ?? '';
-        if ($datum === '') continue;
-        $monat = substr($datum, 0, 7);
-        $jahr = (int)substr($datum, 0, 4);
-        $kosten = (float)($e['kosten'] ?? 0);
-        $kat = $e['kategorie'] ?? 'Sonstige';
-        if (istEintragOhneKosten($kat)) continue;
-        if (!in_array($jahr, $verfuegbareJahre, true)) {
-            $verfuegbareJahre[] = $jahr;
-        }
-        $kostenProMonat[$monat] = ($kostenProMonat[$monat] ?? 0) + $kosten;
-        $ausgabenDaten[$kat] = ($ausgabenDaten[$kat] ?? 0) + $kosten;
-        if (!isset($detailAusgabenDaten[$kat])) {
-            $detailAusgabenDaten[$kat] = ['summe' => 0, 'anzahl' => 0];
-        }
-        $detailAusgabenDaten[$kat]['summe'] += $kosten;
-        $detailAusgabenDaten[$kat]['anzahl']++;
-    }
-    rsort($verfuegbareJahre);
-
+    $jahre = $kosten['years'] ?? [];
     $einheiten = [];
-    foreach ($nachEinheit as $einheit => $rows) {
-        $einheiten[$einheit] = verbrauchAusTankfuellungen($rows, $verfuegbareJahre);
-    }
-    // Bisherige Schlüssel: Werte der ersten Einheit (beim Plug-in-Hybrid der Kraftstoff)
-    $haupt = $einheiten ? reset($einheiten) : verbrauchAusTankfuellungen([], $verfuegbareJahre);
-    $verbrauchswerte = $haupt['verbrauchswerte'];
-    $verbrauchProMonat = $haupt['verbrauchProMonat'];
-    $jahresdaten = $haupt['jahresdaten'];
-
-    return [
-        'verbrauchswerte' => $verbrauchswerte,
-        'verbrauchProMonat' => $verbrauchProMonat,
-        'kostenProMonat' => $kostenProMonat,
-        'jahresdaten' => $jahresdaten,
-        'ausgabenDaten' => $ausgabenDaten,
-        'detailAusgabenDaten' => $detailAusgabenDaten,
-        'verfuegbareJahre' => $verfuegbareJahre,
-        'einheiten' => $einheiten,
-    ];
-}
-
-/**
- * Verbrauch aus Tank- bzw. Ladevorgängen einer Einheit (nach Datum und Tachostand sortiert), Full-to-Full.
- * @return array verbrauchswerte (Datum => Wert je voller Füllung), verbrauchProMonat, jahresdaten je Jahr
- */
-function verbrauchAusTankfuellungen(array $rows, array $jahre): array
-{
-    $verbrauchswerte = [];
-    $verbrauchProMonat = [];
-    $jahresdaten = [];
-    foreach ($jahre as $y) {
-        $jahresdaten[$y] = [
-            'anzahl_tankstops' => 0,
-            'gekauft_menge' => 0.0,
-            'gekauft_ausgaben' => 0.0,
-            'verbrauch_menge' => 0.0,
-            'verbrauch_km' => 0.0,
-            'verbrauch_l100km' => 0.0,
-        ];
-    }
-    $letzteVoll = null;
-    $mengeSeitVoll = 0.0;
-    foreach ($rows as $row) {
-        $y = (int)substr($row['datum'], 0, 4);
-        if (isset($jahresdaten[$y])) {
-            $jahresdaten[$y]['anzahl_tankstops']++;
-            $jahresdaten[$y]['gekauft_menge'] += (float)($row['menge'] ?? 0);
-            $jahresdaten[$y]['gekauft_ausgaben'] += (float)($row['kosten'] ?? 0);
-        }
-        $mengeSeitVoll += (float)($row['menge'] ?? 0);
-        // Ohne echten Tachostand (fehlt oder geschätzt) zählt auch eine Vollbetankung wie eine Teilbetankung (#41)
-        if (!empty($row['vollgetankt']) && hatEchtenTachostand($row)) {
-            // skip_previous: nur neuer Startpunkt, kein Verbrauch über die Lücke
-            if ($letzteVoll && empty($row['skip_previous']) && ($row['tachostand'] - $letzteVoll['tachostand']) > 0) {
-                $km = $row['tachostand'] - $letzteVoll['tachostand'];
-                $monat = substr($row['datum'], 0, 7);
-                if (!isset($verbrauchProMonat[$monat])) {
-                    $verbrauchProMonat[$monat] = ['liter' => 0.0, 'km' => 0];
-                }
-                $verbrauchProMonat[$monat]['liter'] += $mengeSeitVoll;
-                $verbrauchProMonat[$monat]['km'] += $km;
-                if (isset($jahresdaten[$y])) {
-                    $jahresdaten[$y]['verbrauch_menge'] += $mengeSeitVoll;
-                    $jahresdaten[$y]['verbrauch_km'] += $km;
-                }
-                // Schlüssel = Datum; weitere Werte am selben Tag bekommen " #2", " #3" … angehängt
-                $schluessel = $row['datum'];
-                for ($n = 2; isset($verbrauchswerte[$schluessel]); $n++) {
-                    $schluessel = $row['datum'] . ' #' . $n;
-                }
-                $verbrauchswerte[$schluessel] = ($mengeSeitVoll / $km) * 100;
+    foreach ($verbrauch['units'] ?? [] as $u) {
+        $ud = $verbrauch['byUnit'][$u];
+        // Verbrauch je Abschnitt: Datum der abschließenden vollen Füllung; weitere am selben Tag mit " #2", " #3" …
+        $werte = [];
+        foreach ($ud['segments'] as $seg) {
+            if ($seg['consumption'] === null) continue;
+            $schluessel = $seg['date'];
+            for ($n = 2; isset($werte[$schluessel]); $n++) {
+                $schluessel = $seg['date'] . ' #' . $n;
             }
-            $letzteVoll = $row;
-            $mengeSeitVoll = 0.0;
+            $werte[$schluessel] = (float)$seg['consumption'];
         }
-    }
-    foreach ($verbrauchProMonat as $monat => $d) {
-        $verbrauchProMonat[$monat] = $d['km'] > 0 ? round(($d['liter'] / $d['km']) * 100, 2) : 0.0;
-    }
-    foreach ($jahresdaten as $y => &$d) {
-        if ($d['verbrauch_km'] > 0) {
-            $d['verbrauch_l100km'] = round(($d['verbrauch_menge'] / $d['verbrauch_km']) * 100, 2);
+        $monate = [];
+        foreach ($ud['months'] as $m) {
+            $monate[$m['month']] = (float)($m['consumption'] ?? 0);
         }
+        // Jahresübersicht mit allen Jahren, in denen es Kosten gab (auch ohne Tank-/Ladevorgang)
+        $jahresdaten = [];
+        foreach (array_unique(array_merge($jahre, array_column($ud['years'], 'year'))) as $y) {
+            $jahresdaten[(int)$y] = ['anzahl_tankstops' => 0, 'gekauft_menge' => 0.0, 'gekauft_ausgaben' => 0.0,
+                'verbrauch_menge' => 0.0, 'verbrauch_km' => 0.0, 'verbrauch_l100km' => 0.0, 'co2_kg' => null];
+        }
+        foreach ($ud['years'] as $y) {
+            $jahresdaten[(int)$y['year']] = [
+                'anzahl_tankstops' => (int)$y['fillCount'],
+                'gekauft_menge' => (float)$y['amountBought'],
+                'gekauft_ausgaben' => (float)$y['cost'],
+                'verbrauch_menge' => (float)$y['amountConsumed'],
+                'verbrauch_km' => (float)$y['kmConsumed'],
+                'verbrauch_l100km' => (float)($y['consumption'] ?? 0),
+                'co2_kg' => $y['co2Kg'],
+            ];
+        }
+        krsort($jahresdaten);
+        $einheiten[$u] = ['verbrauchswerte' => $werte, 'verbrauchProMonat' => $monate, 'jahresdaten' => $jahresdaten, 'api' => $ud];
     }
-    unset($d);
-    return ['verbrauchswerte' => $verbrauchswerte, 'verbrauchProMonat' => $verbrauchProMonat, 'jahresdaten' => $jahresdaten];
-}
 
-/** Filtert Statistikdaten nach Jahr (für Ausgaben-Tab). */
-function getStatistikDatenFromApiForYear($api, string $vehicleId, ?int $year): array
-{
-    $all = getStatistikDatenFromApi($api, $vehicleId);
-    if ($year === null) {
-        return $all;
+    // Kosten je Kategorie; Tank- und Ladevorgänge zusammen als "Tankfuellung" (Plug-in-Hybrid getrennt siehe 'kosten')
+    $detail = [];
+    foreach ($kosten['categories'] ?? [] as $c) {
+        $k = str_starts_with($c['key'], 'Tankfuellung:') ? 'Tankfuellung' : $c['key'];
+        $detail[$k] ??= ['summe' => 0.0, 'anzahl' => 0];
+        $detail[$k]['summe'] += (float)$c['total'];
+        $detail[$k]['anzahl'] += (int)$c['count'];
     }
-    $flat = [];
-    $merged = getMergedEintraegeFromApi($api, $vehicleId);
-    foreach ($merged['eintraege'] as $entries) {
-        foreach ($entries as $e) {
-            if ((int)substr($e['datum'] ?? '', 0, 4) === $year) {
-                $flat[] = $e;
-            }
-        }
-    }
-    $ausgabenDaten = [];
-    $detailAusgabenDaten = [];
-    $gesamtKosten = 0;
     $kostenProMonat = [];
-    foreach ($flat as $e) {
-        $kat = $e['kategorie'] ?? 'Sonstige';
-        if (istEintragOhneKosten($kat)) continue;
-        $kosten = (float)($e['kosten'] ?? 0);
-        $ausgabenDaten[$kat] = ($ausgabenDaten[$kat] ?? 0) + $kosten;
-        $gesamtKosten += $kosten;
-        if (!isset($detailAusgabenDaten[$kat])) {
-            $detailAusgabenDaten[$kat] = ['summe' => 0, 'anzahl' => 0];
-        }
-        $detailAusgabenDaten[$kat]['summe'] += $kosten;
-        $detailAusgabenDaten[$kat]['anzahl']++;
-        $monat = substr($e['datum'] ?? '', 0, 7);
-        if ($monat) {
-            $kostenProMonat[$monat] = ($kostenProMonat[$monat] ?? 0) + $kosten;
+    foreach ($kosten['months'] ?? [] as $m) {
+        if ($m['total'] > 0) {
+            $kostenProMonat[$m['month']] = (float)$m['total'];
         }
     }
-    return array_merge($all, [
-        'ausgabenDaten' => $ausgabenDaten,
-        'detailAusgabenDaten' => $detailAusgabenDaten,
+    ksort($kostenProMonat);
+
+    $haupt = $einheiten ? reset($einheiten) : ['verbrauchswerte' => [], 'verbrauchProMonat' => [], 'jahresdaten' => array_fill_keys($jahre, [])];
+    return [
+        'verbrauchswerte' => $haupt['verbrauchswerte'],
+        'verbrauchProMonat' => $haupt['verbrauchProMonat'],
         'kostenProMonat' => $kostenProMonat,
-        'gesamtKostenForYear' => $gesamtKosten,
-        'anzahlMonateForYear' => count($kostenProMonat),
-    ]);
-}
-
-function holeVerfügbareJahreFromApi($api, string $vehicleId): array
-{
-    $d = getStatistikDatenFromApi($api, $vehicleId);
-    return $d['verfuegbareJahre'];
-}
-
-function holeAnzahlMonateFromApi($api, string $vehicleId, ?int $jahr): int
-{
-    $d = getStatistikDatenFromApi($api, $vehicleId);
-    $kosten = $d['kostenProMonat'];
-    if ($jahr !== null) {
-        $kosten = array_filter($kosten, function ($monat) use ($jahr) {
-            return (int)substr($monat, 0, 4) === $jahr;
-        }, ARRAY_FILTER_USE_KEY);
-    }
-    return count($kosten);
+        'jahresdaten' => $haupt['jahresdaten'],
+        'ausgabenDaten' => array_map(fn($x) => $x['summe'], $detail),
+        'detailAusgabenDaten' => $detail,
+        'verfuegbareJahre' => $jahre,
+        'einheiten' => $einheiten,
+        'gesamtKosten' => (float)($kosten['total']['total'] ?? 0),
+        // Rohdaten der API für Kennzahlen (Ø, Min, Max, CO₂, Stromanteil, Kosten pro km)
+        'verbrauch' => $verbrauch,
+        'kosten' => $kosten,
+    ];
 }
 
 /**

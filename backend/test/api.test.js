@@ -68,13 +68,15 @@ async function fillup(token, vehicleId, data) {
 }
 
 // TOTP (RFC 6238) für den 2FA-Test
-function totp(secretBase32) {
+// delta: Zeitfenster relativ zu jetzt (je 30 s). Jeder Code gilt nur einmal, die Tests nutzen deshalb aufeinanderfolgende
+// Fenster im erlaubten Bereich -1 … +1.
+function totp(secretBase32, delta = 0) {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
   let bits = '';
   for (const ch of secretBase32.replace(/=+$/, '').toUpperCase()) bits += alphabet.indexOf(ch).toString(2).padStart(5, '0');
   const key = Buffer.from(bits.match(/.{8}/g).map((b) => parseInt(b, 2)));
   const counter = Buffer.alloc(8);
-  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000)));
+  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000) + delta));
   const h = crypto.createHmac('sha1', key).update(counter).digest();
   const o = h[19] & 15;
   return String((h.readUInt32BE(o) & 0x7fffffff) % 1e6).padStart(6, '0');
@@ -110,7 +112,7 @@ test('2FA: einrichten, Login ohne/mit Code, zweistufig', async () => {
   const setup = await api('POST', '/auth/mfa/setup', { token: u.token });
   assert.equal(setup.status, 200);
   const secret = setup.body.secret;
-  assert.equal((await api('POST', '/auth/mfa/enable', { token: u.token, body: { code: totp(secret) } })).status, 200);
+  assert.equal((await api('POST', '/auth/mfa/enable', { token: u.token, body: { code: totp(secret, -1) } })).status, 200);
   // Secret liegt verschlüsselt in der Datenbank (#55)
   const db = await pool.query('SELECT mfa_secret FROM users WHERE id = $1', [u.id]);
   assert.match(db.rows[0].mfa_secret, /^v1:/);
@@ -121,11 +123,66 @@ test('2FA: einrichten, Login ohne/mit Code, zweistufig', async () => {
   assert.ok(ohne.body.mfaToken);
   const falsch = await api('POST', '/auth/login', { body: { email: u.email, password: 'Passwort123', code: '000000' } });
   assert.equal(falsch.body.error, 'invalid_mfa_code');
-  const mit = await api('POST', '/auth/login', { body: { email: u.email, password: 'Passwort123', code: totp(secret) } });
+  const code = totp(secret, 0);
+  const mit = await api('POST', '/auth/login', { body: { email: u.email, password: 'Passwort123', code } });
   assert.equal(mit.status, 200);
-  const schritt2 = await api('POST', '/auth/login/mfa', { body: { mfaToken: ohne.body.mfaToken, code: totp(secret) } });
+  // Derselbe Code ein zweites Mal: abgelehnt (RFC 6238, 5.2) – im Login wie im zweiten Schritt
+  const nochmal = await api('POST', '/auth/login', { body: { email: u.email, password: 'Passwort123', code } });
+  assert.equal(nochmal.body.error, 'invalid_mfa_code', 'Code darf nur einmal gelten');
+  assert.equal((await api('POST', '/auth/login/mfa', { body: { mfaToken: ohne.body.mfaToken, code } })).body.error, 'invalid_mfa_code');
+  // Ein älteres, noch im Fenster liegendes Code-Fenster gilt nach einem neueren auch nicht mehr
+  assert.equal((await api('POST', '/auth/login/mfa', { body: { mfaToken: ohne.body.mfaToken, code: totp(secret, -1) } })).body.error, 'invalid_mfa_code');
+  const schritt2 = await api('POST', '/auth/login/mfa', { body: { mfaToken: ohne.body.mfaToken, code: totp(secret, 1) } });
   assert.equal(schritt2.status, 200);
   assert.ok(schritt2.body.token);
+});
+
+test('2FA (#Sicherheit): gleichzeitige Anfragen mit demselben Code – genau eine gelingt', async () => {
+  const u = await newUser();
+  const secret = (await api('POST', '/auth/mfa/setup', { token: u.token })).body.secret;
+  assert.equal((await api('POST', '/auth/mfa/enable', { token: u.token, body: { code: totp(secret, -1) } })).status, 200);
+  const code = totp(secret, 0);
+  const antworten = await Promise.all(Array.from({ length: 5 }, () =>
+    api('POST', '/auth/login', { body: { email: u.email, password: 'Passwort123', code } })));
+  assert.equal(antworten.filter((r) => r.status === 200).length, 1, antworten.map((r) => r.status).join(','));
+});
+
+test('Gelöschtes Konto: alte Tokens gelten nicht mehr, auch nicht für Admins', async () => {
+  const u = await newUser();
+  const admin = await newUser();
+  const vorher = process.env.ADMIN_USER_IDS;
+  process.env.ADMIN_USER_IDS = admin.id;
+  try {
+    assert.equal((await api('GET', '/auth/users', { token: admin.token })).status, 200);
+    assert.equal((await api('DELETE', `/auth/users/${admin.id}`, { token: admin.token })).status, 204);
+    // ID steht weiter in ADMIN_USER_IDS, das Token ist noch nicht abgelaufen – trotzdem kein Zugriff mehr
+    const r = await api('GET', '/auth/users', { token: admin.token });
+    assert.equal(r.status, 401);
+    assert.equal(r.body.error, 'account_not_found');
+    assert.equal((await api('PUT', `/auth/users/${u.id}/plan`, { token: admin.token, body: { plan: 'fleet' } })).status, 401);
+    assert.equal((await api('GET', '/whoami', { token: admin.token })).status, 401);
+  } finally {
+    if (vorher === undefined) delete process.env.ADMIN_USER_IDS; else process.env.ADMIN_USER_IDS = vorher;
+  }
+  assert.equal((await api('DELETE', `/auth/users/${u.id}`, { token: u.token })).status, 204);
+  assert.equal((await api('GET', '/vehicles', { token: u.token })).body.error, 'account_not_found');
+});
+
+test('Login-Sperre (#Sicherheit): je IP und E-Mail, Fremde können ein Konto nicht aussperren', async () => {
+  const opfer = await newUser();
+  const ip = (n) => ({ 'x-forwarded-for': `198.51.100.${n}` });
+  const login = (email, password, n) => api('POST', '/auth/login', { body: { email, password }, headers: ip(n) });
+  // Angreifer (IP .10) probiert 10-mal falsch: diese IP ist für dieses Konto gesperrt …
+  for (let i = 0; i < 10; i++) assert.equal((await login(opfer.email, 'falsch-falsch', 10)).status, 401);
+  assert.equal((await login(opfer.email, 'Passwort123', 10)).status, 429, 'Angreifer-IP gesperrt');
+  // … das Opfer meldet sich von seiner IP (.20) trotzdem an
+  assert.equal((await login(opfer.email, 'Passwort123', 20)).status, 200, 'Opfer nicht ausgesperrt');
+
+  // Viele Konten von einer IP durchprobieren: nach 50 Fehlversuchen ist die IP gesperrt, auch für richtige Passwörter
+  const anderer = await newUser();
+  for (let i = 0; i < 50; i++) await login(`unbekannt-${i}-${unique()}@example.test`, 'falsch-falsch', 30);
+  assert.equal((await login(anderer.email, 'Passwort123', 30)).status, 429, 'IP über alle Konten gesperrt');
+  assert.equal((await login(anderer.email, 'Passwort123', 31)).status, 200, 'andere IP nicht betroffen');
 });
 
 test('Fremde Fahrzeuge und Einträge sind nicht erreichbar (404)', async () => {
@@ -196,6 +253,124 @@ test('Kosten (#124): Summen, Kosten pro km, Jahr, nur eigene Fahrzeuge', async (
   const fremd = await newUser();
   assert.equal((await api('GET', `/vehicles/${v}/costs`, { token: fremd.token })).status, 404, 'fremdes Fahrzeug');
   assert.equal((await api('GET', '/vehicles/keine-uuid/costs', { token: u.token })).status, 404);
+});
+
+// Verbrauch (#82): Fälle aus den früheren PHP-Tests TachostandFehltTest, StatistikGleicherTagTest,
+// PluginHybridStatistikTest und VerbrauchProMonatTest, jetzt gegen die API
+const verbrauchVon = async (token, v) => {
+  const r = await api('GET', `/vehicles/${v}/consumption`, { token });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  return r.body;
+};
+const nah = (a, b) => a !== null && Math.abs(a - b) < 0.01;
+
+test('Verbrauch (#82): Einträge ohne bzw. mit geschätztem Tachostand, Nachtragen', async () => {
+  const u = await newUser();
+  // 1. Volle Füllung ohne Tachostand: ein Abschnitt 1000 → 2000 mit 30 + 40 l; zählt als Tankstopp und bei den Kosten
+  let v = await newVehicle(u.token);
+  await fillup(u.token, v, { odometerKm: 1000, amount: 50, totalCostEur: 100, filledAt: '2025-03-01T12:00:00Z' });
+  await fillup(u.token, v, { amount: 30, totalCostEur: 60, filledAt: '2025-03-10T12:00:00Z' });
+  await fillup(u.token, v, { odometerKm: 2000, amount: 40, totalCostEur: 80, filledAt: '2025-03-20T12:00:00Z' });
+  let c = await verbrauchVon(u.token, v);
+  let l = c.byUnit.l;
+  assert.equal(l.segments.length, 1);
+  assert.equal(l.segments[0].date, '2025-03-20');
+  assert.ok(nah(l.segments[0].consumption, 7), 'Menge ohne Tachostand zählt zum nächsten Abschnitt');
+  assert.equal(l.years[0].fillCount, 3);
+  assert.ok(nah(l.years[0].cost, 240));
+
+  // 5. Nachtragen teilt den Abschnitt wieder auf
+  const ohne = (await api('GET', `/vehicles/${v}/fillups`, { token: u.token })).body.find((f) => f.odometer_km === null);
+  assert.equal((await api('PATCH', `/fillups/${ohne.id}`, { token: u.token, body: { odometerKm: 1450 } })).status, 200);
+  l = (await verbrauchVon(u.token, v)).byUnit.l;
+  assert.deepEqual(l.segments.map((s) => s.date), ['2025-03-10', '2025-03-20']);
+  assert.ok(nah(l.segments[0].consumption, 30 / 450 * 100) && nah(l.segments[1].consumption, 40 / 550 * 100));
+
+  // 3. Tag mit drei Einträgen, einer ohne Tachostand: der zählt zum nächsten Abschnitt
+  v = await newVehicle(u.token);
+  await fillup(u.token, v, { odometerKm: 1000, amount: 50, filledAt: '2025-03-25T12:00:00Z' });
+  await fillup(u.token, v, { odometerKm: 1400, amount: 8, isFull: false, filledAt: '2025-04-01T12:00:00Z' });
+  await fillup(u.token, v, { odometerKm: 1500, amount: 20, filledAt: '2025-04-01T12:00:00Z' });
+  await fillup(u.token, v, { amount: 5, isFull: false, filledAt: '2025-04-01T12:00:00Z' });
+  await fillup(u.token, v, { odometerKm: 1800, amount: 45, filledAt: '2025-04-10T12:00:00Z' });
+  l = (await verbrauchVon(u.token, v)).byUnit.l;
+  assert.ok(nah(l.segments[0].consumption, 28 / 500 * 100), 'bis 1.500 km: 8 + 20 l');
+  assert.ok(nah(l.segments[1].consumption, 50 / 300 * 100), 'bis 1.800 km: 5 + 45 l');
+});
+
+test('Verbrauch (#82): mehrere Ladungen am selben Tag', async () => {
+  const u = await newUser();
+  const v = await newVehicle(u.token, 'electric');
+  const lade = (km, kwh, tag, voll = true) => fillup(u.token, v, { odometerKm: km, amount: kwh, unit: 'kwh', isFull: voll, filledAt: `2025-06-${tag}T12:00:00Z` });
+  await lade(850, 22, '01');
+  await lade(1000, 20, '08');
+  await lade(1150, 25, '10');
+  await lade(1300, 24, '10');
+  await lade(1420, 8, '11', false);
+  await lade(1440, 12, '11');
+  const k = (await verbrauchVon(u.token, v)).byUnit.kwh;
+  assert.equal(k.segments.length, 4);
+  assert.ok(nah(k.segments[1].consumption, 25 / 150 * 100) && nah(k.segments[2].consumption, 24 / 150 * 100), 'zwei Ladungen am 10.06.');
+  assert.ok(nah(k.segments[3].consumption, 20 / 140 * 100), 'Zwischen- und Vollladung am 11.06.');
+  assert.ok(nah(k.years[0].amountConsumed, 89));
+  assert.equal(k.co2.factor, 0.363);
+});
+
+test('Verbrauch (#82): Plug-in-Hybrid getrennt, CO₂, Stromanteil, Monate gewichtet', async () => {
+  const u = await newUser();
+  const v = await newVehicle(u.token, 'phev', { batteryCapacity: 17.8 });
+  const f = (km, menge, unit, kosten, tag, voll = true) => fillup(u.token, v, { odometerKm: km, amount: menge, unit, totalCostEur: kosten, isFull: voll, filledAt: `2026-01-${tag}T12:00:00Z` });
+  await f(1000, 14, 'kwh', 3.92, '01');
+  await f(1000, 30, 'l', 52.5, '01');
+  await f(1050, 14, 'kwh', 3.92, '02');
+  await f(1200, 15, 'kwh', 4.20, '05');
+  await f(1400, 10, 'kwh', 2.80, '10', false);
+  await f(2000, 40, 'l', 70, '20');
+  await f(2000, 12, 'kwh', 3.36, '20');
+  const c = await verbrauchVon(u.token, v);
+  assert.deepEqual(c.units, ['l', 'kwh'], 'Kraftstoff zuerst');
+  const l = c.byUnit.l;
+  assert.equal(l.segments.length, 1);
+  assert.ok(nah(l.years[0].consumption, 4));
+  assert.equal(l.years[0].fillCount, 2);
+  assert.equal(l.co2.factor, 2.37);
+  assert.ok(nah(l.co2.totalKg, 70 * 2.37));
+  const k = c.byUnit.kwh;
+  assert.equal(k.segments.length, 3);
+  assert.ok(nah(k.years[0].amountConsumed, 51));
+  assert.equal(k.years[0].kmConsumed, 1000);
+  assert.ok(nah(k.years[0].cost, 18.2));
+  assert.ok(Math.abs(c.electricShare - 18.2 / (122.5 + 18.2) * 100) < 0.06, "Stromanteil auf 0,1 % gerundet");
+  assert.ok(nah(c.co2.totalKg, 70 * 2.37 + 65 * 0.363));
+  assert.ok(c.co2.gPerKm > 0);
+
+  // Fahrleistung in /stats: ohne Tachostand beim Anlegen seit dem ersten Eintrag
+  const s = (await api('GET', `/vehicles/${v}/stats`, { token: u.token })).body;
+  assert.deepEqual(s.distance, { km: 1000, since: 'firstEntry' });
+});
+
+test('Verbrauch (#82): Monatswerte aus Menge und Strecke der Abschnitte, Fahrleistung seit Anschaffung', async () => {
+  const u = await newUser();
+  const v = await newVehicle(u.token, 'e10', { odometerKm: 60000 });
+  const t = (datum, menge, km, voll = true) => fillup(u.token, v, { odometerKm: km, amount: menge, isFull: voll, filledAt: `${datum}T12:00:00Z` });
+  await t('2025-05-08', 47.2, 60092);
+  await t('2025-05-26', 27.5, 60495);
+  await t('2025-06-14', 13.2, 60695);
+  await t('2025-06-26', 20.0, 60830, false);
+  await t('2025-07-05', 21.8, 61020);
+  await t('2025-07-24', 16.9, 61280);
+  const c = await verbrauchVon(u.token, v);
+  const m = Object.fromEntries(c.byUnit.l.months.map((x) => [x.month, x.consumption]));
+  assert.ok(nah(m['2025-05'], 6.82), `Mai ${m['2025-05']}`);
+  assert.ok(nah(m['2025-06'], 6.60), `Juni ${m['2025-06']}`);
+  assert.ok(nah(m['2025-07'], 10.03), `Juli ${m['2025-07']}`);
+  assert.equal(c.byUnit.l.min, 6.5);
+  const s = (await api('GET', `/vehicles/${v}/stats`, { token: u.token })).body;
+  assert.deepEqual(s.distance, { km: 1280, since: 'purchase' });
+
+  assert.equal((await api('GET', `/vehicles/${v}/consumption`)).status, 401);
+  const fremd = await newUser();
+  assert.equal((await api('GET', `/vehicles/${v}/consumption`, { token: fremd.token })).status, 404);
 });
 
 test('Plug-in-Hybrid: Liter und kWh getrennt', async () => {

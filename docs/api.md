@@ -35,7 +35,8 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | GET · POST | `/vehicles` | ✓ | Fahrzeuge auflisten, anlegen |
 | GET · PATCH · DELETE | `/vehicles/:vehicleId` | ✓ | Fahrzeug lesen, ändern, löschen (samt Einträgen) |
 | GET | `/vehicles/:vehicleId/stats` | ✓ | Tachostand, Ø Preis, Verbrauchsabschnitte, Trend je Einheit |
-| GET | `/vehicles/:vehicleId/costs?year=` | ✓ | Kosten: Summen, Kosten pro km, laufender Monat, Monatssummen |
+| GET | `/vehicles/:vehicleId/costs?year=` | ✓ | Kosten: Summen, Kosten pro km, laufender Monat, Monats- und Kategoriesummen |
+| GET | `/vehicles/:vehicleId/consumption` | ✓ | Verbrauch je Einheit: Abschnitte, Monate, Jahre, Ø/Min/Max, Mengen, CO₂, Stromanteil |
 | GET | `/stations?lat=&lng=&radius=&type=` | ✓ | Tankstellen in der Nähe mit aktuellen Preisen (Tankerkönig) |
 | GET | `/charging-stations?lat=&lng=&radius=` | ✓ | Ladestationen in der Nähe (Open Charge Map) |
 | GET | `/vehicles/:vehicleId/reminders` | ✓ | Fälligkeiten TÜV, Wartung, Versicherung, Steuer |
@@ -121,6 +122,8 @@ Die Endpunkte unter `/auth/users` und `/auth/tokens` sind auf den eigenen Accoun
 * `GET /auth/tokens`: Admins sehen alle (optional `?userId=`), alle anderen nur ihre eigenen
 
 Admins werden über die Umgebungsvariable `ADMIN_USER_IDS` (kommagetrennte User-UUIDs) in der `.env` des Backends festgelegt. Ohne diese Variable gibt es keine Admins.
+
+Gelöschte Konten: Tokens eines inzwischen gelöschten Kontos werden mit **401** `{ "error": "account_not_found" }` abgelehnt – auch wenn die ID noch in `ADMIN_USER_IDS` steht.
 
 Fehlende Rechte: **403** `{ "error": "forbidden" }`
 
@@ -381,6 +384,7 @@ Authorization: Bearer <jwt>
 * `missingOdometer`: Anzahl Tank-/Ladevorgänge ohne echten Tachostand (fehlt oder geschätzt). `currentOdo` berücksichtigt nur echte Werte.
 * `avgConsumption`: Ø Verbrauch pro 100 km über alle Abschnitte, nach km gewichtet. Abschnitte ohne Strecke (zwei volle Einträge beim selben Tachostand) zählen nicht. `trend.current` ist nur der letzte Abschnitt.
 * `l_per_100km` ist je nach Einheit l, kWh oder kg pro 100 km.
+* `distance`: gefahrene km `{ "km": 9400, "since": "purchase" }` – seit Anschaffung (Tachostand beim Anlegen des Fahrzeugs), sonst seit dem ersten echten Tachostand eines Tank-/Ladevorgangs (`"since": "firstEntry"`); `null` ohne Tachostand (#82).
 
 **Errors**
 
@@ -416,9 +420,44 @@ Kosten eines Fahrzeugs (#124), gerechnet in der API, damit Web-App und Apps dies
 * **`costPerKm.total`:** alle Kosten im Zeitraum ÷ `distanceKm`. **`costPerKm.energy`:** Kosten der Tank-/Ladevorgänge mit echtem Tachostand nach dem ersten ÷ Strecke vom ersten bis zum letzten (die erste Füllung bezahlt die Strecke davor). Beide in €/km auf 4 Stellen, `null` ohne Strecke (nie 0).
 * **`perMonth`:** Kosten ÷ `monthCount`, gezählt vom ersten Monat mit Kosten (im Jahr: frühestens Januar) bis zum laufenden Monat bzw. Dezember; Monate ohne Kosten zählen mit.
 * **`currentMonth`, `previousMonth`:** laufender Monat und Vormonat, unabhängig von `year`.
-* **`months`:** nur Monate mit Einträgen, neueste zuerst. `counts` je Eintragsart (`fuel`, `charge`, `expense`, `trip`, `odometer`) und `byType` (Kosten je Art) – so kann eine gefilterte Eintragsliste ihre Monatssumme selbst bilden, ohne zu rechnen.
+* **`months`:** nur Monate mit Einträgen, neueste zuerst. `counts` je Eintragsart (`fuel`, `charge`, `expense`, `trip`, `odometer`), `byType` (Kosten je Art) und `byCategory` (Kosten je Kategorie) – so kann eine gefilterte Eintragsliste ihre Monatssumme bilden und ein Diagramm nach Kostengruppen stapeln, ohne zu rechnen.
+* **`categories`:** Summe und Anzahl je Kategorie im Zeitraum, größte zuerst: `[{ "key": "Versicherung", "total": 300, "count": 1 }]`. Tank- und Ladevorgänge heißen `Tankfuellung:<Einheit>` (`Tankfuellung:l`, `Tankfuellung:kwh`, `Tankfuellung:kg`), damit Plug-in-Hybride Kraftstoff und Strom getrennt zeigen können; Namen, Farben und Gruppen liefert `GET /categories`.
+* **`years`:** Jahre mit Kosten (gesamter Zeitraum, unabhängig von `year`), neueste zuerst – für eine Jahresauswahl.
 
 Fehler: 400 `invalid_year`, 404 `vehicle_not_found` (auch für fremde Fahrzeuge).
+
+### GET /vehicles/:vehicleId/consumption
+
+Verbrauch, Mengen und CO₂ je Einheit (#82). Grundlage sind dieselben Full-to-Full-Abschnitte wie bei `/stats`; die Clients rechnen nichts nach.
+
+```json
+{
+  "fuelType": "phev",
+  "units": ["l", "kwh"],
+  "byUnit": {
+    "l": {
+      "unit": "l", "avg": 4, "min": 4, "max": 4,
+      "kmConsumed": 1000, "amountConsumed": 40, "amountBought": 70, "cost": 122.5, "avgPrice": 1.75, "fillCount": 2,
+      "co2": { "factor": 2.37, "totalKg": 165.9, "gPerKm": 94.8 },
+      "segments": [{ "fullId": "<fillup-uuid>", "date": "2026-01-20", "month": "2026-01", "km": 1000, "amount": 40, "consumption": 4 }],
+      "months": [{ "month": "2026-01", "km": 1000, "amount": 40, "consumption": 4 }],
+      "years": [{ "year": 2026, "fillCount": 2, "amountBought": 70, "cost": 122.5, "amountConsumed": 40, "kmConsumed": 1000, "consumption": 4, "co2Kg": 165.9 }]
+    },
+    "kwh": { "unit": "kwh", "...": "…" }
+  },
+  "energyCost": 140.7,
+  "electricShare": 12.9,
+  "co2": { "totalKg": 189.5, "gPerKm": 167.4 }
+}
+```
+
+* `units`: vorhandene Einheiten, die zur Antriebsart passende zuerst (Plug-in-Hybrid: Liter, dann kWh); ohne Einträge die Standardeinheit
+* `consumption`, `avg`, `min`, `max`: Einheit pro 100 km (l, kWh oder kg). Ein Abschnitt gehört zu Tag, Monat und Jahr der vollen Füllung, die ihn abschließt (Europe/Berlin). Monats-, Jahres- und Ø-Werte sind Menge ÷ Strecke aller Abschnitte im Zeitraum (nach km gewichtet), nicht der Mittelwert der Einzelwerte
+* `amountBought`, `cost`, `fillCount`: alle Tank-/Ladevorgänge, auch ohne Tachostand; `amountConsumed`, `kmConsumed`: nur abgeschlossene Abschnitte
+* CO₂: gekaufte Menge × Faktor (`factor` in kg je Einheit: Benzin 2,37, Diesel 2,65, Autogas 1,64, Erdgas 2,79, Strom 0,363 deutscher Strommix, Wasserstoff 0; Plug-in-Hybrid: Liter wie Benzin, kWh wie Strom); `gPerKm` aus dem Ø-Verbrauch. `null`, wenn kein Faktor bekannt ist
+* `electricShare`: Anteil der Ladekosten an den Energiekosten in %, nur bei mehreren Einheiten
+
+Fehler: 404 `vehicle_not_found` (auch für fremde Fahrzeuge).
 
 ## Ausgaben (Entries) (Auth required)
 
@@ -469,9 +508,9 @@ Fremde oder ungültige IDs liefern 404 `entry_not_found`.
 * `POST /auth/mfa/enable` `{ "code" }` – aktiviert 2FA nach korrektem Code
 * `POST /auth/mfa/disable` `{ "password", "code" }` – deaktiviert 2FA
 
-Bei aktivem 2FA antwortet `POST /auth/login` ohne `code` mit 401 `{ "error": "mfa_required", "mfaToken": "…" }`. Das `mfaToken` ist 5 Minuten gültig und wird mit dem Code an `POST /auth/login/mfa` `{ "mfaToken", "code" }` geschickt; die Antwort enthält dann das Zugangstoken. Ein falscher Code liefert 401 `invalid_mfa_code`, ein abgelaufenes `mfaToken` 401 `invalid_mfa_token`. Alternativ kann `code` direkt bei `/auth/login` mitgeschickt werden.
+Bei aktivem 2FA antwortet `POST /auth/login` ohne `code` mit 401 `{ "error": "mfa_required", "mfaToken": "…" }`. Das `mfaToken` ist 5 Minuten gültig und wird mit dem Code an `POST /auth/login/mfa` `{ "mfaToken", "code" }` geschickt; die Antwort enthält dann das Zugangstoken. Ein falscher Code liefert 401 `invalid_mfa_code`, ein abgelaufenes `mfaToken` 401 `invalid_mfa_token`. Alternativ kann `code` direkt bei `/auth/login` mitgeschickt werden. **Jeder Code gilt nur einmal** (RFC 6238, 5.2): ein bereits verwendeter oder ein älterer Code als der zuletzt akzeptierte liefert ebenfalls `invalid_mfa_code` – auch beim Aktivieren und Abschalten der 2FA. Clients sollten nach einem erfolgreichen Login also nicht denselben Code erneut senden.
 
-**Fehlversuche:** Nach 10 falschen Passwörtern je E-Mail-Adresse bzw. 5 falschen 2FA-Codes je Benutzer antworten Login, 2FA und Passwortänderung 15 Minuten lang mit 429 `too_many_attempts`.
+**Fehlversuche:** Login: nach 10 falschen Versuchen je Kombination aus IP-Adresse und E-Mail sowie nach 50 falschen Versuchen je IP-Adresse über alle Konten antwortet `/auth/login` dieser IP 15 Minuten lang mit 429 `too_many_attempts`; andere IP-Adressen sind nicht betroffen, ein Konto lässt sich also nicht von Fremden aussperren. Eine erfolgreiche Anmeldung hebt nur die Sperre dieser IP für dieses Konto auf. 2FA und Passwortänderung: nach 5 falschen 2FA-Codes bzw. 10 falschen Passwörtern je Konto 429 `too_many_attempts` (setzt jeweils ein korrektes Passwort bzw. eine Anmeldung voraus). Die IP-Adresse kommt über `X-Forwarded-For` von nginx bzw. dem PHP-Frontend; die API übernimmt den Header nur von lokalen bzw. privaten Adressen.
 
 **Registrierung:** Mit `REGISTRATION_ENABLED=false` antwortet `POST /auth/register` mit 403 `registration_disabled`. TOTP: 30 Sekunden, 6 Stellen, SHA1 (kompatibel mit Google Authenticator, Aegis, 1Password usw.).
 
@@ -575,7 +614,7 @@ Fremddienste fragt ausschließlich die API (#123): Web-App und Apps nutzen diese
 
 Tankstellen im Umkreis mit aktuellen Preisen von [Tankerkönig](https://www.tankerkoenig.de) (Lizenz CC BY 4.0, die Quelle muss angezeigt werden). Für die Erfassung in Web-App und Apps; der API-Key bleibt auf dem Server (`TANKERKOENIG_API_KEY`).
 
-* `lat`, `lng`: Standort (Pflicht)
+* `lat`, `lng`: Standort (Pflicht), als Dezimalzahl wie `52.52` (bis 20 Nachkommastellen; `0x10`, `5e1` o. Ä. ergeben 400)
 * `radius`: 1–25 km, Standard 5
 * `type`: `e5`, `e10`, `diesel` oder `all` (Standard). Andere Werte (z. B. Elektro) gelten als `all`.
 * Sortiert nach Entfernung. Ergebnisse werden 2 Minuten zwischengespeichert (Standort auf etwa 100 m gerundet), höchstens 30 Abfragen pro Minute und Konto.

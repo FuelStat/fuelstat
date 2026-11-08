@@ -1,0 +1,484 @@
+// Routen: /fillups, /fillups/:fillupId, /vehicles/:vehicleId/fillups
+// Aus backend/src/server.js ausgelagert (#110), Inhalt unverändert.
+const express = require('express');
+const { pool } = require('../db');
+const { optionalNumber, serverError } = require('../lib/http');
+const { auth } = require('../middleware/auth');
+const { checkOdometer } = require('../services/odometer');
+const { unitForFuelType, unitsForFuelType } = require('../services/stats');
+
+const router = express.Router();
+
+// Add fillup (generalisiert: amount + unit)
+router.post('/fillups', auth, async (req, res) => {
+  const vehicleId = String(req.body?.vehicleId || '').trim();
+  // Tachostand darf fehlen (#41) und später nachgetragen werden; geschätzte Werte sind nur Platzhalter
+  const odometerKm = optionalNumber(req.body?.odometerKm) ?? null;
+  const odometerEstimated = odometerKm !== null && req.body?.odometerEstimated === true;
+
+  // Backward-compatible: akzeptiere liters ODER amount
+  const amount = Number(req.body?.amount ?? req.body?.liters);
+  const totalCostEur = Number(req.body?.totalCostEur ?? req.body?.priceTotalEur);
+
+  const station = req.body?.station ? String(req.body.station).trim() : null;
+  const filledAt = req.body?.filledAt ? new Date(req.body.filledAt) : null;
+  const isFull = req.body?.isFull !== undefined ? Boolean(req.body.isFull) : true;
+  const skipPrevious = req.body?.skipPrevious !== undefined ? Boolean(req.body.skipPrevious) : false;
+
+  // unit optional: wenn nicht gesetzt, wird es aus vehicle.fuel_type abgeleitet
+  let unit = req.body?.unit ? String(req.body.unit).trim().toLowerCase() : null;
+
+  if (!vehicleId) return res.status(400).json({ error: 'missing_vehicleId' });
+  if (odometerKm !== null && (!Number.isFinite(odometerKm) || odometerKm < 0)) return res.status(400).json({ error: 'invalid_odometerKm' });
+  if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: 'invalid_amount' });
+  if (!Number.isFinite(totalCostEur) || totalCostEur < 0) return res.status(400).json({ error: 'invalid_totalCostEur' });
+  if (filledAt && Number.isNaN(filledAt.getTime())) return res.status(400).json({ error: 'invalid_filledAt' });
+
+  const allowedUnits = new Set(['l', 'kwh', 'kg']);
+
+  try {
+    // ownership + fuel_type
+    const v = await pool.query(
+      'SELECT fuel_type FROM vehicles WHERE id = $1 AND user_id = $2',
+      [vehicleId, req.user.sub]
+    );
+    if (v.rowCount === 0) return res.status(404).json({ error: 'vehicle_not_found' });
+
+    const fuelType = String(v.rows[0].fuel_type || '').toLowerCase();
+
+    if (!unit) unit = unitForFuelType(fuelType);
+    if (!allowedUnits.has(unit)) return res.status(400).json({ error: 'invalid_unit' });
+    // Plug-in-Hybrid: Liter (getankt) oder kWh (geladen), nichts anderes
+    if (fuelType === 'phev' && !unitsForFuelType(fuelType).includes(unit)) return res.status(400).json({ error: 'invalid_unit' });
+
+    const r = await pool.query(
+      `INSERT INTO fillups (
+         user_id,
+         vehicle_id,
+         odometer_km,
+         amount,
+         unit,
+         total_cost_eur,
+         price_per_unit,
+         station,
+         filled_at,
+         is_full,
+         skip_previous,
+         odometer_estimated
+       )
+       VALUES (
+         $1,
+         $2,
+         $3,
+         $4::numeric,
+         $5,
+         $6::numeric,
+         CASE
+           WHEN $4::numeric > 0
+             THEN ROUND(($6::numeric / $4::numeric), 4)
+           ELSE NULL
+         END,
+         $7,
+         COALESCE($8, now()),
+         $9,
+         $10,
+         $11
+       )
+       RETURNING id, vehicle_id, odometer_km, amount, unit, total_cost_eur, price_per_unit, station, filled_at, created_at, is_full, skip_previous, odometer_estimated`,
+      [req.user.sub, vehicleId, odometerKm === null ? null : Math.round(odometerKm), amount, unit, totalCostEur, station, filledAt, isFull, skipPrevious, odometerEstimated]
+    );
+
+    // Unplausibler Tachostand: speichern, aber warnen (#51)
+    res.status(201).json({ ...r.rows[0], warnings: await checkOdometer(pool, req.user.sub, vehicleId, r.rows[0]) });
+  } catch (e) {
+    serverError(res, e);
+  }
+});
+
+// Get single fillup by id
+router.get('/fillups/:fillupId', auth, async (req, res) => {
+  const fillupId = String(req.params.fillupId || '').trim();
+
+  if (!fillupId) return res.status(400).json({ error: 'missing_fillupId' });
+
+  try {
+    const r = await pool.query(
+      `SELECT
+         id,
+         user_id,
+         vehicle_id,
+         odometer_km,
+         amount,
+         unit,
+         total_cost_eur,
+         price_per_unit,
+         station,
+         filled_at,
+         created_at,
+         is_full,
+         skip_previous,
+         odometer_estimated
+       FROM fillups
+       WHERE id = $1 AND user_id = $2`,
+      [fillupId, req.user.sub]
+    );
+
+    if (r.rowCount === 0) {
+      return res.status(404).json({ error: 'fillup_not_found' });
+    }
+
+    const row = r.rows[0];
+
+    // Für ältere Clients zusätzlich kompatible Felder anbieten
+    const legacy = {
+      liters: row.unit === 'l' ? row.amount : null,
+      price_total_eur: row.total_cost_eur,
+      price_per_liter: row.unit === 'l' ? row.price_per_unit : null
+    };
+
+    res.json({ ...row, ...legacy });
+  } catch (e) {
+    serverError(res, e);
+  }
+});
+
+// Update fillup (partial, 14-Tage-Bearbeitungsfenster ab filled_at)
+router.patch('/fillups/:fillupId', auth, async (req, res) => {
+  const fillupId = String(req.params.fillupId || '').trim();
+
+  if (!fillupId) return res.status(400).json({ error: 'missing_fillupId' });
+
+  try {
+    // Bestehenden Datensatz laden + Besitz prüfen
+    const existingRes = await pool.query(
+      `SELECT
+         id,
+         user_id,
+         vehicle_id,
+         odometer_km,
+         amount,
+         unit,
+         total_cost_eur,
+         price_per_unit,
+         station,
+         filled_at,
+         created_at,
+         is_full,
+         skip_previous,
+         odometer_estimated
+       FROM fillups
+       WHERE id = $1 AND user_id = $2`,
+      [fillupId, req.user.sub]
+    );
+
+    if (existingRes.rowCount === 0) {
+      return res.status(404).json({ error: 'fillup_not_found' });
+    }
+
+    const existing = existingRes.rows[0];
+
+    // Eingehende Änderungen parsen (teilweise, optional)
+    const body = req.body || {};
+
+    // 14 Tage Änderungsfenster ab filled_at. Ausnahme (#41): nur den Tachostand nachtragen ist immer möglich.
+    const nurTachostand = Object.keys(body).length > 0 &&
+      Object.keys(body).every(k => k === 'odometerKm' || k === 'odometerEstimated');
+    const now = new Date();
+    const filledAtOriginal = new Date(existing.filled_at);
+    const diffMs = now.getTime() - filledAtOriginal.getTime();
+    const maxMs = 14 * 24 * 60 * 60 * 1000; // 14 Tage
+
+    if (diffMs > maxMs && !nurTachostand) {
+      return res.status(409).json({
+        error: 'fillup_edit_window_expired',
+        message:
+          'Tank-/Ladevorgänge können nur innerhalb von 14 Tagen nach dem Tank-/Ladedatum bearbeitet werden.'
+      });
+    }
+
+    // null bzw. leer: Tachostand entfernen (fehlt)
+    const patchOdometerKm = optionalNumber(body.odometerKm);
+    const patchOdometerEstimated =
+      body.odometerEstimated !== undefined ? body.odometerEstimated === true : undefined;
+
+    // Backward-kompatibel: amount oder liters
+    const rawAmount =
+      body.amount !== undefined ? body.amount : body.liters !== undefined ? body.liters : undefined;
+    const patchAmount =
+      rawAmount !== undefined ? Number(rawAmount) : undefined;
+
+    // Backward-kompatibel: totalCostEur oder priceTotalEur
+    const rawTotal =
+      body.totalCostEur !== undefined
+        ? body.totalCostEur
+        : body.priceTotalEur !== undefined
+        ? body.priceTotalEur
+        : undefined;
+    const patchTotalCostEur =
+      rawTotal !== undefined ? Number(rawTotal) : undefined;
+
+    const patchUnit =
+      body.unit !== undefined ? String(body.unit).trim().toLowerCase() : undefined;
+
+    const patchStation =
+      body.station !== undefined ? String(body.station).trim() : undefined;
+
+    const patchFilledAt =
+      body.filledAt !== undefined ? new Date(body.filledAt) : undefined;
+
+    const patchIsFull =
+      body.isFull !== undefined ? Boolean(body.isFull) : undefined;
+
+    const patchSkipPrevious =
+      body.skipPrevious !== undefined ? Boolean(body.skipPrevious) : undefined;
+
+    // Wenn nichts Sinnvolles geändert werden soll
+    if (
+      patchOdometerKm === undefined &&
+      patchAmount === undefined &&
+      patchTotalCostEur === undefined &&
+      patchUnit === undefined &&
+      patchStation === undefined &&
+      patchFilledAt === undefined &&
+      patchIsFull === undefined &&
+      patchSkipPrevious === undefined &&
+      patchOdometerEstimated === undefined
+    ) {
+      return res.status(400).json({ error: 'nothing_to_update' });
+    }
+
+    // Zielwerte (bestehend oder gepatcht)
+    const newOdometerKm =
+      patchOdometerKm !== undefined ? patchOdometerKm : existing.odometer_km;
+    // numeric-Spalten kommen von pg als Text ("30.000"); für die Prüfung unten in Zahlen umwandeln
+    const newAmount =
+      patchAmount !== undefined ? patchAmount : Number(existing.amount);
+    const newTotalCostEur =
+      patchTotalCostEur !== undefined ? patchTotalCostEur : Number(existing.total_cost_eur);
+    const newUnit =
+      patchUnit !== undefined ? patchUnit : existing.unit;
+    const newStation =
+      patchStation !== undefined ? patchStation : existing.station;
+    const newFilledAt =
+      patchFilledAt !== undefined ? patchFilledAt : new Date(existing.filled_at);
+    const newIsFull =
+      patchIsFull !== undefined ? patchIsFull : existing.is_full;
+    const newSkipPrevious =
+      patchSkipPrevious !== undefined ? patchSkipPrevious : existing.skip_previous;
+    // Ein neu eingetragener Tachostand gilt als echt, außer es wird ausdrücklich "geschätzt" mitgeschickt
+    const newOdometerEstimated = newOdometerKm === null ? false
+      : patchOdometerEstimated !== undefined ? patchOdometerEstimated
+      : patchOdometerKm !== undefined ? false
+      : existing.odometer_estimated;
+
+    // Validierungen auf Zielwerten
+    if (newOdometerKm !== null && (!Number.isFinite(newOdometerKm) || newOdometerKm < 0)) {
+      return res.status(400).json({ error: 'invalid_odometerKm' });
+    }
+    if (!Number.isFinite(newAmount) || newAmount < 0) {
+      return res.status(400).json({ error: 'invalid_amount' });
+    }
+    if (!Number.isFinite(newTotalCostEur) || newTotalCostEur < 0) {
+      return res.status(400).json({ error: 'invalid_totalCostEur' });
+    }
+    if (Number.isNaN(newFilledAt.getTime())) {
+      return res.status(400).json({ error: 'invalid_filledAt' });
+    }
+
+    const allowedUnits = new Set(['l', 'kwh', 'kg']);
+    if (!newUnit || !allowedUnits.has(newUnit)) {
+      return res.status(400).json({ error: 'invalid_unit' });
+    }
+
+    const updateRes = await pool.query(
+      `UPDATE fillups
+       SET
+         odometer_km   = $1,
+         amount        = $2::numeric,
+         unit          = $3,
+         total_cost_eur = $4::numeric,
+         price_per_unit = CASE
+           WHEN $2::numeric > 0
+             THEN ROUND(($4::numeric / $2::numeric), 4)
+           ELSE NULL
+         END,
+         station       = $5,
+         filled_at     = $6,
+         is_full       = $7,
+         skip_previous = $8,
+         odometer_estimated = $11
+       WHERE id = $9 AND user_id = $10
+       RETURNING
+         id,
+         user_id,
+         vehicle_id,
+         odometer_km,
+         amount,
+         unit,
+         total_cost_eur,
+         price_per_unit,
+         station,
+         filled_at,
+         created_at,
+         is_full,
+         skip_previous,
+         odometer_estimated`,
+      [
+        newOdometerKm === null ? null : Math.round(newOdometerKm),
+        newAmount,
+        newUnit,
+        newTotalCostEur,
+        newStation,
+        newFilledAt,
+        newIsFull,
+        newSkipPrevious,
+        fillupId,
+        req.user.sub,
+        newOdometerEstimated
+      ]
+    );
+
+    const updated = updateRes.rows[0];
+
+    const legacy = {
+      liters: updated.unit === 'l' ? updated.amount : null,
+      price_total_eur: updated.total_cost_eur,
+      price_per_liter: updated.unit === 'l' ? updated.price_per_unit : null
+    };
+
+    res.json({ ...updated, ...legacy, warnings: await checkOdometer(pool, req.user.sub, updated.vehicle_id, updated) });
+  } catch (e) {
+    serverError(res, e);
+  }
+});
+
+// Delete fillup (immer möglich; bei >14 Tagen wird nächster Fillup auf skip_previous=true gesetzt)
+router.delete('/fillups/:fillupId', auth, async (req, res) => {
+  const fillupId = String(req.params.fillupId || '').trim();
+  if (!fillupId) return res.status(400).json({ error: 'missing_fillupId' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Zu löschenden Fillup laden + Besitz prüfen
+    const existingRes = await client.query(
+      `SELECT
+         id,
+         user_id,
+         vehicle_id,
+         odometer_km,
+         filled_at
+       FROM fillups
+       WHERE id = $1 AND user_id = $2
+       FOR UPDATE`,
+      [fillupId, req.user.sub]
+    );
+
+    if (existingRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'fillup_not_found' });
+    }
+
+    const existing = existingRes.rows[0];
+    const filledAt = new Date(existing.filled_at);
+    const now = new Date();
+    const diffMs = now.getTime() - filledAt.getTime();
+    const maxMs = 14 * 24 * 60 * 60 * 1000; // 14 Tage
+    const olderThan14Days = diffMs > maxMs;
+
+    // Fillup löschen
+    await client.query(
+      'DELETE FROM fillups WHERE id = $1 AND user_id = $2',
+      [fillupId, req.user.sub]
+    );
+
+    let nextUpdated = false;
+
+    if (olderThan14Days) {
+      // Nächsten Fillup anhand filled_at finden und skip_previous = true setzen
+      const nextRes = await client.query(
+        `SELECT id
+         FROM fillups
+         WHERE user_id = $1
+           AND vehicle_id = $2
+           AND filled_at > $3
+         ORDER BY filled_at ASC
+         LIMIT 1`,
+        [req.user.sub, existing.vehicle_id, filledAt]
+      );
+
+      if (nextRes.rowCount === 1) {
+        const nextId = nextRes.rows[0].id;
+        await client.query(
+          `UPDATE fillups
+           SET skip_previous = true
+           WHERE id = $1 AND user_id = $2`,
+          [nextId, req.user.sub]
+        );
+        nextUpdated = true;
+      }
+    }
+
+    await client.query('COMMIT');
+
+    return res.status(200).json({
+      deletedId: existing.id,
+      olderThan14Days,
+      nextUpdated,
+      message: olderThan14Days
+        ? 'Ein Tank-/Ladevorgang, der älter als 14 Tage ist, wurde gelöscht. Der nachfolgende Vorgang wird bei der Verbrauchsberechnung nicht mehr den vorherigen berücksichtigen (skip_previous = true).'
+        : 'Tank-/Ladevorgang wurde gelöscht.'
+    });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    serverError(res, e);
+  } finally {
+    client.release();
+  }
+});
+
+// List fillups by vehicle
+router.get('/vehicles/:vehicleId/fillups', auth, async (req, res) => {
+  const vehicleId = String(req.params.vehicleId || '').trim();
+  const limit = Math.min(200, Math.max(1, Number(req.query.limit || 50)));
+  const offset = Math.max(0, Math.floor(Number(req.query.offset || 0)) || 0);
+
+  try {
+    const v = await pool.query('SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2', [vehicleId, req.user.sub]);
+    if (v.rowCount === 0) return res.status(404).json({ error: 'vehicle_not_found' });
+
+    const r = await pool.query(
+      `SELECT
+         id,
+         odometer_km,
+         amount,
+         unit,
+         total_cost_eur,
+         price_per_unit,
+         station,
+         filled_at,
+         created_at,
+         is_full,
+         skip_previous,
+         odometer_estimated
+       FROM fillups
+       WHERE user_id = $1 AND vehicle_id = $2
+       ORDER BY filled_at DESC, created_at DESC
+       LIMIT $3 OFFSET $4`,
+      [req.user.sub, vehicleId, limit, offset]
+    );
+
+    // Für ältere Clients zusätzlich kompatible Felder anbieten
+    res.json(r.rows.map((row) => ({
+      ...row,
+      liters: row.unit === 'l' ? row.amount : null,
+      price_total_eur: row.total_cost_eur,
+      price_per_liter: row.unit === 'l' ? row.price_per_unit : null
+    })));
+  } catch (e) {
+    serverError(res, e);
+  }
+});
+
+module.exports = router;

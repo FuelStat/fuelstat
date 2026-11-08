@@ -33,7 +33,7 @@ function trendOf(allRows) {
 
 async function getVehicleStats(pool, userId, vehicleId) {
   const v = await pool.query(
-    'SELECT fuel_type FROM vehicles WHERE id = $1 AND user_id = $2',
+    'SELECT fuel_type, odometer_km FROM vehicles WHERE id = $1 AND user_id = $2',
     [vehicleId, userId]
   );
   if (v.rowCount === 0) return { error: 'vehicle_not_found' };
@@ -46,12 +46,26 @@ async function getVehicleStats(pool, userId, vehicleId) {
               MAX(odometer_km) FILTER (WHERE NOT odometer_estimated),
               (SELECT MAX(odometer_km) FROM expenses WHERE user_id=$1 AND vehicle_id=$2)
             ) AS max_odo,
-            COUNT(*) FILTER (WHERE odometer_km IS NULL OR odometer_estimated)::int AS missing
+            COUNT(*) FILTER (WHERE odometer_km IS NULL OR odometer_estimated)::int AS missing,
+            MIN(odometer_km) FILTER (WHERE NOT odometer_estimated) AS first_odo
      FROM fillups WHERE user_id=$1 AND vehicle_id=$2`,
     [userId, vehicleId]
   );
   const currentOdo = odo.rows[0]?.max_odo ?? null;
   const missingOdometer = odo.rows[0]?.missing ?? 0;
+
+  // Fahrleistung (#82): seit Anschaffung (Tachostand beim Anlegen), sonst seit dem ersten echten Tachostand
+  // eines Tank-/Ladevorgangs; ohne aktuellen Tachostand null
+  const initialOdo = v.rows[0].odometer_km;
+  const firstOdo = odo.rows[0]?.first_odo ?? null;
+  let distance = null;
+  if (currentOdo !== null) {
+    if (initialOdo !== null && Number(initialOdo) <= Number(currentOdo)) {
+      distance = { km: Number(currentOdo) - Number(initialOdo), since: 'purchase' };
+    } else if (firstOdo !== null) {
+      distance = { km: Number(currentOdo) - Number(firstOdo), since: 'firstEntry' };
+    }
+  }
 
   // Ø Preis je Einheit (bei Plug-in-Hybriden getrennt für Liter und kWh)
   const ppl = await pool.query(
@@ -134,6 +148,8 @@ async function getVehicleStats(pool, userId, vehicleId) {
     currentOdo,
     // Tank- und Ladevorgänge ohne echten Tachostand (fehlt oder nur geschätzt) – zum Nachtragen
     missingOdometer,
+    // Gefahrene km: { km, since: 'purchase' | 'firstEntry' } oder null
+    distance,
     // Für Fahrzeuge mit einer Einheit wie bisher; Plug-in-Hybride: Werte des Kraftstoffs, alles Weitere in units
     avgPricePerLiter: main?.avgPrice ?? null,
     // Ø Verbrauch über alle Abschnitte (gewichtet nach km); trend.current ist nur der letzte Abschnitt

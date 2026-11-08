@@ -15,17 +15,28 @@ foreach (getMergedEintraegeFromApi($api, $fahrzeug_id)['eintraege'] as $monatsEi
     }
 }
 usort($alle, fn($a, $b) => strcmp($a['datum'], $b['datum']));
-$jahre = array_values(array_unique(array_map(fn($e) => (int)substr($e['datum'], 0, 4), $alle)));
-rsort($jahre);
+
+// Summen je Kategorie, Monat und Jahr, Strecke, Kosten pro km und Ø je Monat rechnet die API (#124, #82), damit Web
+// und Apps dieselben Zahlen zeigen. Die Einträge selbst braucht der Reiter nur noch für die größten Einzelausgaben.
+$kostenPfad = fn(?int $jahr) => '/vehicles/' . rawurlencode($fahrzeug_id) . '/costs' . ($jahr !== null ? '?year=' . $jahr : '');
+$kostenApi = function (?int $jahr) use ($api, $fahrzeug_id): ?array {
+    try {
+        return $api->getVehicleCosts($fahrzeug_id, $jahr);
+    } catch (Throwable $e) {
+        return null;
+    }
+};
+$kostenGesamt = $kostenApi(null);
+$jahre = array_map('intval', $kostenGesamt['years'] ?? []);
+// Für den Jahresvergleich bzw. das gewählte Jahr gleichzeitig vorladen
+$api->vorladen($selectedYear === null ? array_map($kostenPfad, $jahre) : [$kostenPfad($selectedYear)]);
+$kosten = $selectedYear === null ? $kostenGesamt : $kostenApi($selectedYear);
 
 $imZeitraum = fn($e) => $selectedYear === null || (int)substr($e['datum'], 0, 4) === $selectedYear;
 $eintraege = array_values(array_filter($alle, $imZeitraum));
 
 // Plug-in-Hybrid: Tanken und Laden als eigene Kategorien ("Tankfuellung:l" bzw. "Tankfuellung:kwh")
 $istPhev = $fuelType === 'phev';
-$katSchluessel = fn(array $e) => $istPhev && $e['kategorie'] === 'Tankfuellung'
-    ? 'Tankfuellung:' . (($e['einheit'] ?? 'l') === 'kwh' ? 'kwh' : 'l')
-    : $e['kategorie'];
 $katTeile = fn(string $k) => str_starts_with($k, 'Tankfuellung:') ? ['Tankfuellung', substr($k, 13)] : [$k, null];
 
 // Kategorien zu Gruppen zusammenfassen (Kostenstruktur und Jahresvergleich)
@@ -60,33 +71,28 @@ foreach ($eintraege as $e) {
     $kategorieFarben[$e['kategorie']] ??= getKategorieFarbe($e['kategorie']);
 }
 
+// Kategorie-Schlüssel der API: Tank-/Ladevorgänge als "Tankfuellung:<Einheit>"; nur beim Plug-in-Hybrid getrennt zeigen
+$apiSchluessel = fn(string $k) => !$istPhev && str_starts_with($k, 'Tankfuellung:') ? 'Tankfuellung' : $k;
+$gruppenAus = function (array $jeKategorie) use ($gruppen, $gruppeVon, $apiSchluessel): array {
+    $zeile = array_fill_keys(array_keys($gruppen), 0.0);
+    foreach ($jeKategorie as $k => $betrag) {
+        $zeile[$gruppeVon($apiSchluessel((string)$k))] += (float)$betrag;
+    }
+    return $zeile;
+};
+
 // Summen je Kategorie und Gruppe
 $kategorien = [];
-$gruppenSummen = array_fill_keys(array_keys($gruppen), 0.0);
-foreach ($eintraege as $e) {
-    $k = $katSchluessel($e);
+foreach ($kosten['categories'] ?? [] as $c) {
+    $k = $apiSchluessel($c['key']);
     $kategorien[$k] ??= ['summe' => 0.0, 'anzahl' => 0];
-    $kategorien[$k]['summe'] += (float)$e['kosten'];
-    $kategorien[$k]['anzahl']++;
-    $gruppenSummen[$gruppeVon($k)] += (float)$e['kosten'];
+    $kategorien[$k]['summe'] += (float)$c['total'];
+    $kategorien[$k]['anzahl'] += (int)$c['count'];
 }
 uasort($kategorien, fn($a, $b) => $b['summe'] <=> $a['summe']);
-$gesamt = array_sum(array_column($kategorien, 'summe'));
-
-// Strecke, Kosten pro km und Ø je Monat rechnet die API (#124), damit Web und Apps dieselben Zahlen zeigen.
-// Für den Jahresvergleich werden die Jahre gleichzeitig vorgeladen.
-$kostenPfad = fn(?int $jahr) => '/vehicles/' . rawurlencode($fahrzeug_id) . '/costs' . ($jahr !== null ? '?year=' . $jahr : '');
-$api->vorladen(array_merge([$kostenPfad($selectedYear)], $selectedYear === null ? array_map($kostenPfad, $jahre) : []));
-$kostenApi = function (?int $jahr) use ($api, $fahrzeug_id): ?array {
-    try {
-        return $api->getVehicleCosts($fahrzeug_id, $jahr);
-    } catch (Throwable $e) {
-        return null;
-    }
-};
-$kosten = $kostenApi($selectedYear);
+$gruppenSummen = $gruppenAus(array_map(fn($x) => $x['summe'], $kategorien));
+$gesamt = (float)($kosten['total']['total'] ?? 0);
 $km = $kosten['distanceKm'] ?? null;
-$kmImJahr = fn(int $jahr): ?int => $kostenApi($jahr)['distanceKm'] ?? null;
 $proMonat = $kosten['perMonth'] ?? null;
 $monate = (int)($kosten['monthCount'] ?? 0);
 $proKm = $kosten['costPerKm']['total'] ?? null;
@@ -97,10 +103,10 @@ $sichtbareGruppen = array_filter($gruppen, fn($g) => $gruppenSummen[$g] > 0, ARR
 
 // Ausgaben pro Monat, gestapelt nach Gruppe
 $monatsReihen = [];
-foreach ($eintraege as $e) {
-    $m = substr($e['datum'], 0, 7);
-    $monatsReihen[$m] ??= array_fill_keys(array_keys($gruppen), 0.0);
-    $monatsReihen[$m][$gruppeVon($katSchluessel($e))] += (float)$e['kosten'];
+foreach ($kosten['months'] ?? [] as $m) {
+    if ($m['total'] > 0) {
+        $monatsReihen[$m['month']] = $gruppenAus($m['byCategory'] ?? []);
+    }
 }
 ksort($monatsReihen);
 if ($selectedYear !== null) {
@@ -116,15 +122,9 @@ $jahresVergleich = [];
 $vergleichsGruppen = $gruppen;
 if ($selectedYear === null) {
     foreach ($jahre as $j) {
-        $zeile = array_fill_keys(array_keys($gruppen), 0.0);
-        foreach ($alle as $e) {
-            if ((int)substr($e['datum'], 0, 4) === $j) {
-                $zeile[$gruppeVon($katSchluessel($e))] += (float)$e['kosten'];
-            }
-        }
-        $summe = array_sum($zeile);
-        $kmJahr = $kmImJahr($j);
-        $jahresVergleich[$j] = ['gruppen' => $zeile, 'summe' => $summe, 'km' => $kmJahr, 'pro_km' => $kmJahr ? $summe / $kmJahr : null];
+        $kj = $kostenApi($j);
+        $zeile = $gruppenAus(array_column($kj['categories'] ?? [], 'total', 'key'));
+        $jahresVergleich[$j] = ['gruppen' => $zeile, 'summe' => (float)($kj['total']['total'] ?? 0), 'km' => $kj['distanceKm'] ?? null, 'pro_km' => $kj['costPerKm']['total'] ?? null];
     }
 }
 $vergleichsGruppen = array_filter($gruppen, fn($g) => array_sum(array_map(fn($z) => $z['gruppen'][$g], $jahresVergleich)) > 0, ARRAY_FILTER_USE_KEY);

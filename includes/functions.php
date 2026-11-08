@@ -25,39 +25,6 @@ function getCategoryIcon(string $kategorie, ?string $fuelType = null, ?string $e
     return kategorieInfo($kategorie)['icon'] ?? 'fa-tag';
 }
 
-function berechneVerbrauchProMonatAusTankfuellungen(array $rows): array
-{
-    $zwischen = [];
-    $letzteVoll = null;
-    $mengeSeitVoll = 0.0;
-    foreach ($rows as $row) {
-        $mengeSeitVoll += (float)$row['menge'];
-        if ($row['vollgetankt']) {
-            if ($letzteVoll) {
-                $km = $row['tachostand'] - $letzteVoll['tachostand'];
-                if ($km > 0) {
-                    $monat = date('Y-m', strtotime($row['datum']));
-                    if (!isset($zwischen[$monat])) {
-                        $zwischen[$monat] = ['liter' => 0.0, 'km' => 0];
-                    }
-                    $zwischen[$monat]['liter'] += $mengeSeitVoll;
-                    $zwischen[$monat]['km']    += $km;
-                }
-            }
-            $letzteVoll = $row;
-            $mengeSeitVoll = 0.0;
-        }
-    }
-
-    $verbrauchProMonat = [];
-    foreach ($zwischen as $monat => $daten) {
-        $verbrauchProMonat[$monat] = $daten['km'] > 0
-            ? round(($daten['liter'] / $daten['km']) * 100, 2)
-            : 0.0;
-    }
-    return $verbrauchProMonat;
-}
-
 function formatMonat(string $monat, bool $lang = false): string
 {
     $kurz = [1 => 'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
@@ -117,28 +84,6 @@ function fahrzeugBildUrl(array $fahrzeug, string $baseUrl): string
         return $url;
     }
     return $baseUrl . ltrim($url, '/');
-}
-
-/**
- * CO₂-Emissionsfaktor in kg pro Mengeneinheit (l, kWh bzw. kg).
- * Verbrenner: direkte Emission bei der Verbrennung; Elektro: deutscher Strommix.
- * Plug-in-Hybrid: je nach Einheit des Eintrags Benzin oder Strom.
- * @return float|null null, wenn kein sinnvoller Faktor bekannt ist
- */
-function getCo2Faktor(?string $fuelType, ?string $einheit = null): ?float
-{
-    if (strtolower((string)$fuelType) === 'phev') {
-        $fuelType = strtolower((string)$einheit) === 'kwh' ? 'electric' : 'e5';
-    }
-    $faktoren = [
-        'e5' => 2.37, 'e10' => 2.37, 'petrol' => 2.37, 'hybrid' => 2.37,
-        'diesel' => 2.65,
-        'lpg' => 1.64,
-        'cng' => 2.79,
-        'electric' => 0.363,
-        'hydrogen' => 0.0,
-    ];
-    return $faktoren[strtolower((string)$fuelType)] ?? null;
 }
 
 /**

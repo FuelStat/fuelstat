@@ -7,24 +7,36 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 ## [Unreleased]
 
 ### Sicherheit
+- Gelöschte Konten: Bereits ausgestellte Tokens gelten nicht mehr – die API prüft bei jeder Anfrage, ob das Konto noch existiert. Vorher blieb ein Token bis zu 7 Tage gültig, bei Admins aus `ADMIN_USER_IDS` sogar mit Admin-Rechten.
+- Login-Sperre je IP-Adresse und E-Mail statt nur je E-Mail, dazu ein Limit je IP über alle Konten: Fremde können ein Konto nicht mehr durch absichtliche Fehlversuche 15 Minuten lang aussperren. Das PHP-Frontend gibt dafür die Besucher-IP an die API weiter.
+- 2FA-Codes gelten nur noch einmal (RFC 6238); ein abgefangener Code lässt sich nicht innerhalb seines Zeitfensters erneut verwenden.
+- Abgewiesene Admin-Zugriffe werden mit dem Routenmuster statt der aufgerufenen Adresse protokolliert, damit keine Eingaben des Clients ins Log gelangen (Code-Scanning, Log-Injection).
+- Rate-Limit: Ob eine Anfrage je Konto oder je IP gezählt wird, entscheidet nur noch das geprüfte Token, nicht ob der Client überhaupt eines mitschickt (Code-Scanning).
+- Tankstellen- und Ladestationssuche nehmen Koordinaten und Radius nur noch als Dezimalzahlen an (z. B. `48.85235`); Hex- oder Exponent-Schreibweisen wie `0x10` werden mit 400 abgelehnt.
 - Tarifänderungen werden protokolliert (wer, wann, von welchem zu welchem Tarif, über welchen Weg); abgewiesene Zugriffe auf Admin-Funktionen erscheinen im Log. Admins sehen den Verlauf je Konto über die API. Automatische Tests belegen, dass normale Konten ihren oder fremde Tarife nicht ändern können (#102).
 
 ### Neu
+- API: `GET /api/v1/vehicles/:vehicleId/consumption` liefert Verbrauch je Einheit (Abschnitte, Monate, Jahre, Ø/Min/Max), gekaufte Mengen, CO₂ und den Stromanteil; `/stats` zusätzlich die Fahrleistung, `/costs` Summen je Kategorie und die Jahre mit Kosten (#82).
 - API: `GET /api/v1/vehicles/:vehicleId/costs` liefert Kosten je Fahrzeug – Summen nach Energie und Ausgaben, Kosten pro km, Ø je Monat, laufender Monat und Vormonat sowie Monatssummen je Eintragsart, optional für ein Jahr (#124).
 - API: `GET /api/v1/charging-stations` liefert Ladestationen in der Nähe (Open Charge Map) für Web-App und Apps (#123).
 - Betreiber können Tarife auch ohne Web-Oberfläche setzen: `node scripts/tarif-setzen.js` im API-Container (siehe `docs/betrieb.md`, „Tarife verwalten“).
 
 ### Verbessert
+- Statistik, Übersicht, Ausgaben und Bericht zeigen nur noch Werte, die die API rechnet (Verbrauch, CO₂, Stromanteil, Fahrleistung, Kosten je Kategorie, Monat und Jahr). Web-App und Apps haben damit dieselben Zahlen; Statistik und Übersicht laden dafür nicht mehr alle Einträge (#82).
 - Kosten pro km, Ø je Monat, Strecke und Kosten je Monat in den Reitern „Ausgaben“ und „Statistiken“ kommen aus der API und sind damit in Web-App und Apps gleich. Die Strecke zählt jetzt nur echte Tachostände, dafür auch „Kilometerstand notieren“; geschätzte Stände zählen nicht mehr mit (#124).
 - Tankstellen- und Ladestationssuche im Erfassungsformular laufen über die API: gleiche Ergebnisse wie in den Apps, und die Tankstellensuche nutzt jetzt den Zwischenspeicher der API (vorher fragte die Web-App bei jeder Suche Tankerkönig) (#123).
 
 ### Technik
+- API aufgeteilt (#110): `server.js` startet nur noch, `app.js` baut die Middleware-Kette, Endpunkte liegen je Fachbereich unter `backend/src/routes/`, Querschnitt unter `middleware/` und `lib/`, 2FA als Service. Verhalten und Endpunkte unverändert; Aufbau beschrieben in `docs/backend.md`.
+- Die doppelte Verbrauchsrechnung im PHP-Frontend ist entfernt; ihre Testfälle laufen jetzt als API-Tests (#82).
 - Die Web-App ruft Tankerkönig und Open Charge Map nicht mehr selbst auf; die API-Keys liegen nur noch in `infra/.env` statt in `api/key.key` und `api/ocm.key` (#123).
 - Betriebsdoku: Reihenfolge beim Aktualisieren korrigiert – Datenbank-Migrationen werden jetzt ausdrücklich **vor** dem Neustart der API eingespielt, mit Sicherung vorab und Kontrolle der Version danach (`docs/betrieb.md`, README).
 
 ### Hinweise zum Update
 - **Vor dem `git pull`** die API-Keys umziehen, sonst bricht der Pull wegen `api/ocm.key` ab: Tankerkönig-Key (aus `api/key.key`) als `TANKERKOENIG_API_KEY` und Open-Charge-Map-Key (aus `api/ocm.key`) als `OCM_API_KEY` in `infra/.env` eintragen; danach `git update-index --no-skip-worktree api/ocm.key && git checkout -- api/ocm.key`. Nach dem Ausrollen `api/key.key` löschen.
-- Migration einspielen, **bevor** die API neu startet: `cd infra && sudo docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_015_plan_changes.sql`
+- Migration einspielen, **bevor** die API neu startet: `cd infra && sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_015_plan_changes.sql`
+- Migration einspielen, **bevor** die API neu startet: `cd infra && sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_016_mfa_last_counter.sql`
+- Läuft die Seite hinter Cloudflare: in nginx `real_ip` für die Cloudflare-Adressen einrichten (siehe `docs/installation.md`, „Hinter Cloudflare“), damit Login-Sperren je IP nicht viele Nutzer gemeinsam treffen. Ohne Cloudflare ist nichts zu tun.
 
 ## [0.9.1] - 2026-11-06
 

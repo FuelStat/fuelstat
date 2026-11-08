@@ -81,6 +81,14 @@ curl -sk -D - -o /dev/null --resolve fuelstat.example.de:443:127.0.0.1 "https://
 - SSL/TLS-Modus „Full (strict)“ (nginx hat ein eigenes Zertifikat).
 - Caching → Configuration → Browser Cache TTL: „Respect Existing Headers“, sonst ersetzt Cloudflare die Cache-Dauer der Dateien.
 - HTML und `/api/` nicht über Cache-Regeln zwischenspeichern; Seiten und Bilder senden ohnehin `private`.
+- **Echte Besucher-IP in nginx herstellen** (`real_ip`), sonst sehen PHP-Frontend und API nur Cloudflare-Adressen: Login-Sperren und Rate-Limits je IP träfen dann viele Nutzer gemeinsam. In den `server`-Block bzw. eine eingebundene Datei:
+
+  ```nginx
+  # Aktuelle Liste: https://www.cloudflare.com/ips/ (IPv4 und IPv6, regelmäßig prüfen)
+  set_real_ip_from 173.245.48.0/20;
+  # … alle weiteren Bereiche von cloudflare.com/ips …
+  real_ip_header CF-Connecting-IP;
+  ```
 
 ## 4. Erstes Konto und Admin
 

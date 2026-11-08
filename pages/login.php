@@ -72,7 +72,7 @@ try {
                     $show_mfa_form = true;
                 } elseif ($msg === 'invalid_mfa_code') {
                     $show_mfa_form = true;
-                    $error = 'Der Code ist falsch oder abgelaufen.';
+                    $error = 'Der Code ist falsch, abgelaufen oder wurde schon verwendet. Bitte den nächsten Code aus der App eingeben.';
                 } elseif ($msg === 'too_many_attempts') {
                     $error = 'Zu viele Fehlversuche. Bitte in 15 Minuten erneut versuchen.';
                 } elseif ($msg === 'invalid_mfa_token') {

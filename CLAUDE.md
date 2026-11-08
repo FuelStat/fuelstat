@@ -80,6 +80,8 @@ Vor dem PR prüfen und am Ende einer Aufgabe daran erinnern, was davon fehlt:
 
 ## Regeln
 
+- **Aufbau der API:** `backend/src` ist nach Fachbereichen aufgeteilt (`routes/`, `services/`, `middleware/`, `lib/`), siehe [`docs/backend.md`](docs/backend.md). Neue Endpunkte ins passende Routen-Modul, Fachlogik in einen Service.
+
 - **API-first:** Fachliche Berechnungen gehören in die API, nicht ins PHP-Frontend (#82). Clients
   stellen nur dar.
 - **Externe Dienste nur über die API** (Tankerkönig, Open Charge Map, später weitere): kein

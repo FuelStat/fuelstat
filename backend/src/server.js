@@ -13,6 +13,7 @@ const { getVehicleReminders } = require('./services/reminders');
 const { encryptSecret, decryptSecret, sendUserMail, resolveSmtpHost, ALLOWED_PORTS, loadDefaultSmtp, withDefaultSmtp } = require('./services/mail');
 const notifier = require('./services/notifier');
 const plans = require('./services/plans');
+const planChanges = require('./services/planChanges');
 const categories = require('./services/categories');
 const media = require('./services/media');
 const stations = require('./services/stations');
@@ -455,7 +456,11 @@ function isAdmin(req) {
 }
 
 function requireAdmin(req, res, next) {
-  if (!isAdmin(req)) return res.status(403).json({ error: 'forbidden' });
+  if (!isAdmin(req)) {
+    // Abgewiesene Zugriffe auf Admin-Funktionen protokollieren (#102): Konto, Methode, Pfad – ohne Body und Token
+    console.warn(`[admin] abgewiesen: ${req.method} ${req.originalUrl.split('?')[0]} von Konto ${req.user?.sub || '-'}`);
+    return res.status(403).json({ error: 'forbidden' });
+  }
   return next();
 }
 
@@ -813,30 +818,43 @@ function parsePlanBody(body) {
     if (Number.isNaN(d.getTime())) return { error: 'invalid_planUntil' };
     planUntil = d.toISOString();
   }
+  // Notiz fürs Protokoll (z. B. "Tester", "Kulanz"), optional und gekürzt
+  const note = body?.note ? String(body.note).trim().slice(0, 200) || null : null;
   // Free ist immer unbefristet
-  return { plan, planUntil: plan === 'free' ? null : planUntil };
+  return { plan, planUntil: plan === 'free' ? null : planUntil, note };
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Tarif setzen (nur Admin), z. B. Plus für Tester und Freunde. planUntil: ISO-Datum oder null (unbefristet)
 app.put('/api/v1/auth/users/:userId/plan', auth, requireAdmin, async (req, res) => {
   const p = parsePlanBody(req.body);
   if (p.error) return res.status(400).json({ error: p.error, allowed: plans.PLAN_NAMES });
+  const userId = String(req.params.userId || '').trim();
+  if (!UUID_RE.test(userId)) return res.status(404).json({ error: 'user_not_found' });
   try {
-    const r = await pool.query(
-      `UPDATE users SET plan = $2, plan_until = $3, updated_at = now() WHERE id = $1
-       RETURNING id, email, plan, plan_until`,
-      [String(req.params.userId || '').trim(), p.plan, p.planUntil]
-    );
-    if (r.rowCount === 0) return res.status(404).json({ error: 'user_not_found' });
-    res.json({ id: r.rows[0].id, email: r.rows[0].email, ...plans.planInfo(r.rows[0]) });
+    const [u] = await planChanges.setPlans(pool, {
+      userIds: [userId], plan: p.plan, planUntil: p.planUntil, source: 'admin', changedBy: req.user.sub, note: p.note
+    });
+    if (!u) return res.status(404).json({ error: 'user_not_found' });
+    res.json({ id: u.id, email: u.email, ...plans.planInfo(u) });
   } catch (e) {
-    if (e.code === '22P02') return res.status(404).json({ error: 'user_not_found' });
+    serverError(res, e);
+  }
+});
+
+// Verlauf der Tarifänderungen eines Kontos (nur Admin, #102)
+app.get('/api/v1/auth/users/:userId/plan-history', auth, requireAdmin, async (req, res) => {
+  const userId = String(req.params.userId || '').trim();
+  if (!UUID_RE.test(userId)) return res.status(404).json({ error: 'user_not_found' });
+  try {
+    res.json({ changes: await planChanges.history(pool, userId) });
+  } catch (e) {
     serverError(res, e);
   }
 });
 
 // Tarif für mehrere Konten auf einmal setzen (nur Admin): { userIds: [...], plan, planUntil }
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 app.put('/api/v1/auth/plans', auth, requireAdmin, async (req, res) => {
   const p = parsePlanBody(req.body);
   if (p.error) return res.status(400).json({ error: p.error, allowed: plans.PLAN_NAMES });
@@ -845,11 +863,11 @@ app.put('/api/v1/auth/plans', auth, requireAdmin, async (req, res) => {
     return res.status(400).json({ error: 'invalid_userIds' });
   }
   try {
-    const r = await pool.query(
-      `UPDATE users SET plan = $2, plan_until = $3, updated_at = now() WHERE id = ANY($1::uuid[]) RETURNING id`,
-      [ids, p.plan, p.planUntil]
-    );
-    res.json({ updated: r.rowCount, plan: p.plan, planUntil: p.planUntil });
+    const r = await planChanges.setPlans(pool, {
+      userIds: ids, plan: p.plan, planUntil: p.planUntil, source: 'admin', changedBy: req.user.sub, note: p.note
+    });
+    // updated = gefundene Konten (wie bisher), changed = davon tatsächlich geändert
+    res.json({ updated: r.length, changed: r.filter((u) => u.changed).length, plan: p.plan, planUntil: p.planUntil });
   } catch (e) {
     serverError(res, e);
   }

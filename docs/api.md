@@ -26,6 +26,7 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | PUT | `/auth/users/:userId/beta` | Admin | Beta-Tester setzen |
 | PUT | `/auth/users/:userId/plan` | Admin | Tarif setzen (`plan`, optional `planUntil`) |
 | PUT | `/auth/plans` | Admin | Tarif für mehrere Konten (`userIds`, `plan`, optional `planUntil`) |
+| GET | `/auth/users/:userId/plan-history` | Admin | Verlauf der Tarifänderungen eines Kontos |
 | POST | `/auth/users/:userId/revoke-all` | Selbst/Admin | Auf allen Geräten abmelden |
 | GET | `/auth/tokens` | ✓ | Gesperrte Tokens (Admin: alle) |
 | POST | `/auth/tokens/revoke` | ✓ | Ein Token sperren (Abmelden) |
@@ -125,11 +126,16 @@ Fehlende Rechte: **403** `{ "error": "forbidden" }`
 
 Grundgerüst für ein späteres Premium-Modell. Was ein Tarif darf, steht an einer Stelle: `backend/src/services/plans.js`.
 
-* `users.plan` (`free`, `plus`, `fleet`) und `users.plan_until` (Ende, `null` = unbefristet; danach gilt `free`). Admins setzen beides mit `PUT /auth/users/:userId/plan`, für mehrere Konten auf einmal mit `PUT /auth/plans` `{ "userIds": [...], "plan": "plus", "planUntil": null }` (Antwort `{ updated, plan, planUntil }`, max. 1000 IDs, sonst 400 `invalid_userIds`), oder in der Benutzerverwaltung (Häkchen, „Alle auswählen“, „Tarif setzen“).
+* `users.plan` (`free`, `plus`, `fleet`) und `users.plan_until` (Ende, `null` = unbefristet; danach gilt `free`). Admins setzen beides mit `PUT /auth/users/:userId/plan`, für mehrere Konten auf einmal mit `PUT /auth/plans` `{ "userIds": [...], "plan": "plus", "planUntil": null }` (Antwort `{ updated, changed, plan, planUntil }`: `updated` = gefundene Konten, `changed` = davon tatsächlich geändert; max. 1000 IDs, sonst 400 `invalid_userIds`), oder in der Benutzerverwaltung (Häkchen, „Alle auswählen“, „Tarif setzen“). Optional `note` (bis 200 Zeichen) fürs Protokoll, z. B. „Tester“.
 * `PLAN_LIMITS_ENABLED=true` in der `.env` schaltet die Grenzen ein. **Standard: aus**, dann haben alle Konten mindestens die Rechte von `plus`.
 * `GET /whoami` liefert `plan`, `planUntil`, `effectivePlan` (gerade geltender Tarif), `limitsEnabled` und `features` (z. B. `maxVehicles: 1`, `sharing: false`; `null` = unbegrenzt).
 * Verbietet der Tarif etwas, antwortet die API mit **403** `{ "error": "plan_required", "feature": "maxVehicles", "limit": 1, "plan": "free" }`. Derzeit geprüft: Anzahl Fahrzeuge beim Anlegen, Premium- und eigene Kategorien (siehe Kategorien). Herabstufen löscht nichts.
 * Datenexport ist nie an einen Tarif gebunden (DSGVO Art. 20).
+
+**Wer darf den Tarif ändern (#102)?** Nur der Betreiber: Admins über die beiden Endpunkte oben oder auf dem Server mit `backend/scripts/tarif-setzen.js` (siehe `docs/betrieb.md`), später zusätzlich ein verifizierter Webhook des Zahlungsanbieters (#59). Kein anderer Endpunkt nimmt `plan`, `plan_until` oder `beta_tester` an – Profil-Updates (`PATCH /auth/users/:userId`) und die Registrierung ignorieren solche Felder. Ein Client kann den Tarif lesen (`/whoami`), aber nie ändern; die API prüft Rechte immer anhand des gespeicherten Tarifs.
+
+* Jede tatsächliche Änderung landet in `plan_changes` (Konto, alter und neuer Tarif samt Laufzeit, Quelle `admin`/`cli`/`webhook`, ändernder Admin, Notiz, Zeitpunkt; keine Tokens oder Zahlungsdaten). `GET /auth/users/:userId/plan-history` (Admin) → `{ changes: [{ oldPlan, oldPlanUntil, newPlan, newPlanUntil, source, changedBy, note, createdAt }] }`, neueste zuerst, höchstens 50.
+* Abgewiesene Zugriffe auf Admin-Funktionen schreibt die API ins Log: `[admin] abgewiesen: <Methode> <Pfad> von Konto <id>`.
 
 ### Anmeldung verlängern
 

@@ -6,8 +6,17 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+### Sicherheit
+- Tarifänderungen werden protokolliert (wer, wann, von welchem zu welchem Tarif, über welchen Weg); abgewiesene Zugriffe auf Admin-Funktionen erscheinen im Log. Admins sehen den Verlauf je Konto über die API. Automatische Tests belegen, dass normale Konten ihren oder fremde Tarife nicht ändern können (#102).
+
+### Neu
+- Betreiber können Tarife auch ohne Web-Oberfläche setzen: `node scripts/tarif-setzen.js` im API-Container (siehe `docs/betrieb.md`, „Tarife verwalten“).
+
 ### Technik
 - Betriebsdoku: Reihenfolge beim Aktualisieren korrigiert – Datenbank-Migrationen werden jetzt ausdrücklich **vor** dem Neustart der API eingespielt, mit Sicherung vorab und Kontrolle der Version danach (`docs/betrieb.md`, README).
+
+### Hinweise zum Update
+- Migration einspielen, **bevor** die API neu startet: `cd infra && sudo docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_015_plan_changes.sql`
 
 ## [0.9.1] - 2026-11-06
 

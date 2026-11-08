@@ -86,7 +86,7 @@ sudo docker compose exec api node scripts/bilder-optimieren.js           # umste
 
 ## Datenbank-Migrationen
 
-Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält bereits alles bis einschließlich 014. Bestehende Installationen spielen alle noch fehlenden Migrationen der Reihe nach ein:
+Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält bereits alles bis einschließlich 015. Bestehende Installationen spielen alle noch fehlenden Migrationen der Reihe nach ein:
 
 | Datei | Inhalt |
 |---|---|
@@ -100,8 +100,22 @@ Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält ber
 | `postgres_012_missing_odometer.sql` | Tank-/Ladevorgänge ohne Tachostand, Markierung „geschätzt“, Erinnerung „Kilometerstand nachtragen“ |
 | `postgres_013_vehicle_details.sql` | Fahrzeugangaben: Kennzeichen, FIN, Erstzulassung, Kauf/Verkauf, Intervalle, Versicherung, Steuer, Reifen |
 | `postgres_014_expense_categories.sql` | Eigene Kategorien für Ausgaben (Plus) |
+| `postgres_015_plan_changes.sql` | Protokoll der Tarifänderungen (#102) |
 
 Alle Migrationen laufen in einer Transaktion und lassen sich gefahrlos ein zweites Mal ausführen. Einspielen wie unter [Aktualisieren](#aktualisieren), Schritt 4, z. B. `< ../backend/database/postgres_014_expense_categories.sql`.
+
+## Tarife verwalten
+
+Den Tarif eines Kontos ändert nur der Betreiber (#102): in der Benutzerverwaltung (Admins aus `ADMIN_USER_IDS`) oder direkt auf dem Server, auch ohne Web-Oberfläche:
+
+```bash
+cd infra
+sudo docker compose exec api node scripts/tarif-setzen.js nutzer@example.org                                  # Tarif und Verlauf anzeigen
+sudo docker compose exec api node scripts/tarif-setzen.js nutzer@example.org plus --bis 2027-06-30 --notiz "Tester"
+sudo docker compose exec api node scripts/tarif-setzen.js nutzer@example.org free                             # zurücksetzen
+```
+
+Statt der E-Mail geht auch die Konto-ID. Jede Änderung wird mit Quelle, Zeitpunkt und Notiz in `plan_changes` protokolliert; der Verlauf steht auch unter `GET /api/v1/auth/users/:userId/plan-history`. Abgewiesene Zugriffe auf Admin-Funktionen erscheinen im API-Log (`sudo docker compose logs api | grep abgewiesen`).
 
 ## Datensicherung
 

@@ -7,7 +7,9 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 ## [Unreleased]
 
 ### Neu
-- Offline lesen (#1): Ohne Internetverbindung zeigt die installierte App bzw. der Browser die zuletzt geladene Übersicht und die zuletzt geöffneten Fahrzeugseiten mit einem Hinweis auf den Stand. Speichern ist offline gesperrt. Die gespeicherten Seiten bleiben auf dem Gerät und werden beim Abmelden, bei jeder Anmeldung und nach 7 Tagen verworfen.
+- Offline lesen (#1): Ohne Internetverbindung zeigt die installierte App bzw. der Browser die zuletzt geladene Übersicht und die zuletzt geöffneten Fahrzeugseiten samt Fahrzeugbildern mit einem Hinweis auf den Stand. Speichern ist offline gesperrt. Die gespeicherten Seiten bleiben auf dem Gerät und werden beim Abmelden, bei jeder Anmeldung und nach 7 Tagen verworfen.
+
+- Zum Aktualisieren nach unten ziehen in der installierten App (iOS und Android), wie in nativen Apps. Nicht in Formularen mit ungespeicherten Eingaben.
 
 ### Behoben
 - Installation als App: Das 512-Pixel-Icon im Manifest zeigte auf eine fehlende Datei. Android/Chrome nutzt jetzt ein passendes Icon, dazu ein randloses Icon für den Home-Bildschirm unter Android (maskable) und iOS (`apple-touch-icon`) statt eines Icons mit hellen Ecken.

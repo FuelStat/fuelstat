@@ -108,7 +108,8 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 - Schneller Seitenwechsel mit Ladeanzeige und Browser-Cache
 - Wischgesten zum Wechseln zwischen den Fahrzeug-Reitern
 - App-Kürzel für häufig verwendete Aktionen
-- Offline lesbar: zuletzt geladene Übersicht und Fahrzeugseiten mit Hinweis auf den Stand
+- Offline lesbar: zuletzt geladene Übersicht und Fahrzeugseiten mit Bildern und Hinweis auf den Stand
+- Zum Aktualisieren nach unten ziehen (installierte App)
 - Optimierte und geschützte Fahrzeugbilder
 
 ---

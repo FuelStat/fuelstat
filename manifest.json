@@ -1,21 +1,37 @@
 {
+  "id": "./index.php",
   "name": "Fuelstat",
   "short_name": "Fuelstat",
   "description": "Verbrauch, Kosten und Termine deiner Fahrzeuge im Blick.",
+  "lang": "de",
+  "dir": "ltr",
   "start_url": "index.php",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f8f9fa",
   "theme_color": "#f8f9fa",
+  "categories": [
+    "productivity",
+    "utilities"
+  ],
   "icons": [
     {
       "src": "images/icon-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "images/icon-512x512.png",
+      "src": "images/new-icon-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "images/icon-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [

@@ -16,5 +16,5 @@ return [
     // Zuständige Datenschutz-Aufsichtsbehörde (Sitz des Betreibers)
     'aufsicht' => 'Der Landesbeauftragte für den Datenschutz und die Informationsfreiheit Baden-Württemberg, Lautenschlagerstraße 20, 70173 Stuttgart, www.baden-wuerttemberg.datenschutz.de',
 
-    'stand' => 'Oktober 2026',
+    'stand' => 'November 2026',
 ];

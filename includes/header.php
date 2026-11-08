@@ -163,7 +163,7 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
          Hinzufügen zum Home-Bildschirm. -->
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#f8f9fa">
-    <link rel="apple-touch-icon" href="<?= htmlspecialchars($baseUrl) ?>images/new-icon-512x512.png">
+    <link rel="apple-touch-icon" href="<?= htmlspecialchars($baseUrl) ?>images/apple-touch-icon.png">
 	<link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl) ?>images/new-icon.ico">
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 

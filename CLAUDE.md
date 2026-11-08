@@ -61,7 +61,9 @@ Vor dem PR prüfen und am Ende einer Aufgabe daran erinnern, was davon fehlt:
 - **CHANGELOG:** sichtbare Änderung unter `## [Unreleased]` eingetragen; bei allem, was beim
   Ausrollen zu tun ist, ein Punkt unter „Hinweise zum Update“ mit dem genauen Befehl.
 - **Neue oder geänderte API-Endpunkte:** `docs/api.md` (Übersichtstabelle und eigener Abschnitt)
-  und `docs/openapi.1.0.0.yaml` angepasst; nur abwärtskompatibel unter `/api/v1`.
+  und `docs/openapi.1.0.0.yaml` angepasst (neue Felder auch in den Schemas, die `additionalProperties: false`
+  haben); nur abwärtskompatibel unter `/api/v1`. Die CI prüft mit `tests/openapi_abgleich.py`, dass jede Route
+  in der OpenAPI steht.
 - **Datenbankschema:** neue Migration `backend/database/postgres_0NN_name.sql` (in einer
   Transaktion, mehrfach ausführbar: `IF NOT EXISTS` u. Ä.), dieselbe Änderung in
   `postgres_init.sql` für Neuinstallationen, Zeile in der Migrationstabelle in `docs/betrieb.md`

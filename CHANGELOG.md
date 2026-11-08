@@ -8,7 +8,6 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ### Neu
 - Offline lesen (#1): Ohne Internetverbindung zeigt die installierte App bzw. der Browser die zuletzt geladene Übersicht und die zuletzt geöffneten Fahrzeugseiten samt Fahrzeugbildern mit einem Hinweis auf den Stand. Speichern ist offline gesperrt. Die gespeicherten Seiten bleiben auf dem Gerät und werden beim Abmelden, bei jeder Anmeldung und nach 7 Tagen verworfen.
-
 - Zum Aktualisieren nach unten ziehen in der installierten App (iOS und Android), wie in nativen Apps. Nicht in Formularen mit ungespeicherten Eingaben.
 
 ### Behoben
@@ -16,6 +15,8 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ### Technik
 - `manifest.json` mit `id`, `scope`, Sprache und Kategorien.
+- API-Dokumentation (`docs/openapi.1.0.0.yaml`): Login mit 2FA vollständig beschrieben (Beispiele mit und ohne Code, Antworten `mfa_required` mit `mfaToken`, `invalid_mfa_code`, `429 too_many_attempts`); fehlende Felder in `/health` (`version`, `registration_enabled`, `beta_phase`), Benutzer, Fahrzeugen und Einträgen ergänzt – strenge Validatoren und Code-Generatoren lehnten echte Antworten bisher ab. Pfade nach Bereichen sortiert.
+- Die CI prüft, dass jede API-Route in der OpenAPI dokumentiert ist (`tests/openapi_abgleich.py`).
 
 ## [0.10.0] - 2026-11-08
 

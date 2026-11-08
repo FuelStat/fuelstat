@@ -3,19 +3,19 @@ info:
   title: Fuelstat API
   version: "1.0.0"
   description: >
-    Fuelstat Backend API (v1). Base URL ist produktiv auf tanken.1emc.de.
+    Fuelstat Backend API (v1): selbst gehostete Fahrzeugverwaltung für Tanken, Laden, Wartung und laufende Kosten.
+    Verbrauch, Kosten, CO₂ und Termine rechnet die API; Web-App und Apps stellen nur dar.
+    Änderungen unter /api/v1 sind abwärtskompatibel (neue Felder können dazukommen, Clients ignorieren unbekannte Felder).
+    Ausführliche Regeln: docs/api.md im Repository.
   contact:
     name: Mario Caraggiu
     url: https://tanken.1emc.de/pages/impressum.php
-    email: mario@caraggiu.eu
   license:
-    name: AGPL-3.0 license
-    url: https://github.com/FuelStat/fuelstat?tab=AGPL-3.0-1-ov-file
+    name: AGPL-3.0
+    url: https://github.com/FuelStat/fuelstat/blob/main/LICENSE
 servers:
   - url: https://tanken.1emc.de
-    description: A self-hosted vehicle tracking and expense management app for fuel,
-      maintenance, and running costs. Track fuel consumption, expenses, vehicle
-      statistics, and more with a modern web interface and PWA support.
+    description: Produktivinstanz
 
 tags:
   - name: Health
@@ -51,6 +51,9 @@ paths:
                 status: healthy
                 timestamp: "2025-12-23T13:47:17.641Z"
                 service: fuelstat-api-v2
+                version: "0.10.0"
+                registration_enabled: true
+                beta_phase: true
 
   /api/v1/db-ping:
     get:
@@ -127,7 +130,12 @@ paths:
                 user:
                   id: "97f6407a-b317-4715-ae74-f03885125c88"
                   email: "mario@test.local"
-                  createdAt: "2025-12-23T08:34:47.135Z"
+                  username: null
+                  mfa_enabled: false
+                  profile_image_url: null
+                  beta_tester: true
+                  created_at: "2025-12-23T08:34:47.135Z"
+                  updated_at: "2025-12-23T08:34:47.135Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "409":
@@ -147,16 +155,29 @@ paths:
       summary: User Login
       operationId: postAuthLogin
       security: []
+      description: >
+        Anmelden mit E-Mail und Passwort. Bei aktiver 2FA gibt es zwei Wege: `code` gleich mitschicken (ein Schritt)
+        oder ohne `code` anfragen, 401 `mfa_required` mit `mfaToken` erhalten und den Code an POST /api/v1/auth/login/mfa
+        schicken (zwei Schritte). Ohne aktive 2FA wird `code` ignoriert. Jeder Code gilt nur einmal.
+        Sperre nach 10 Fehlversuchen je IP und E-Mail bzw. 50 je IP für 15 Minuten (429), nach 5 falschen Codes je Konto.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/LoginRequest"
-            example:
-              email: "mario@test.local"
-              password: "SuperSecret123!"
-              code: "000000"
+            examples:
+              ohne2fa:
+                summary: Konto ohne 2FA
+                value:
+                  email: "mario@test.local"
+                  password: "SuperSecret123!"
+              mit2fa:
+                summary: Konto mit 2FA, Code in einem Schritt
+                value:
+                  email: "mario@test.local"
+                  password: "SuperSecret123!"
+                  code: "123456"
       responses:
         "200":
           description: OK
@@ -165,15 +186,171 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuthResponse"
         "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          description: Unauthorized (invalid_credentials)
+          description: missing_credentials (E-Mail oder Passwort fehlt)
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
-                error: invalid_credentials
+                error: missing_credentials
+        "401":
+          description: "invalid_credentials | mfa_required (mit mfaToken, 5 Minuten gültig) | invalid_mfa_code (falsch, abgelaufen oder schon verwendet)"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginErrorResponse"
+              examples:
+                falschesPasswort:
+                  summary: E-Mail oder Passwort falsch
+                  value:
+                    error: invalid_credentials
+                codeNoetig:
+                  summary: 2FA aktiv, kein Code mitgeschickt
+                  value:
+                    error: mfa_required
+                    mfaToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                falscherCode:
+                  summary: Code falsch, abgelaufen oder schon verwendet
+                  value:
+                    error: invalid_mfa_code
+        "429":
+          $ref: "#/components/responses/TooManyAttempts"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/auth/login/mfa:
+    post:
+      tags: [Auth]
+      summary: Login step 2 with 2FA code
+      description: "mfaToken aus der mfa_required-Antwort von /auth/login (5 Minuten gültig) plus TOTP-Code."
+      operationId: postAuthLoginMfa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mfaToken: { type: string }
+                code: { type: string, example: "123456" }
+              required: [mfaToken, code]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: invalid_mfa_token (fehlt, falsch oder älter als 5 Minuten) | invalid_mfa_code (falsch, abgelaufen oder schon verwendet)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: invalid_mfa_code
+        "429":
+          $ref: "#/components/responses/TooManyAttempts"
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Renew the login token (7 days), at most 90 days after the last password login
+      operationId: postAuthRefresh
+      responses:
+        "200":
+          description: "OK ({ token })"
+        "401":
+          description: "missing_token, invalid_token, token_revoked oder reauth_required (letzter Login mit Passwort > 90 Tage)"
+
+  /api/v1/auth/password:
+    post:
+      tags: [Users]
+      summary: Change own password
+      description: "Prüft das aktuelle Passwort, setzt das neue, widerruft alle bestehenden Tokens und gibt ein neues Token zurück."
+      operationId: postAuthPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordChangeRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/auth/mfa/setup:
+    post:
+      tags: [Users]
+      summary: Start 2FA setup (TOTP)
+      description: "Erzeugt ein neues Secret. 2FA ist erst nach /auth/mfa/enable aktiv."
+      operationId: postMfaSetup
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MfaSetupResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: mfa_already_enabled
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/auth/mfa/enable:
+    post:
+      tags: [Users]
+      summary: Enable 2FA with a code from the authenticator app
+      operationId: postMfaEnable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MfaCodeRequest"
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: invalid_mfa_code | mfa_not_set_up
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/auth/mfa/disable:
+    post:
+      tags: [Users]
+      summary: Disable 2FA (password and current code required)
+      operationId: postMfaDisable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MfaCodeRequest"
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: invalid_mfa_code | mfa_not_enabled
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/ServerError"
 
@@ -393,6 +570,242 @@ paths:
         "500":
           $ref: "#/components/responses/ServerError"
 
+  /api/v1/auth/users/{userId}/beta:
+    put:
+      tags: [Users]
+      summary: Set beta tester flag (admin only)
+      operationId: putUserBeta
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                betaTester:
+                  type: boolean
+              required: [betaTester]
+      responses:
+        "200":
+          description: "OK ({ id, email, beta_tester })"
+        "400":
+          description: invalid_betaTester
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: forbidden
+        "404":
+          description: user_not_found
+
+  /api/v1/auth/users/{userId}/plan:
+    put:
+      tags: [Users]
+      summary: Set plan (admin only)
+      operationId: putUserPlan
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                plan:
+                  type: string
+                  enum: [free, plus, fleet]
+                planUntil:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  description: Ende des Tarifs, leer/null = unbefristet (bei free immer null)
+                note:
+                  type: string
+                  maxLength: 200
+                  description: Notiz fürs Protokoll der Tarifänderungen
+              required: [plan]
+      responses:
+        "200":
+          description: "OK ({ id, email, plan, planUntil, effectivePlan, limitsEnabled, features })"
+        "400":
+          description: invalid_plan, invalid_planUntil
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: forbidden
+        "404":
+          description: user_not_found
+
+  /api/v1/auth/plans:
+    put:
+      tags: [Users]
+      summary: Set plan for several users (admin only)
+      operationId: putPlans
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIds:
+                  type: array
+                  maxItems: 1000
+                  items:
+                    type: string
+                    format: uuid
+                plan:
+                  type: string
+                  enum: [free, plus, fleet]
+                planUntil:
+                  type: string
+                  format: date-time
+                  nullable: true
+                  description: Ende des Tarifs, leer/null = unbefristet (bei free immer null)
+                note:
+                  type: string
+                  maxLength: 200
+                  description: Notiz fürs Protokoll der Tarifänderungen
+              required: [userIds, plan]
+      responses:
+        "200":
+          description: "OK ({ updated, changed, plan, planUntil }); updated = gefundene Konten, changed = davon geändert"
+        "400":
+          description: invalid_plan, invalid_planUntil, invalid_userIds
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: forbidden
+
+  /api/v1/auth/users/{userId}/plan-history:
+    get:
+      tags: [Users]
+      summary: Plan change history of a user (admin only)
+      operationId: getUserPlanHistory
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK, neueste Änderung zuerst, höchstens 50
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  changes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        oldPlan: { type: string, enum: [free, plus, fleet] }
+                        oldPlanUntil: { type: string, format: date-time, nullable: true }
+                        newPlan: { type: string, enum: [free, plus, fleet] }
+                        newPlanUntil: { type: string, format: date-time, nullable: true }
+                        source: { type: string, enum: [admin, cli, webhook] }
+                        changedBy: { type: string, format: uuid, nullable: true }
+                        note: { type: string, nullable: true }
+                        createdAt: { type: string, format: date-time }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: forbidden
+        "404":
+          description: user_not_found
+
+  /api/v1/auth/mail-settings:
+    get:
+      tags: [Users]
+      summary: Get own e-mail notification settings
+      operationId: getMailSettings
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MailSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      tags: [Users]
+      summary: Save own e-mail notification settings
+      operationId: putMailSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MailSettingsRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MailSettings"
+        "400":
+          description: invalid_* | mail_not_configured | smtp_host_not_allowed | smtp_host_not_found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/mail-settings/test:
+    post:
+      tags: [Users]
+      summary: Send a test mail with the saved settings
+      operationId: postMailTest
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: mail_not_configured | smtp_host_not_allowed | smtp_host_not_found
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "502":
+          description: smtp_failed (detail enthält die Meldung des Mailservers)
+
+  /api/v1/auth/mail-settings/send-now:
+    post:
+      tags: [Users]
+      summary: Send reminders or the report for the previous month now
+      operationId: postMailSendNow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [reminders, report]
+              required: [type]
+      responses:
+        "200":
+          description: "OK ({ sent: true } oder { sent: false, reason: nothing_due })"
+        "400":
+          description: invalid_type | mail_not_configured
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "502":
+          description: smtp_failed
+
   /api/v1/vehicles:
     post:
       tags: [Vehicles]
@@ -500,6 +913,29 @@ paths:
       responses:
         "204":
           description: No Content
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/vehicles/{vehicleId}/reminders:
+    get:
+      tags: [Vehicles]
+      summary: Due dates (TÜV, service, insurance, tax)
+      operationId: getVehicleReminders
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Reminder"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -667,6 +1103,315 @@ paths:
                 olderThan14Days: true
                 nextUpdated: true
                 message: "Ein Tank-/Ladevorgang, der älter als 14 Tage ist, wurde gelöscht. Der nachfolgende Vorgang wird bei der Verbrauchsberechnung nicht mehr den vorherigen berücksichtigen (skip_previous = true)."
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/entries:
+    post:
+      tags: [Entries]
+      summary: Create Entry (expense/maintenance/etc.)
+      description: >
+        Generischer Eintrag für Kosten und Ereignisse. category ist ein Schlüssel aus GET /api/v1/categories;
+        unbekannte Kategorien ergeben 400 unknown_category, gesperrte 403 plan_required.
+      operationId: postEntries
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EntryCreateRequest"
+            example:
+              vehicleId: "e3585b92-e620-470e-ae96-f11bc3baf1d1"
+              category: "Reparatur"
+              amountEur: 65.5
+              odometerKm: 45200
+              occurredAt: "2023-10-27T14:30:00Z"
+              vendor: "Shell"
+              description: "Repair"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/vehicles/{vehicleId}/entries:
+    get:
+      tags: [Entries]
+      summary: Get Entries (list by vehicle)
+      operationId: getVehicleEntries
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntryListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/entries/{entryId}:
+    get:
+      tags: [Entries]
+      summary: Get Entry (details)
+      operationId: getEntry
+      parameters:
+        - $ref: "#/components/parameters/EntryId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    patch:
+      tags: [Entries]
+      summary: Patch Entry (details)
+      operationId: patchEntry
+      parameters:
+        - $ref: "#/components/parameters/EntryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EntryPatchRequest"
+            example:
+              amountEur: 275.5
+              vendor: "ATU"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+    delete:
+      tags: [Entries]
+      summary: Delete Entry
+      operationId: deleteEntry
+      parameters:
+        - $ref: "#/components/parameters/EntryId"
+      responses:
+        "204":
+          description: No Content
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/vehicles/{vehicleId}/import:
+    post:
+      tags: [Entries]
+      summary: Import fillups and entries (e.g. from CSV)
+      description: "Max. 1000 Zeilen, alles in einer Transaktion. Duplikate (gleiches Datum + Tachostand + Einheit bzw. Datum + Kategorie + Betrag) werden übersprungen. `unit` je Zeile gilt nur bei Plug-in-Hybriden (l oder kwh); sonst immer die Einheit des Fahrzeugs."
+      operationId: postVehicleImport
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fillups:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/FillupCreateRequest"
+                entries:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/EntryCreateRequest"
+                dryRun:
+                  type: boolean
+                  description: Nur prüfen, nichts speichern (Antwort 200 mit Duplikaten und Warnungen)
+      responses:
+        "200":
+          description: "Probelauf (dryRun): gleiche Felder wie 201 plus dryRun: true"
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  imported:
+                    type: object
+                    properties:
+                      fillups: { type: integer }
+                      entries: { type: integer }
+                  skipped:
+                    type: object
+                    properties:
+                      fillups: { type: integer }
+                      entries: { type: integer }
+                  duplicates:
+                    type: array
+                    description: Übersprungene Zeilen (type fillup|entry, index in der jeweiligen Liste)
+                    items:
+                      type: object
+                      properties:
+                        type: { type: string }
+                        index: { type: integer }
+                  warnings:
+                    type: array
+                    description: Unplausible Tachostände je Zeile (type, index und die Felder von OdometerWarning)
+                    items:
+                      type: object
+        "400":
+          description: nothing_to_import | too_many_rows | invalid_rows
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/categories:
+    get:
+      tags: [Entries]
+      summary: Categories for expenses (built-in, premium, custom, legacy)
+      description: >
+        Liefert groups, categories (key, name, icon, color, group, form, countsAsCost, plan, custom, selectable, available)
+        und custom (max, used, canCreate, icons, colors, nameMaxLength). Cache-Control private, max-age=300; ETag.
+      operationId: getCategories
+      responses:
+        "200":
+          description: OK
+        "304":
+          description: Not Modified (If-None-Match)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Entries]
+      summary: Create a custom category (plan feature customCategories)
+      operationId: postCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 40 }
+                icon: { type: string, example: "fa-ferry" }
+                color: { type: string, example: "#0dcaf0" }
+                group: { type: string, enum: [fix, wartung, unterwegs, sonstiges] }
+      responses:
+        "201":
+          description: Created (key custom:<id>)
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "403":
+          description: plan_required oder category_limit_reached
+        "409":
+          description: name_taken
+
+  /api/v1/categories/{categoryId}:
+    parameters:
+      - name: categoryId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [Entries]
+      summary: Change a custom category (name, icon, color, group)
+      operationId: patchCategory
+      responses:
+        "200":
+          description: OK
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: name_taken
+    delete:
+      tags: [Entries]
+      summary: Delete a custom category; entries move to moveTo
+      operationId: deleteCategory
+      parameters:
+        - name: moveTo
+          in: query
+          required: false
+          schema: { type: string, example: "Sonstiges" }
+      responses:
+        "200":
+          description: "OK ({ deleted, moved, moveTo })"
+        "400":
+          description: invalid_moveTo
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: category_in_use (moveTo fehlt)
+
+  /api/v1/vehicles/{vehicleId}/stats:
+    get:
+      tags: [Stats]
+      summary: Get Vehicle Stats
+      operationId: getVehicleStats
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VehicleStatsResponse"
+              example:
+                currentOdo: 12845
+                avgPricePerLiter: 1.828
+                avgConsumption: 19.5
+                segments:
+                  - full_id: "5546f0ac-b9f7-4d31-92c1-7886aba01701"
+                    full_at: "2025-12-23T09:11:23.890Z"
+                    km: 300
+                    liters_segment: 47.2
+                    l_per_100km: 15.73
+                trend:
+                  current: 15.73
+                  avgPrev: 23.6
+                  diff: -7.87
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -842,781 +1587,6 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/vehicles/{vehicleId}/stats:
-    get:
-      tags: [Stats]
-      summary: Get Vehicle Stats
-      operationId: getVehicleStats
-      parameters:
-        - $ref: "#/components/parameters/VehicleId"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/VehicleStatsResponse"
-              example:
-                currentOdo: 12845
-                avgPricePerLiter: 1.828
-                avgConsumption: 19.5
-                segments:
-                  - full_id: "5546f0ac-b9f7-4d31-92c1-7886aba01701"
-                    full_at: "2025-12-23T09:11:23.890Z"
-                    km: 300
-                    liters_segment: 47.2
-                    l_per_100km: 15.73
-                trend:
-                  current: 15.73
-                  avgPrev: 23.6
-                  diff: -7.87
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/ServerError"
-
-  /api/v1/entries:
-    post:
-      tags: [Entries]
-      summary: Create Entry (expense/maintenance/etc.)
-      description: >
-        Generischer Eintrag für Kosten und Ereignisse. category ist ein Schlüssel aus GET /api/v1/categories;
-        unbekannte Kategorien ergeben 400 unknown_category, gesperrte 403 plan_required.
-      operationId: postEntries
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/EntryCreateRequest"
-            example:
-              vehicleId: "e3585b92-e620-470e-ae96-f11bc3baf1d1"
-              category: "Reparatur"
-              amountEur: 65.5
-              odometerKm: 45200
-              occurredAt: "2023-10-27T14:30:00Z"
-              vendor: "Shell"
-              description: "Repair"
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Entry"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/ServerError"
-
-  /api/v1/vehicles/{vehicleId}/entries:
-    get:
-      tags: [Entries]
-      summary: Get Entries (list by vehicle)
-      operationId: getVehicleEntries
-      parameters:
-        - $ref: "#/components/parameters/VehicleId"
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Offset"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EntryListResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/ServerError"
-
-  /api/v1/entries/{entryId}:
-    get:
-      tags: [Entries]
-      summary: Get Entry (details)
-      operationId: getEntry
-      parameters:
-        - $ref: "#/components/parameters/EntryId"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Entry"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/ServerError"
-    patch:
-      tags: [Entries]
-      summary: Patch Entry (details)
-      operationId: patchEntry
-      parameters:
-        - $ref: "#/components/parameters/EntryId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/EntryPatchRequest"
-            example:
-              amountEur: 275.5
-              vendor: "ATU"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Entry"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/ServerError"
-    delete:
-      tags: [Entries]
-      summary: Delete Entry
-      operationId: deleteEntry
-      parameters:
-        - $ref: "#/components/parameters/EntryId"
-      responses:
-        "204":
-          description: No Content
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/ServerError"
-
-  /api/v1/auth/password:
-    post:
-      tags: [Users]
-      summary: Change own password
-      description: "Prüft das aktuelle Passwort, setzt das neue, widerruft alle bestehenden Tokens und gibt ein neues Token zurück."
-      operationId: postAuthPassword
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PasswordChangeRequest"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  token:
-                    type: string
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "500":
-          $ref: "#/components/responses/ServerError"
-
-  /api/v1/auth/mfa/setup:
-    post:
-      tags: [Users]
-      summary: Start 2FA setup (TOTP)
-      description: "Erzeugt ein neues Secret. 2FA ist erst nach /auth/mfa/enable aktiv."
-      operationId: postMfaSetup
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MfaSetupResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "409":
-          description: mfa_already_enabled
-        "500":
-          $ref: "#/components/responses/ServerError"
-
-  /api/v1/auth/mfa/enable:
-    post:
-      tags: [Users]
-      summary: Enable 2FA with a code from the authenticator app
-      operationId: postMfaEnable
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/MfaCodeRequest"
-      responses:
-        "200":
-          description: OK
-        "400":
-          description: invalid_mfa_code | mfa_not_set_up
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "500":
-          $ref: "#/components/responses/ServerError"
-
-  /api/v1/auth/mfa/disable:
-    post:
-      tags: [Users]
-      summary: Disable 2FA (password and current code required)
-      operationId: postMfaDisable
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/MfaCodeRequest"
-      responses:
-        "200":
-          description: OK
-        "400":
-          description: invalid_mfa_code | mfa_not_enabled
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "500":
-          $ref: "#/components/responses/ServerError"
-
-  /api/v1/vehicles/{vehicleId}/import:
-    post:
-      tags: [Entries]
-      summary: Import fillups and entries (e.g. from CSV)
-      description: "Max. 1000 Zeilen, alles in einer Transaktion. Duplikate (gleiches Datum + Tachostand + Einheit bzw. Datum + Kategorie + Betrag) werden übersprungen. `unit` je Zeile gilt nur bei Plug-in-Hybriden (l oder kwh); sonst immer die Einheit des Fahrzeugs."
-      operationId: postVehicleImport
-      parameters:
-        - $ref: "#/components/parameters/VehicleId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                fillups:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/FillupCreateRequest"
-                entries:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/EntryCreateRequest"
-                dryRun:
-                  type: boolean
-                  description: Nur prüfen, nichts speichern (Antwort 200 mit Duplikaten und Warnungen)
-      responses:
-        "200":
-          description: "Probelauf (dryRun): gleiche Felder wie 201 plus dryRun: true"
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  imported:
-                    type: object
-                    properties:
-                      fillups: { type: integer }
-                      entries: { type: integer }
-                  skipped:
-                    type: object
-                    properties:
-                      fillups: { type: integer }
-                      entries: { type: integer }
-                  duplicates:
-                    type: array
-                    description: Übersprungene Zeilen (type fillup|entry, index in der jeweiligen Liste)
-                    items:
-                      type: object
-                      properties:
-                        type: { type: string }
-                        index: { type: integer }
-                  warnings:
-                    type: array
-                    description: Unplausible Tachostände je Zeile (type, index und die Felder von OdometerWarning)
-                    items:
-                      type: object
-        "400":
-          description: nothing_to_import | too_many_rows | invalid_rows
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/ServerError"
-
-  /api/v1/vehicles/{vehicleId}/reminders:
-    get:
-      tags: [Vehicles]
-      summary: Due dates (TÜV, service, insurance, tax)
-      operationId: getVehicleReminders
-      parameters:
-        - $ref: "#/components/parameters/VehicleId"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Reminder"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/ServerError"
-
-  /api/v1/auth/mail-settings:
-    get:
-      tags: [Users]
-      summary: Get own e-mail notification settings
-      operationId: getMailSettings
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MailSettings"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-    put:
-      tags: [Users]
-      summary: Save own e-mail notification settings
-      operationId: putMailSettings
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/MailSettingsRequest"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MailSettings"
-        "400":
-          description: invalid_* | mail_not_configured | smtp_host_not_allowed | smtp_host_not_found
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-
-  /api/v1/auth/mail-settings/test:
-    post:
-      tags: [Users]
-      summary: Send a test mail with the saved settings
-      operationId: postMailTest
-      responses:
-        "200":
-          description: OK
-        "400":
-          description: mail_not_configured | smtp_host_not_allowed | smtp_host_not_found
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "502":
-          description: smtp_failed (detail enthält die Meldung des Mailservers)
-
-  /api/v1/auth/mail-settings/send-now:
-    post:
-      tags: [Users]
-      summary: Send reminders or the report for the previous month now
-      operationId: postMailSendNow
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                type:
-                  type: string
-                  enum: [reminders, report]
-              required: [type]
-      responses:
-        "200":
-          description: "OK ({ sent: true } oder { sent: false, reason: nothing_due })"
-        "400":
-          description: invalid_type | mail_not_configured
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "502":
-          description: smtp_failed
-
-  /api/v1/auth/users/{userId}/beta:
-    put:
-      tags: [Users]
-      summary: Set beta tester flag (admin only)
-      operationId: putUserBeta
-      parameters:
-        - name: userId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                betaTester:
-                  type: boolean
-              required: [betaTester]
-      responses:
-        "200":
-          description: "OK ({ id, email, beta_tester })"
-        "400":
-          description: invalid_betaTester
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          description: forbidden
-        "404":
-          description: user_not_found
-
-  /api/v1/auth/plans:
-    put:
-      tags: [Users]
-      summary: Set plan for several users (admin only)
-      operationId: putPlans
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userIds:
-                  type: array
-                  maxItems: 1000
-                  items:
-                    type: string
-                    format: uuid
-                plan:
-                  type: string
-                  enum: [free, plus, fleet]
-                planUntil:
-                  type: string
-                  format: date-time
-                  nullable: true
-                  description: Ende des Tarifs, leer/null = unbefristet (bei free immer null)
-                note:
-                  type: string
-                  maxLength: 200
-                  description: Notiz fürs Protokoll der Tarifänderungen
-              required: [userIds, plan]
-      responses:
-        "200":
-          description: "OK ({ updated, changed, plan, planUntil }); updated = gefundene Konten, changed = davon geändert"
-        "400":
-          description: invalid_plan, invalid_planUntil, invalid_userIds
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          description: forbidden
-
-  /api/v1/auth/users/{userId}/plan:
-    put:
-      tags: [Users]
-      summary: Set plan (admin only)
-      operationId: putUserPlan
-      parameters:
-        - name: userId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                plan:
-                  type: string
-                  enum: [free, plus, fleet]
-                planUntil:
-                  type: string
-                  format: date-time
-                  nullable: true
-                  description: Ende des Tarifs, leer/null = unbefristet (bei free immer null)
-                note:
-                  type: string
-                  maxLength: 200
-                  description: Notiz fürs Protokoll der Tarifänderungen
-              required: [plan]
-      responses:
-        "200":
-          description: "OK ({ id, email, plan, planUntil, effectivePlan, limitsEnabled, features })"
-        "400":
-          description: invalid_plan, invalid_planUntil
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          description: forbidden
-        "404":
-          description: user_not_found
-
-  /api/v1/auth/users/{userId}/plan-history:
-    get:
-      tags: [Users]
-      summary: Plan change history of a user (admin only)
-      operationId: getUserPlanHistory
-      parameters:
-        - name: userId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        "200":
-          description: OK, neueste Änderung zuerst, höchstens 50
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  changes:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        oldPlan: { type: string, enum: [free, plus, fleet] }
-                        oldPlanUntil: { type: string, format: date-time, nullable: true }
-                        newPlan: { type: string, enum: [free, plus, fleet] }
-                        newPlanUntil: { type: string, format: date-time, nullable: true }
-                        source: { type: string, enum: [admin, cli, webhook] }
-                        changedBy: { type: string, format: uuid, nullable: true }
-                        note: { type: string, nullable: true }
-                        createdAt: { type: string, format: date-time }
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          description: forbidden
-        "404":
-          description: user_not_found
-
-  /api/v1/feedback:
-    post:
-      tags: [Feedback]
-      summary: Send feedback (stored and mailed to the operator)
-      operationId: postFeedback
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                category:
-                  type: string
-                  enum: [fehler, idee, lob, sonstiges]
-                message:
-                  type: string
-                  minLength: 3
-                  maxLength: 5000
-                page:
-                  type: string
-                  maxLength: 300
-                  description: Seite, von der das Feedback kommt
-              required: [category, message]
-      responses:
-        "201":
-          description: "Gespeichert ({ id, saved: true, mailed })"
-        "400":
-          description: invalid_category | invalid_message | invalid_page
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "429":
-          description: too_many_attempts (höchstens 10 je 15 Minuten)
-    get:
-      tags: [Feedback]
-      summary: List feedback (admin only, open first)
-      operationId: getFeedback
-      responses:
-        "200":
-          description: "Liste mit id, category, message, page, user_agent, done, created_at, user_email, username, beta_tester"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          description: forbidden
-
-  /api/v1/feedback/{id}:
-    patch:
-      tags: [Feedback]
-      summary: Mark feedback as done or open (admin only)
-      operationId: patchFeedback
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                done:
-                  type: boolean
-              required: [done]
-      responses:
-        "200":
-          description: "OK ({ id, done })"
-        "400":
-          description: invalid_done
-        "403":
-          description: forbidden
-        "404":
-          description: feedback_not_found
-
-  /api/v1/categories:
-    get:
-      tags: [Entries]
-      summary: Categories for expenses (built-in, premium, custom, legacy)
-      description: >
-        Liefert groups, categories (key, name, icon, color, group, form, countsAsCost, plan, custom, selectable, available)
-        und custom (max, used, canCreate, icons, colors, nameMaxLength). Cache-Control private, max-age=300; ETag.
-      operationId: getCategories
-      responses:
-        "200":
-          description: OK
-        "304":
-          description: Not Modified (If-None-Match)
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-    post:
-      tags: [Entries]
-      summary: Create a custom category (plan feature customCategories)
-      operationId: postCategory
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [name]
-              properties:
-                name: { type: string, maxLength: 40 }
-                icon: { type: string, example: "fa-ferry" }
-                color: { type: string, example: "#0dcaf0" }
-                group: { type: string, enum: [fix, wartung, unterwegs, sonstiges] }
-      responses:
-        "201":
-          description: Created (key custom:<id>)
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "403":
-          description: plan_required oder category_limit_reached
-        "409":
-          description: name_taken
-
-  /api/v1/categories/{categoryId}:
-    parameters:
-      - name: categoryId
-        in: path
-        required: true
-        schema: { type: string, format: uuid }
-    patch:
-      tags: [Entries]
-      summary: Change a custom category (name, icon, color, group)
-      operationId: patchCategory
-      responses:
-        "200":
-          description: OK
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          description: name_taken
-    delete:
-      tags: [Entries]
-      summary: Delete a custom category; entries move to moveTo
-      operationId: deleteCategory
-      parameters:
-        - name: moveTo
-          in: query
-          required: false
-          schema: { type: string, example: "Sonstiges" }
-      responses:
-        "200":
-          description: "OK ({ deleted, moved, moveTo })"
-        "400":
-          description: invalid_moveTo
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          description: category_in_use (moveTo fehlt)
-
-  /api/v1/auth/refresh:
-    post:
-      tags: [Auth]
-      summary: Renew the login token (7 days), at most 90 days after the last password login
-      operationId: postAuthRefresh
-      responses:
-        "200":
-          description: "OK ({ token })"
-        "401":
-          description: "missing_token, invalid_token, token_revoked oder reauth_required (letzter Login mit Passwort > 90 Tage)"
-
-  /api/v1/auth/login/mfa:
-    post:
-      tags: [Auth]
-      summary: Login step 2 with 2FA code
-      description: "mfaToken aus der mfa_required-Antwort von /auth/login (5 Minuten gültig) plus TOTP-Code."
-      operationId: postAuthLoginMfa
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                mfaToken: { type: string }
-                code: { type: string, example: "123456" }
-              required: [mfaToken, code]
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AuthResponse"
-        "401":
-          description: invalid_mfa_token | invalid_mfa_code
-        "429":
-          description: too_many_attempts
-
   /api/v1/stations:
     get:
       tags: [Stations]
@@ -1754,24 +1724,6 @@ paths:
         "500":
           $ref: "#/components/responses/ServerError"
 
-  /api/v1/files/{name}:
-    get:
-      tags: [Media]
-      summary: Signed image download (no login; URL comes from API responses)
-      description: >
-        Bilder sind nur über signierte Adressen abrufbar, die die API in url, image_url und profile_image_url liefert.
-        Gültig bis Ende des nächsten Tages (UTC), Cache-Control private.
-      operationId: getFile
-      parameters:
-        - { name: name, in: path, required: true, schema: { type: string, example: "3f2c0d1e-0000-4000-8000-000000000000.webp" } }
-        - { name: exp, in: query, required: true, schema: { type: integer } }
-        - { name: sig, in: query, required: true, schema: { type: string } }
-      responses:
-        "200":
-          description: Bild (image/webp)
-        "404":
-          description: Unbekannt, falsche Signatur oder abgelaufen
-
   /api/v1/media:
     get:
       tags: [Media]
@@ -1883,6 +1835,101 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/files/{name}:
+    get:
+      tags: [Media]
+      summary: Signed image download (no login; URL comes from API responses)
+      description: >
+        Bilder sind nur über signierte Adressen abrufbar, die die API in url, image_url und profile_image_url liefert.
+        Gültig bis Ende des nächsten Tages (UTC), Cache-Control private.
+      operationId: getFile
+      parameters:
+        - { name: name, in: path, required: true, schema: { type: string, example: "3f2c0d1e-0000-4000-8000-000000000000.webp" } }
+        - { name: exp, in: query, required: true, schema: { type: integer } }
+        - { name: sig, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Bild (image/webp)
+        "404":
+          description: Unbekannt, falsche Signatur oder abgelaufen
+
+  /api/v1/feedback:
+    post:
+      tags: [Feedback]
+      summary: Send feedback (stored and mailed to the operator)
+      operationId: postFeedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                category:
+                  type: string
+                  enum: [fehler, idee, lob, sonstiges]
+                message:
+                  type: string
+                  minLength: 3
+                  maxLength: 5000
+                page:
+                  type: string
+                  maxLength: 300
+                  description: Seite, von der das Feedback kommt
+              required: [category, message]
+      responses:
+        "201":
+          description: "Gespeichert ({ id, saved: true, mailed })"
+        "400":
+          description: invalid_category | invalid_message | invalid_page
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          description: too_many_attempts (höchstens 10 je 15 Minuten)
+    get:
+      tags: [Feedback]
+      summary: List feedback (admin only, open first)
+      operationId: getFeedback
+      responses:
+        "200":
+          description: "Liste mit id, category, message, page, user_agent, done, created_at, user_email, username, beta_tester"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: forbidden
+
+  /api/v1/feedback/{id}:
+    patch:
+      tags: [Feedback]
+      summary: Mark feedback as done or open (admin only)
+      operationId: patchFeedback
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                done:
+                  type: boolean
+              required: [done]
+      responses:
+        "200":
+          description: "OK ({ id, done })"
+        "400":
+          description: invalid_done
+        "403":
+          description: forbidden
+        "404":
+          description: feedback_not_found
+
 components:
   securitySchemes:
     BearerAuth:
@@ -1979,6 +2026,21 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
           example:
             error: not_found
+    TooManyAttempts:
+      description: Too Many Attempts (Sperre für 15 Minuten)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                enum: [too_many_attempts]
+              retry_after_minutes:
+                type: integer
+          example:
+            error: too_many_attempts
+            retry_after_minutes: 15
     ServerError:
       description: Server Error
       content:
@@ -2002,15 +2064,31 @@ components:
         bytes: { type: integer }
         created_at: { type: string, format: date-time }
 
-    ErrorResponse:
+    LoginErrorResponse:
       type: object
       additionalProperties: false
+      properties:
+        error:
+          type: string
+          enum: [invalid_credentials, mfa_required, invalid_mfa_code]
+        mfaToken:
+          type: string
+          description: Nur bei mfa_required; 5 Minuten gültig, für POST /api/v1/auth/login/mfa
+      required: [error]
+
+    ErrorResponse:
+      type: object
+      description: "Fehler: `error` ist ein fester Schlüssel für Clients. Je nach Fehler kommen weitere Felder dazu (z. B. message, oder feature/limit/plan bei plan_required)."
+      additionalProperties: true
       properties:
         error:
           type: string
         detail:
           type: string
           nullable: true
+        message:
+          type: string
+          description: Lesbarer Hinweis (Deutsch), wo vorhanden
       required: [error]
 
     HealthResponse:
@@ -2025,7 +2103,17 @@ components:
           format: date-time
         service:
           type: string
-      required: [status, timestamp, service]
+        version:
+          type: string
+          example: "0.10.0"
+          description: Version des Servers (Semantic Versioning); Apps erkennen daran veraltete Server
+        registration_enabled:
+          type: boolean
+          description: false, wenn die Registrierung abgeschaltet ist (REGISTRATION_ENABLED=false)
+        beta_phase:
+          type: boolean
+          description: Läuft die Beta-Phase (neue Konten werden als Beta-Tester markiert)?
+      required: [status, timestamp, service, version]
 
     DbPingResponse:
       type: object
@@ -2051,6 +2139,9 @@ components:
         created_at:
           type: string
           format: date-time
+        updated_at:
+          type: string
+          format: date-time
         username:
           type: string
           nullable: true
@@ -2059,6 +2150,8 @@ components:
         profile_image_url:
           type: string
           nullable: true
+        beta_tester:
+          type: boolean
         is_admin:
           type: boolean
           description: true, wenn die User-ID in ADMIN_USER_IDS steht
@@ -2123,7 +2216,8 @@ components:
           minLength: 1
         code:
           type: string
-          description: "6-stelliger TOTP-Code; nur nötig, wenn 2FA aktiv ist (sonst 401 mfa_required)"
+          example: "123456"
+          description: "6-stelliger TOTP-Code. Nur bei aktiver 2FA nötig (fehlt er, kommt 401 mfa_required); ohne aktive 2FA wird er ignoriert."
       required: [email, password]
 
     AuthResponse:
@@ -2146,7 +2240,22 @@ components:
         email:
           type: string
           format: email
+        username:
+          type: string
+          nullable: true
+        mfa_enabled:
+          type: boolean
+        profile_image_url:
+          type: string
+          nullable: true
+          description: Signierte Adresse (/api/v1/files/…), wechselt täglich
+        beta_tester:
+          type: boolean
+          description: Nur in der Antwort der Registrierung und in /whoami
         created_at:
+          type: string
+          format: date-time
+        updated_at:
           type: string
           format: date-time
       required: [id, email]
@@ -2345,6 +2454,33 @@ components:
           format: uuid
         name:
           type: string
+        brand:
+          type: string
+          nullable: true
+        model:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          nullable: true
+          minimum: 1886
+          maximum: 2100
+        image_url:
+          type: string
+          nullable: true
+          description: Signierte Adresse (/api/v1/files/…), wechselt täglich; zum Zwischenspeichern den Dateinamen ohne exp/sig verwenden
+        odometer_km:
+          type: integer
+          nullable: true
+          description: Tachostand bei Anschaffung
+        mileage_km:
+          type: integer
+          nullable: true
+        sort_order:
+          type: integer
+        updated_at:
+          type: string
+          format: date-time
         fuel_type:
           $ref: "#/components/schemas/VehicleFuelType"
         tank_capacity:
@@ -2763,6 +2899,11 @@ components:
         created_at:
           type: string
           format: date-time
+        warnings:
+          type: array
+          description: Nur bei POST/PATCH – Hinweise auf einen unplausiblen Tachostand (gespeichert wird trotzdem)
+          items:
+            $ref: "#/components/schemas/OdometerWarning"
       required: [id, vehicle_id, category, amount_eur, occurred_at, created_at]
 
     EntryPatchRequest:

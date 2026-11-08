@@ -818,3 +818,32 @@ body.seite-laedt .hauptinhalt {
 .neuigkeiten-liste li + li {
     margin-top: .2rem;
 }
+
+/* Zum Aktualisieren nach unten ziehen, nur in der installierten App (js/ziehen-neu-laden.js, #1) */
+.ziehen-anzeige {
+    position: fixed;
+    top: calc(var(--kopf-hoehe) - 36px);
+    left: 50%;
+    z-index: 1040;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bs-body-bg);
+    color: var(--bs-secondary-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .18);
+    opacity: 0;
+    transform: translate(-50%, 0);
+    transition: transform .2s ease, opacity .2s ease;
+    pointer-events: none;
+}
+.ziehen-anzeige i { transition: transform .15s ease; }
+.ziehen-anzeige.bereit { color: var(--bs-primary); }
+.ziehen-anzeige.laedt i { animation: ziehen-drehen .8s linear infinite; }
+@keyframes ziehen-drehen { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .ziehen-anzeige, .ziehen-anzeige i { transition: none; }
+    .ziehen-anzeige.laedt i { animation: none; }
+}

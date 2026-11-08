@@ -7,12 +7,17 @@
 //   Datenschutz: Der Seiten-Cache wird geleert beim Abmelden und bei jedem Aufruf von Anmelden/Registrieren, also auch,
 //   wenn eine abgelaufene Sitzung auf die Anmeldung umleitet. Seiten älter als SEITEN_MAX_ALTER werden nicht mehr
 //   gezeigt; der Cache enthält höchstens SEITEN_MAX Seiten.
+// - Eigene Bilder (signierte Adressen /api/v1/files/<name>?exp=…&sig=…): vom Netz wie bisher; zusätzlich wird jedes
+//   geladene Bild unter seinem Dateinamen (ohne Signatur) gemerkt, damit die gemerkten Seiten offline ihre Bilder zeigen.
+//   Gleiche Regeln wie für die Seiten: gelöscht beim Abmelden/Anmelden, höchstens BILDER_MAX, nach SEITEN_MAX_ALTER weg.
 // - CSS/JS/Schriften/Bilder der App mit ?v=… (Version) oder fester Datei: aus dem Cache, sonst vom Netz und merken.
 //   Neue Versionen haben eine neue Adresse (?v=Änderungszeit), veraltete Dateien gibt es dadurch nicht.
-// - API, signierte Bilder (/api/v1/files/…) und alles andere: nicht abfangen.
+// - API und alles andere: nicht abfangen.
 const cacheName = 'fuelstat-v9';
 const seitenCache = 'fuelstat-seiten-v1';
+const bilderCache = 'fuelstat-bilder-v1';
 const SEITEN_MAX = 20;
+const BILDER_MAX = 60;
 const SEITEN_MAX_ALTER = 7 * 24 * 60 * 60 * 1000;
 const vorab = [
   './images/platzhalter.jpg',
@@ -28,7 +33,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const namen = await caches.keys();
-    await Promise.all(namen.filter((n) => n !== cacheName && n !== seitenCache).map((n) => caches.delete(n)));
+    await Promise.all(namen.filter((n) => n !== cacheName && n !== seitenCache && n !== bilderCache).map((n) => caches.delete(n)));
     if (self.registration.navigationPreload) {
       await self.registration.navigationPreload.enable().catch(() => {});
     }
@@ -56,7 +61,44 @@ function leertSeitenCache(url) {
 }
 
 function seitenLeeren() {
-  return caches.delete(seitenCache).catch(() => {});
+  return Promise.all([caches.delete(seitenCache), caches.delete(bilderCache)]).catch(() => {});
+}
+
+// Eigenes Bild über die signierte Adresse der API
+function istEigenesBild(url) {
+  const pfad = pfadImScope(url);
+  return pfad !== null && pfad.startsWith('api/v1/files/');
+}
+
+// Schlüssel ohne exp/sig: Die Signatur wechselt täglich, der Dateiname nicht
+function bildSchluessel(url) {
+  return url.origin + url.pathname;
+}
+
+async function bildMerken(url, antwort) {
+  const typ = antwort.headers.get('Content-Type') || '';
+  if (!antwort.ok || antwort.type !== 'basic' || !typ.startsWith('image/')) return;
+  const cache = await caches.open(bilderCache);
+  const schluessel = bildSchluessel(url);
+  const vorhanden = await cache.match(schluessel);
+  // Schon frisch gemerkt (unter einem Tag): nicht bei jedem Seitenaufruf neu schreiben
+  if (vorhanden && Date.now() - (Number(vorhanden.headers.get('X-Fuelstat-Gespeichert')) || 0) < 24 * 60 * 60 * 1000) return;
+  const kopf = new Headers({ 'Content-Type': typ, 'X-Fuelstat-Gespeichert': String(Date.now()) });
+  await cache.delete(schluessel);
+  await cache.put(schluessel, new Response(await antwort.blob(), { status: 200, headers: kopf }));
+  const alle = await cache.keys();
+  for (const alt of alle.slice(0, Math.max(0, alle.length - BILDER_MAX))) await cache.delete(alt);
+}
+
+async function gemerktesBild(url) {
+  const cache = await caches.open(bilderCache);
+  const treffer = await cache.match(bildSchluessel(url));
+  if (!treffer) return null;
+  if (Date.now() - (Number(treffer.headers.get('X-Fuelstat-Gespeichert')) || 0) > SEITEN_MAX_ALTER) {
+    await cache.delete(bildSchluessel(url));
+    return null;
+  }
+  return treffer;
 }
 
 async function seiteMerken(req, antwort) {
@@ -125,12 +167,27 @@ self.addEventListener('fetch', (event) => {
         // Umleitungen (z. B. abgelaufene Sitzung → Anmeldung) kommen als eigene Navigation wieder hier an
         if (offlineLesbar(url)) event.waitUntil(seiteMerken(req, antwort.clone()).catch(() => {}));
         return antwort;
-      } catch (e) {
+      } catch {
         if (offlineLesbar(url)) {
           const gemerkt = await gemerkteSeite(req.url).catch(() => null);
           if (gemerkt) return gemerkt;
         }
         return offlineSeite();
+      }
+    })());
+    return;
+  }
+
+  if (istEigenesBild(url)) {
+    event.respondWith((async () => {
+      try {
+        const antwort = await fetch(req);
+        event.waitUntil(bildMerken(url, antwort.clone()).catch(() => {}));
+        return antwort;
+      } catch (e) {
+        const gemerkt = await gemerktesBild(url).catch(() => null);
+        if (gemerkt) return gemerkt;
+        throw e;
       }
     })());
     return;

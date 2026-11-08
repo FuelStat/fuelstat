@@ -4,8 +4,18 @@ info:
   version: "1.0.0"
   description: >
     Fuelstat Backend API (v1). Base URL ist produktiv auf tanken.1emc.de.
+  contact:
+    name: Mario Caraggiu
+    url: https://tanken.1emc.de/pages/impressum.php
+    email: mario@caraggiu.eu
+  license:
+    name: AGPL-3.0 license
+    url: https://github.com/FuelStat/fuelstat?tab=AGPL-3.0-1-ov-file
 servers:
   - url: https://tanken.1emc.de
+    description: A self-hosted vehicle tracking and expense management app for fuel,
+      maintenance, and running costs. Track fuel consumption, expenses, vehicle
+      statistics, and more with a modern web interface and PWA support.
 
 tags:
   - name: Health

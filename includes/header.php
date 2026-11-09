@@ -125,6 +125,7 @@ $seitenInfo = [
     'neuigkeiten.php'          => ['Neuigkeiten', null],
     'email_bestaetigen.php'    => ['E-Mail bestätigen', null],
     'einladungen.php'          => ['Einladungen', null],
+    'fahrt.php'                => ['Fahrt', 'fahrzeug_detail.php?id=' . urlencode((string)($_GET['fahrzeug_id'] ?? '')) . '#fahrten'],
 ];
 [$seitenTitel, $zurueckUrl] = $angemeldet && isset($seitenInfo[$skript]) ? $seitenInfo[$skript] : [null, null];
 
@@ -136,7 +137,7 @@ $tabbarAktiv = [
     'eintrag_hinzufuegen.php' => 'eintrag', 'eintrag_bearbeiten.php' => 'eintrag', 'schnell.php' => 'eintrag',
     'einstellungen.php' => 'profil', 'passwort_aendern.php' => 'profil', 'mfa_einrichten.php' => 'profil',
     'benachrichtigungen.php' => 'profil', 'admin.php' => 'profil', 'feedback.php' => 'profil',
-    'kategorien.php' => 'profil', 'neuigkeiten.php' => 'profil', 'email_bestaetigen.php' => 'profil', 'einladungen.php' => 'profil',
+    'kategorien.php' => 'profil', 'neuigkeiten.php' => 'profil', 'email_bestaetigen.php' => 'profil', 'einladungen.php' => 'profil', 'fahrt.php' => 'fahrzeuge',
 ][$skript] ?? null;
 
 // Ziel von "+ Eintrag" und "Statistik": aktuelles Fahrzeug, das einzige Fahrzeug oder Auswahl im Blatt

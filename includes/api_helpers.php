@@ -68,11 +68,17 @@ function ladeMergedEintraegeFromApi($api, string $vehicleId): array
 {
     $fillups = [];
     $entries = [];
+    $fahrten = [];
     try {
         $fillups = $api->getAllVehicleFillups($vehicleId);
         $entries = $api->getAllVehicleEntries($vehicleId);
     } catch (Throwable $e) {
         return ['eintraege' => [], 'jahrListe' => []];
+    }
+    try {
+        $fahrten = $api->getVehicleTrips($vehicleId);
+    } catch (Throwable $e) {
+        error_log('[Einträge] Fahrten nicht geladen: ' . $e->getMessage());
     }
 
     $stats = null;
@@ -130,6 +136,25 @@ function ladeMergedEintraegeFromApi($api, string $vehicleId): array
             'vollgetankt' => false,
             'erfasst_von' => $e['created_by'] ?? null,
             'erfasst_von_name' => $e['created_by_name'] ?? null,
+        ];
+    }
+
+    // Fahrtenbuch (#52): Fahrten als eigene Einträge, Bearbeiten über pages/fahrt.php
+    foreach ($fahrten as $t) {
+        $list[] = [
+            'id' => $t['id'],
+            'type' => 'trip',
+            'datum' => isset($t['started_at']) ? date('Y-m-d', strtotime($t['started_at'])) : '',
+            'kategorie' => 'Fahrt',
+            'kosten' => 0,
+            'tachostand' => $t['odometer_end'] ?? null,
+            'beschreibung' => fahrtText($t),
+            'standort' => '',
+            'menge' => null,
+            'vollgetankt' => false,
+            'zweck' => $t['purpose'] ?? 'private',
+            'erfasst_von' => $t['created_by'] ?? null,
+            'erfasst_von_name' => $t['created_by_name'] ?? null,
         ];
     }
 
@@ -506,6 +531,25 @@ function mengeUndKostenAusFormular(array $post): array
         $fehler = 'Bitte den Gesamtpreis angeben (oder den Preis pro Einheit). Für kostenloses Laden 0 eintragen.';
     }
     return ['menge' => $menge, 'kosten' => $kosten, 'fehler' => $fehler];
+}
+
+/** Fahrtenbuch (#52): Anzeigenamen der Zwecke */
+function fahrtZwecke(): array
+{
+    return ['private' => 'Privat', 'business' => 'Dienstlich', 'commute' => 'Arbeitsweg'];
+}
+
+/** Kurztext einer Fahrt aus dem Fahrtenbuch, z. B. "Bolbingen → Aalen · Dienstlich · 42 km" */
+function fahrtText(array $t): string
+{
+    $strecke = implode(' → ', array_filter([(string)($t['start_place'] ?? ''), (string)($t['end_place'] ?? '')], fn($x) => $x !== ''));
+    $km = (float)($t['distance_km'] ?? 0);
+    return implode(' · ', array_filter([
+        $strecke,
+        fahrtZwecke()[$t['purpose'] ?? ''] ?? '',
+        $km > 0 ? number_format($km, fmod($km, 1) ? 1 : 0, ',', '.') . ' km' : '',
+        (string)($t['note'] ?? ''),
+    ], fn($x) => $x !== ''));
 }
 
 /**

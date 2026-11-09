@@ -59,7 +59,10 @@ async function loadOdometerPoints(db, userId, vehicleId, excludeId = null) {
        WHERE vehicle_id = $1 AND odometer_km IS NOT NULL AND NOT odometer_estimated
      UNION ALL
      SELECT id, occurred_at AS at, odometer_km AS km FROM expenses
-       WHERE vehicle_id = $1 AND odometer_km IS NOT NULL`,
+       WHERE vehicle_id = $1 AND odometer_km IS NOT NULL
+     UNION ALL
+     -- Fahrtenbuch (#52): Stand am Ende der Fahrt
+     SELECT id, COALESCE(ended_at, started_at) AS at, odometer_end AS km FROM trips WHERE vehicle_id = $1`,
     [vehicleId]
   );
   // Aufrufer prüfen den Zugriff aufs Fahrzeug (#53); die Punkte gehören zum Fahrzeug, egal wer sie erfasst hat

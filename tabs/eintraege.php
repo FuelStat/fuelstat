@@ -112,7 +112,9 @@ $zeilenNr = 0;
               $type === 'fillup' ? number_format((float)($e['menge'] ?? 0), 2, ',', '.') . ' ' . $kurz : '',
               $v !== null ? number_format($v, 2, ',', '.') . ' ' . $kurz . '/100 km' : '',
           ]);
-          $editUrl = '../pages/eintrag_bearbeiten.php?id=' . urlencode($e['id']) . '&fahrzeug_id=' . urlencode($fahrzeug_id) . '&type=' . $type;
+          $editUrl = $type === 'trip'
+              ? '../pages/fahrt.php?id=' . urlencode($e['id']) . '&fahrzeug_id=' . urlencode($fahrzeug_id)
+              : '../pages/eintrag_bearbeiten.php?id=' . urlencode($e['id']) . '&fahrzeug_id=' . urlencode($fahrzeug_id) . '&type=' . $type;
           $nachtragenUrl = '../pages/tachostand_nachtragen.php?id=' . urlencode($e['id']) . '&fahrzeug_id=' . urlencode($fahrzeug_id);
           // Geteilte Fahrzeuge (#53): Besitzer ändern alle Einträge, Mitfahrer nur eigene, Nur-Ansehen keine
           $vonAnderen = !empty($e['erfasst_von']) && (string)$e['erfasst_von'] !== $ichId;

@@ -45,7 +45,8 @@ async function getVehicleReminders(pool, userId, vehicleId, warnDays = 30, today
   const odo = await pool.query(
     `SELECT GREATEST(
        (SELECT MAX(odometer_km) FROM fillups WHERE vehicle_id = $1 AND NOT odometer_estimated),
-       (SELECT MAX(odometer_km) FROM expenses WHERE vehicle_id = $1)
+       (SELECT MAX(odometer_km) FROM expenses WHERE vehicle_id = $1),
+       (SELECT MAX(odometer_end) FROM trips WHERE vehicle_id = $1)
      ) AS max_odo`,
     [vehicleId]
   );

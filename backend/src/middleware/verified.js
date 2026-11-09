@@ -37,7 +37,8 @@ async function checkUnverifiedLimit(res, userId, kind) {
   const sql = kind === 'vehicle'
     ? 'SELECT COUNT(*)::int AS n FROM vehicles WHERE user_id = $1'
     : `SELECT (SELECT COUNT(*) FROM fillups WHERE user_id = $1)
-            + (SELECT COUNT(*) FROM expenses WHERE user_id = $1) AS n`;
+            + (SELECT COUNT(*) FROM expenses WHERE user_id = $1)
+            + (SELECT COUNT(*) FROM trips WHERE user_id = $1) AS n`;
   const r = await pool.query(sql, [userId]);
   const feature = kind === 'vehicle' ? 'maxVehicles' : 'maxEntries';
   const limit = UNVERIFIED_LIMITS[feature];

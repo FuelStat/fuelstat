@@ -51,6 +51,40 @@ class FuelstatApi
         return $this->request('POST', '/auth/password', ['currentPassword' => $currentPassword, 'newPassword' => $newPassword]);
     }
 
+    /** Fahrtenbuch (#52) */
+    public function postTrip(array $data): array { return $this->request('POST', '/trips', $data); }
+    public function getTrip(string $tripId): array { return $this->request('GET', '/trips/' . rawurlencode($tripId)); }
+    public function patchTrip(string $tripId, array $data): array { return $this->request('PATCH', '/trips/' . rawurlencode($tripId), $data); }
+    public function deleteTrip(string $tripId): void { $this->request('DELETE', '/trips/' . rawurlencode($tripId)); }
+    public function getVehicleTrips(string $vehicleId, ?int $jahr = null, ?string $zweck = null): array
+    {
+        $query = http_build_query(array_filter(['year' => $jahr, 'purpose' => $zweck], fn($v) => $v !== null && $v !== ''));
+        return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/trips' . ($query !== '' ? '?' . $query : ''));
+    }
+    public function getTripSummary(string $vehicleId, ?int $jahr = null): array
+    {
+        return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/trips/summary' . ($jahr !== null ? '?year=' . $jahr : ''));
+    }
+    /** CSV-Export des Fahrtenbuchs (Plus); liefert den Dateiinhalt */
+    public function getTripsCsv(string $vehicleId, ?int $jahr = null): string
+    {
+        $url = $this->baseUrl . '/vehicles/' . rawurlencode($vehicleId) . '/trips/export' . ($jahr !== null ? '?year=' . $jahr : '');
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt_array($ch, $this->curlOptionen('GET', ['Accept: text/csv']));
+        $body = curl_exec($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        curl_close($ch);
+        if ($body === false) {
+            throw new RuntimeException('API request failed');
+        }
+        if ($code >= 400) {
+            $daten = json_decode((string)$body, true) ?: [];
+            throw new FuelstatApiException((string)($daten['error'] ?? 'HTTP ' . $code), $code, null, $daten);
+        }
+        return (string)$body;
+    }
+
     /** Fahrzeuge teilen (#53) */
     public function getVehicleMembers(string $vehicleId): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/members'); }
     public function postVehicleInvitation(string $vehicleId, string $email, string $role): array { return $this->request('POST', '/vehicles/' . rawurlencode($vehicleId) . '/invitations', ['email' => $email, 'role' => $role]); }

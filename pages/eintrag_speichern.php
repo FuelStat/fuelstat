@@ -65,14 +65,21 @@ try {
             'description' => $beschreibung !== '' ? $beschreibung : null,
         ]);
     } elseif ($eintragstyp === 'Fahrt') {
-        $api->postEntry([
+        // Fahrtenbuch (#52): Tachostand ist der Stand am Ende der Fahrt; Start aus "km" oder dem Feld Startstand
+        $km = trim(str_replace(',', '.', (string)($_POST['gefahrene_km'] ?? '')));
+        $start = trim((string)($_POST['tachostand_start'] ?? ''));
+        $zweck = (string)($_POST['fahrt_zweck'] ?? 'private');
+        $api->postTrip(array_filter([
             'vehicleId' => $fahrzeug_id,
-            'category' => 'Fahrt',
-            'amountEur' => 0,
-            'odometerKm' => $tachostand,
-            'occurredAt' => $dateTime,
-            'description' => fahrtBeschreibung($_POST),
-        ]);
+            'startedAt' => $dateTime,
+            'odometerEnd' => $tachostand,
+            'odometerStart' => is_numeric($start) ? (int)$start : null,
+            'distanceKm' => !is_numeric($start) && is_numeric($km) ? (float)$km : null,
+            'startPlace' => trim((string)($_POST['startort'] ?? '')) ?: null,
+            'endPlace' => trim((string)($_POST['zielort'] ?? '')) ?: null,
+            'purpose' => array_key_exists($zweck, fahrtZwecke()) ? $zweck : 'private',
+            'note' => trim((string)($_POST['zweck'] ?? '')) ?: null,
+        ], fn($v) => $v !== null));
     } elseif ($eintragstyp === 'Kilometerstand') {
         // Nur Tachostand notieren (#42): eigener Eintrag ohne Kosten
         $notiz = trim($_POST['beschreibung'] ?? '');

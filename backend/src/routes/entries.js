@@ -238,6 +238,8 @@ router.get('/vehicles/:vehicleId/entries', auth, async (req, res) => {
          (SELECT COALESCE(u.username, u.email) FROM users u WHERE u.id = expenses.user_id) AS created_by_name
        FROM expenses
        WHERE vehicle_id = $1
+         -- Alte "Fahrt"-Einträge, die ins Fahrtenbuch übernommen wurden (Migration 019, #52), nicht doppelt zeigen
+         AND NOT (category = 'Fahrt' AND EXISTS (SELECT 1 FROM trips t WHERE t.legacy_expense_id = expenses.id))
        ORDER BY occurred_at DESC, created_at DESC
        LIMIT $2 OFFSET $3`,
       [vehicleId, limit, offset]

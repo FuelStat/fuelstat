@@ -44,7 +44,8 @@ async function getVehicleStats(pool, userId, vehicleId) {
     // Aktueller Tachostand: höchster echter Wert aus Tank-/Ladevorgängen und Ausgaben (inkl. "km notieren", #42)
     `SELECT GREATEST(
               MAX(odometer_km) FILTER (WHERE NOT odometer_estimated),
-              (SELECT MAX(odometer_km) FROM expenses WHERE vehicle_id=$1)
+              (SELECT MAX(odometer_km) FROM expenses WHERE vehicle_id=$1),
+              (SELECT MAX(odometer_end) FROM trips WHERE vehicle_id=$1)
             ) AS max_odo,
             COUNT(*) FILTER (WHERE odometer_km IS NULL OR odometer_estimated)::int AS missing,
             MIN(odometer_km) FILTER (WHERE NOT odometer_estimated) AS first_odo

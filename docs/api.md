@@ -12,12 +12,15 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 
 | Methode | Pfad | Auth | Zweck |
 |---|---|---|---|
-| GET | `/health` | – | Healthcheck, enthält `registration_enabled` und `beta_phase` |
+| GET | `/health` | – | Healthcheck, enthält `version`, `registration_enabled`, `beta_phase` und `terms_version` |
 | GET | `/db-ping` | – | Datenbank erreichbar? |
-| GET | `/whoami` | ✓ | Eigenes Konto inkl. `is_admin`, `beta_tester`, Tarif und Rechte |
+| GET | `/whoami` | ✓ | Eigenes Konto inkl. `is_admin`, `beta_tester`, Tarif und Rechte, `email_verified`, `pending_invitations`, `terms` |
 | POST | `/auth/register` | – | Konto anlegen, liefert Token |
 | POST | `/auth/login` | – | Anmelden (bei 2FA: `mfa_required` + `mfaToken`) |
 | POST | `/auth/login/mfa` | – | Zweiter Schritt mit 2FA-Code |
+| POST | `/auth/verify-email` | – | E-Mail-Adresse mit dem Token aus der Mail bestätigen (#135) |
+| POST | `/auth/resend-verification` | ✓ | Bestätigungsmail erneut senden |
+| POST | `/auth/accept-terms` | ✓ | Nutzungsbedingungen zustimmen (`version`) |
 | POST | `/auth/refresh` | ✓ | Anmeldung verlängern: neues Token (7 Tage), höchstens 90 Tage nach dem letzten Login |
 | POST | `/auth/password` | ✓ | Passwort ändern, widerruft alle Tokens |
 | POST | `/auth/mfa/setup` · `/enable` · `/disable` | ✓ | 2FA einrichten, aktivieren, abschalten |
@@ -40,11 +43,22 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | GET | `/stations?lat=&lng=&radius=&type=` | ✓ | Tankstellen in der Nähe mit aktuellen Preisen (Tankerkönig) |
 | GET | `/charging-stations?lat=&lng=&radius=` | ✓ | Ladestationen in der Nähe (Open Charge Map) |
 | GET | `/vehicles/:vehicleId/reminders` | ✓ | Fälligkeiten TÜV, Wartung, Versicherung, Steuer |
+| GET | `/vehicles/:vehicleId/members` | ✓ | Wer Zugriff hat (Besitzer, Mitglieder, für den Besitzer offene Einladungen) (#53) |
+| POST | `/vehicles/:vehicleId/invitations` | Besitzer | E-Mail-Adresse einladen (`role`: `editor` oder `viewer`) |
+| DELETE | `/vehicles/:vehicleId/invitations/:invitationId` | Besitzer | Einladung zurückziehen |
+| PATCH · DELETE | `/vehicles/:vehicleId/members/:userId` | Besitzer bzw. selbst | Rolle ändern, Mitglied entfernen bzw. mit `me` verlassen |
+| GET | `/invitations` | ✓ | Offene Einladungen an die eigene (bestätigte) Adresse |
+| POST | `/invitations/:invitationId/accept` · `/decline` | ✓ | Einladung annehmen bzw. ablehnen |
+| GET | `/vehicles/:vehicleId/trips?year=&purpose=` | ✓ | Fahrtenbuch: Fahrten eines Fahrzeugs (#52) |
+| GET | `/vehicles/:vehicleId/trips/summary?year=` | ✓ | km je Zweck und Monat, Anteil dienstlich, geschätzte Kosten |
+| GET | `/vehicles/:vehicleId/trips/export?year=` | ✓ (Plus) | Fahrtenbuch als CSV |
+| POST | `/trips` | ✓ | Fahrt anlegen |
+| GET · PATCH · DELETE | `/trips/:tripId` | ✓ | Fahrt lesen, ändern, löschen |
 | POST | `/vehicles/:vehicleId/import` | ✓ | Massenimport (CSV) |
 | GET | `/vehicles/:vehicleId/fillups` | ✓ | Tank- und Ladevorgänge (`limit`, `offset`) |
 | POST | `/fillups` | ✓ | Tank- bzw. Ladevorgang anlegen |
 | GET · PATCH · DELETE | `/fillups/:fillupId` | ✓ | Lesen, ändern (nur 14 Tage), löschen |
-| GET | `/vehicles/:vehicleId/entries` | ✓ | Ausgaben und Fahrten (`limit`, `offset`) |
+| GET | `/vehicles/:vehicleId/entries` | ✓ | Ausgaben (`limit`, `offset`); ins Fahrtenbuch übernommene alte Fahrten erscheinen nicht mehr |
 | POST | `/entries` | ✓ | Ausgabe anlegen |
 | GET · PATCH · DELETE | `/entries/:entryId` | ✓ | Ausgabe lesen, ändern, löschen |
 | GET | `/categories` | ✓ | Kategorien für Ausgaben (fest, Premium, eigene) |
@@ -145,6 +159,56 @@ Grundgerüst für ein späteres Premium-Modell. Was ein Tarif darf, steht an ein
 ### Anmeldung verlängern
 
 `POST /auth/refresh` tauscht ein gültiges Token gegen ein neues mit wieder 7 Tagen Laufzeit (neue `jti`). Das Token trägt `auth_time`, den Zeitpunkt des letzten Logins mit Passwort; er wird übernommen. Liegt er mehr als 90 Tage zurück, antwortet die API mit **401** `{ "error": "reauth_required" }`. Widerrufene Tokens („Auf allen Geräten abmelden“, Passwortwechsel) werden wie bei jedem Aufruf abgelehnt. Das PHP-Frontend verlängert bei aktiver Nutzung, sobald das Token älter als einen Tag ist (höchstens ein Versuch pro Stunde).
+
+## E-Mail-Adresse bestätigen (#135)
+
+Neue Konten bekommen nach der Registrierung eine Mail mit einem Link (`{APP_URL}/pages/email_bestaetigen.php?token=…`, ohne `APP_URL` steht nur der Code in der Mail). Das Token gilt 24 Stunden und nur einmal; in der Datenbank liegt nur sein SHA-256-Hash. Eingelöst wird es mit `POST /auth/verify-email` `{ "token" }` – ohne Anmeldung, das Token selbst ist der Nachweis. Antworten: 200 `{ verified, email }`, 400 `invalid_token` bzw. `token_expired`. `POST /auth/resend-verification` schickt eine neue Mail (frühestens nach 60 s: 429 `resend_too_soon`; höchstens 5 je Tag: 429 `too_many_attempts`; schon bestätigt: 409 `already_verified`).
+
+**Solange die Adresse unbestätigt ist** (`email_verified: false` in Login, Registrierung und `/whoami`), erlaubt die API **ein Fahrzeug und einen Eintrag** (Tank-/Ladevorgang, Ausgabe oder Fahrt). Gesperrt sind weitere Fahrzeuge und Einträge, Bilder hochladen, Import, E-Mail-Einstellungen, Feedback, Stationssuchen, eigene Kategorien und Teilen – Antwort 403 `{ "error": "email_not_verified", "feature": "maxVehicles" | "maxEntries" | "upload" | "import" | "mail" | "feedback" | "stations" | "customCategories" | "sharing", "limit"? }`. Lesen, Profil, Passwort, 2FA und Konto löschen gehen immer. `/whoami` liefert die Grenzen als `unverified_limits` (`null`, wenn bestätigt). An unbestätigte Adressen gehen keine Erinnerungen oder Berichte.
+
+**Neue E-Mail-Adresse:** `PATCH /auth/users/:userId` mit `email` ändert die eigene Adresse erst nach Bestätigung. Bis dahin steht sie in `pending_email`, Anmelden geht weiter mit der alten. Admins ändern fremde Adressen direkt.
+
+Ohne Standard-Mailserver (siehe E-Mail-Benachrichtigungen) oder mit `EMAIL_VERIFICATION=false` gelten neue Konten sofort als bestätigt. Konten, die es beim Einspielen der Migration 017 schon gab, gelten als bestätigt.
+
+## Nutzungsbedingungen (#135)
+
+Ist in der API `TERMS_VERSION` gesetzt (z. B. `2026-11-09`), liefert `/health` sie als `terms_version`. Die Registrierung nimmt die Zustimmung als `acceptTerms: true` und `termsVersion` an. Ältere Clients ohne diese Felder legen das Konto trotzdem an; `/whoami` meldet dann `terms: { version, accepted_version, accepted_at, required: true }`, und der Client fragt nach. Zustimmen: `POST /auth/accept-terms` `{ "version" }` (falsche Fassung: 400 `invalid_terms_version`). Bei einer neuen `TERMS_VERSION` gilt `required` wieder für alle Konten. Für die Datenschutzerklärung gibt es bewusst keine Zustimmung (Verarbeitung zur Vertragserfüllung, Art. 6 Abs. 1 lit. b DSGVO).
+
+## Fahrzeuge teilen (#53)
+
+Ein Fahrzeug gehört einem Konto (Besitzer) und kann mit anderen geteilt werden. Rollen:
+
+| Rolle | `role` | Darf |
+|---|---|---|
+| Besitzer | `owner` | alles: Fahrzeugdaten, Bilder, Import, Teilen, Löschen, alle Einträge ändern |
+| Mitfahrer | `editor` | alles sehen, Tank-/Ladevorgänge, Ausgaben und Fahrten erfassen, **eigene** Einträge ändern und löschen |
+| Nur ansehen | `viewer` | alles sehen |
+
+- `GET /vehicles` liefert eigene und geteilte Fahrzeuge (geteilte dahinter) mit `role`, `owner_id` und `owner_name`.
+- Listen (`/fillups`, `/entries`, `/trips` je Fahrzeug) enthalten alle Einträge des Fahrzeugs mit `created_by` und `created_by_name`. Statistik, Kosten, Verbrauch, Termine und Monatsbericht rechnen über alle Einträge.
+- Fremde ohne Mitgliedschaft bekommen bei allem 404 – auch die Existenz des Fahrzeugs bleibt verborgen. Fehlende Rechte: 403 `read_only` (nur ansehen), `entry_not_editable` (fremder Eintrag), `owner_only`.
+- **Einladen:** `POST /vehicles/:vehicleId/invitations` `{ "email", "role" }` (Besitzer, bestätigte Adresse, Tarif mit `sharing` = Plus; eingeladene Mitglieder brauchen keinen Tarif). Die Einladung gilt 14 Tage, mit Standard-Mailserver kommt eine Mail. Angenommen werden kann sie nur von einem Konto mit genau dieser, bestätigten Adresse: `GET /invitations`, `POST /invitations/:id/accept` bzw. `/decline`. Höchstens 10 Mitglieder je Fahrzeug, 20 Einladungen je Tag.
+- **Verwalten:** `GET /vehicles/:vehicleId/members`, Rolle ändern mit `PATCH /vehicles/:vehicleId/members/:userId` `{ "role" }`, entfernen bzw. verlassen mit `DELETE …/members/:userId` (`me` = selbst). Einträge bleiben beim Fahrzeug.
+- **Konto löschen:** Einträge eines Mitglieds an fremden Fahrzeugen gehen an den Besitzer über; eigene Fahrzeuge werden mit allen Einträgen gelöscht.
+- `/whoami` zählt offene Einladungen in `pending_invitations`.
+
+## Fahrtenbuch (#52)
+
+Fahrten mit Tachostand am Ende (Pflicht), Start bzw. Strecke, Von/Nach, Zweck und Notiz. Ein „Fahrtenbuch zur eigenen Übersicht“ – kein vom Finanzamt anerkanntes Fahrtenbuch.
+
+```json
+POST /trips
+{ "vehicleId": "…", "startedAt": "2026-03-02T07:30:00Z", "odometerStart": 10000, "odometerEnd": 10042,
+  "startPlace": "Bolbingen", "endPlace": "Aalen", "purpose": "business", "note": "Kunde" }
+```
+
+- Strecke `distance_km` = Ende − Start; ohne Start aus `distanceKm` (bei ganzen km wird der Start daraus berechnet).
+- `purpose`: `private` und `business` im Free-Tarif, `commute` (Arbeitsweg) ab Plus (403 `plan_required`, `feature: tripCategories`). Ein bisheriger Zweck bleibt beim Ändern erlaubt.
+- `GET /vehicles/:vehicleId/trips?year=&purpose=`, `GET/PATCH/DELETE /trips/:tripId`; Rechte wie bei Einträgen (siehe Teilen).
+- `GET /vehicles/:vehicleId/trips/summary?year=`: `totalKm`, `byPurpose` (km, Anzahl, geschätzte Kosten), `businessShare` (%), `months` (km je Zweck), `costPerKm`, `allowedPurposes`, `canExport`. Geschätzte Kosten = Kosten pro km aus `/costs` × Strecke.
+- `GET /vehicles/:vehicleId/trips/export?year=`: CSV (Semikolon, deutsches Zahlenformat, mit BOM), ab Plus (`tripExport`).
+- Fahrten liefern Tachostände für die Tachostand-Prüfung, den aktuellen Stand in `/stats` und die Fälligkeiten.
+- Alte Fahrten (Ausgaben der Kategorie `Fahrt`) übernimmt Migration 019 ins Fahrtenbuch; sie erscheinen nicht mehr in der Ausgabenliste. `POST /entries` mit `category: "Fahrt"` funktioniert für ältere Clients weiter, landet aber nicht im Fahrtenbuch – neue Clients nutzen `/trips`.
 
 ## Health & Diagnostics
 

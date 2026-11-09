@@ -7,16 +7,34 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 ## [Unreleased]
 
 ### Neu
+- **Fahrzeuge teilen** (#53): Fahrzeuge lassen sich per E-Mail mit anderen Konten teilen – als Mitfahrer (sehen und erfassen, eigene Einträge ändern) oder nur zum Ansehen. Einladungen gelten 14 Tage und nur für die eingeladene, bestätigte Adresse. Bei jedem Eintrag steht, wer ihn erfasst hat. Mitglieder können ein Fahrzeug verlassen, der Besitzer kann Rollen ändern und Mitglieder entfernen; Einträge bleiben beim Fahrzeug. Teilen ist eine Plus-Funktion des Besitzers.
+- **Fahrtenbuch** (#52): eigener Reiter „Fahrten“ mit Tachostand Start und Ende, Von/Nach, Zweck (privat, dienstlich, Arbeitsweg) und Notiz; km je Monat und Zweck, Anteil dienstlich, geschätzte Kosten je Zweck, Filter nach Jahr und Zweck, CSV-Export (Plus). Bisherige Fahrten werden übernommen. Fahrten liefern Tachostände für Prüfung, aktuellen Stand und Termine. Ein Fahrtenbuch zur eigenen Übersicht, kein vom Finanzamt anerkanntes.
+- **E-Mail-Adresse bestätigen** (#135): Neue Konten bestätigen ihre Adresse über einen Link (24 Stunden gültig). Bis dahin sind ein Fahrzeug und ein Eintrag möglich. Eine geänderte Adresse gilt erst nach Bestätigung. Bestehende Konten gelten als bestätigt.
+- **Nutzungsbedingungen** (#135): eigene Seite, Zustimmung bei der Registrierung; bestehende Konten stimmen beim nächsten Aufruf einmal zu, ebenso nach einer neuen Fassung.
 - Offline lesen (#1): Ohne Internetverbindung zeigt die installierte App bzw. der Browser die zuletzt geladene Übersicht und die zuletzt geöffneten Fahrzeugseiten samt Fahrzeugbildern mit einem Hinweis auf den Stand. Speichern ist offline gesperrt. Die gespeicherten Seiten bleiben auf dem Gerät und werden beim Abmelden, bei jeder Anmeldung und nach 7 Tagen verworfen.
 - Zum Aktualisieren nach unten ziehen in der installierten App (iOS und Android), wie in nativen Apps. Nicht in Formularen mit ungespeicherten Eingaben.
 
 ### Behoben
 - Installation als App: Das 512-Pixel-Icon im Manifest zeigte auf eine fehlende Datei. Android/Chrome nutzt jetzt ein passendes Icon, dazu ein randloses Icon für den Home-Bildschirm unter Android (maskable) und iOS (`apple-touch-icon`) statt eines Icons mit hellen Ecken.
 
+### Sicherheit
+- Keine Erinnerungen und Berichte mehr an unbestätigte E-Mail-Adressen; eine neue Adresse kann ein Konto erst nach Bestätigung übernehmen (#135).
+
 ### Technik
+- Release-Prozess (#134): Ein Tag baut das API-Image `ghcr.io/fuelstat/fuelstat-api:X.Y.Z`; `infra/ausrollen.sh X.Y.Z` rollt eine veröffentlichte Version aus (Hinweise anzeigen, Image laden, Code aufs Tag, Migrationen vor dem Neustart, API starten, PHP-FPM neu laden, Health prüfen) und rollt genauso zurück. Die CI verlangt in jedem PR einen Eintrag unter `[Unreleased]` (Label `kein changelog` zum Überspringen).
+- Zentrale Zugriffsprüfung für Fahrzeuge (`services/vehicleAccess.js`) statt „gehört mir“ an rund 40 Stellen; Statistik, Kosten, Verbrauch, Termine und Monatsbericht rechnen über alle Einträge eines Fahrzeugs (#53).
 - `manifest.json` mit `id`, `scope`, Sprache und Kategorien.
 - API-Dokumentation (`docs/openapi.1.0.0.yaml`): Login mit 2FA vollständig beschrieben (Beispiele mit und ohne Code, Antworten `mfa_required` mit `mfaToken`, `invalid_mfa_code`, `429 too_many_attempts`); fehlende Felder in `/health` (`version`, `registration_enabled`, `beta_phase`), Benutzer, Fahrzeugen und Einträgen ergänzt – strenge Validatoren und Code-Generatoren lehnten echte Antworten bisher ab. Pfade nach Bereichen sortiert.
 - Die CI prüft, dass jede API-Route in der OpenAPI dokumentiert ist (`tests/openapi_abgleich.py`).
+- Neue API-Endpunkte unter `/api/v1`, alle abwärtskompatibel: `/auth/verify-email`, `/auth/resend-verification`, `/auth/accept-terms`, `/vehicles/:id/members`, `/vehicles/:id/invitations`, `/invitations`, `/trips`, `/vehicles/:id/trips` (mit `summary` und `export`); neue Felder in `/health`, `/whoami`, Fahrzeugen und Einträgen (siehe `docs/api.md`).
+
+### Hinweise zum Update
+- **Ab dieser Version mit dem Skript ausrollen** (#134): `sudo infra/ausrollen.sh 0.11.0` im Projektordner. Es spielt die Migrationen 017, 018 und 019 selbst vor dem Neustart der API ein. Beim ersten Mal steht das Skript erst nach `git pull` bzw. `git fetch --tags && git checkout v0.11.0` zur Verfügung. Von Hand: Migrationen einspielen, **bevor** die API neu startet:
+  `cd infra && for m in 017_email_verification 018_vehicle_sharing 019_trips; do sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_$m.sql; done`
+- **Image öffentlich stellen:** Nach dem ersten Release unter GitHub → FuelStat → Packages → `fuelstat-api` → Package settings die Sichtbarkeit auf „Public“ stellen (sonst `sudo docker login ghcr.io` auf dem Server).
+- **Nutzungsbedingungen einschalten:** in `infra/.env` `TERMS_VERSION=2026-11-09` setzen (Text: `includes/nutzungsbedingungen_text.php`, Betreiberangaben aus `includes/betreiber.php`). Ohne den Eintrag gibt es keine Zustimmung.
+- **Links in Mails:** Bestätigungs- und Einladungsmails verlinken auf `APP_URL` (in `infra/.env`, z. B. `APP_URL=https://tanken.1emc.de`); ohne `APP_URL` enthalten sie nur den Code bzw. den Hinweis auf die Anmeldung. E-Mail-Bestätigung abschalten: `EMAIL_VERIFICATION=false`.
+- Im Repository einmal das Label `kein changelog` anlegen (für PRs ohne sichtbare Änderung).
 
 ## [0.10.0] - 2026-11-08
 

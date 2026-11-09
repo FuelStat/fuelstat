@@ -35,6 +35,7 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 - Versicherungs- und Steuerinformationen
 - Individuelle Reifengrößen
 - Frei sortierbare Fahrzeugübersicht
+- Fahrzeuge mit anderen Konten teilen: Mitfahrer erfassen mit, „Nur ansehen“ sieht alles; Einladung per E-Mail
 - Hinweise auf anstehende und überfällige Termine
 
 ### Tank- und Ladeverwaltung
@@ -54,7 +55,7 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 
 - Erfassung von Versicherung, Werkstatt, Inspektion, Steuer, Reparaturen, Reifen, TÜV und weiteren Kosten
 - Verwaltung eigener Ausgabenkategorien
-- Erfassung von Fahrten
+- Fahrtenbuch zur eigenen Übersicht: Fahrten mit Tachostand Start/Ende, Von/Nach, Zweck (privat, dienstlich, Arbeitsweg), km je Monat und Zweck, Anteil dienstlich, geschätzte Kosten, CSV-Export
 - Monatlich gruppierte Eintragsübersicht
 - Suche und Filter nach Eintragsart, Ort und Beschreibung
 - Bearbeiten und Löschen von Einträgen
@@ -91,7 +92,8 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 
 ### Konto und Benutzerverwaltung
 
-- Registrierung und Anmeldung
+- Registrierung mit Bestätigung der E-Mail-Adresse und Zustimmung zu den Nutzungsbedingungen
+- Anmeldung
 - Optionale Zwei-Faktor-Authentifizierung
 - Benutzerprofil mit Profilbild
 - Passwortänderung und Abmeldung auf allen Geräten

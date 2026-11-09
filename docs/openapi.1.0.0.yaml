@@ -29,6 +29,10 @@ tags:
   - name: Feedback
   - name: Media
   - name: Stations
+  - name: Sharing
+    description: Fahrzeuge mit anderen Konten teilen (#53)
+  - name: Trips
+    description: Fahrtenbuch (#52)
 
 security:
   - BearerAuth: []
@@ -251,6 +255,104 @@ paths:
                 error: invalid_mfa_code
         "429":
           $ref: "#/components/responses/TooManyAttempts"
+
+  /api/v1/auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Confirm the e-mail address with the token from the mail (#135)
+      description: >
+        Ohne Anmeldung, das Token aus der Mail ist der Nachweis. Gilt 24 Stunden und nur einmal. Bestätigt die
+        Konto-Adresse bzw. übernimmt eine ausstehende neue Adresse (pending_email).
+      operationId: postVerifyEmail
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                token: { type: string }
+              required: [token]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  verified: { type: boolean, example: true }
+                  email: { type: string, format: email }
+        "400":
+          description: invalid_token (falsch oder schon benutzt) | token_expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: email_already_exists (die neue Adresse gehört inzwischen einem anderen Konto)
+
+  /api/v1/auth/resend-verification:
+    post:
+      tags: [Auth]
+      summary: Send the confirmation mail again (#135)
+      description: "An die ausstehende neue Adresse, sonst an die Konto-Adresse. Frühestens 60 Sekunden nach der letzten Mail, höchstens 5 je 24 Stunden."
+      operationId: postResendVerification
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sent: { type: boolean }
+                  email: { type: string, format: email }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: already_verified
+        "429":
+          description: "resend_too_soon (retry_after_seconds) | too_many_attempts"
+        "502":
+          description: smtp_failed
+        "503":
+          description: mail_not_configured
+
+  /api/v1/auth/accept-terms:
+    post:
+      tags: [Auth]
+      summary: Accept the current terms of use (#135)
+      description: "version = gültige Fassung aus GET /health (terms_version) bzw. /whoami (terms.version)."
+      operationId: postAcceptTerms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                version: { type: string, example: "2026-11-09" }
+              required: [version]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted_version: { type: string }
+                  accepted_at: { type: string, format: date-time }
+        "400":
+          description: invalid_terms_version (current = gültige Fassung)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: terms_not_configured (TERMS_VERSION leer)
 
   /api/v1/auth/refresh:
     post:
@@ -943,6 +1045,181 @@ paths:
         "500":
           $ref: "#/components/responses/ServerError"
 
+  /api/v1/vehicles/{vehicleId}/members:
+    get:
+      tags: [Sharing]
+      summary: Who has access to the vehicle (#53)
+      description: "Für alle mit Zugriff. Offene Einladungen (invitations) nur für den Besitzer."
+      operationId: getVehicleMembers
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VehicleMembers"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/vehicles/{vehicleId}/members/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/VehicleId"
+      - name: userId
+        in: path
+        required: true
+        description: "Konto-ID des Mitglieds; beim Entfernen auch \"me\" (Fahrzeug selbst verlassen)"
+        schema: { type: string }
+    patch:
+      tags: [Sharing]
+      summary: Change a member's role (owner only)
+      operationId: patchVehicleMember
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                role: { type: string, enum: [editor, viewer] }
+              required: [role]
+      responses:
+        "200":
+          description: "OK ({ user_id, role })"
+        "400":
+          description: invalid_role
+        "403":
+          description: owner_only
+        "404":
+          description: vehicle_not_found | member_not_found
+    delete:
+      tags: [Sharing]
+      summary: Remove a member (owner) or leave the vehicle (member, userId = me)
+      description: "Einträge des Mitglieds bleiben beim Fahrzeug."
+      operationId: deleteVehicleMember
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: owner_cannot_leave
+        "403":
+          description: owner_only
+        "404":
+          description: vehicle_not_found | member_not_found
+
+  /api/v1/vehicles/{vehicleId}/invitations:
+    post:
+      tags: [Sharing]
+      summary: Invite an e-mail address to the vehicle (owner only, plan feature sharing, confirmed e-mail)
+      description: >
+        Die Einladung gilt 14 Tage und lässt sich nur mit genau dieser, bestätigten Adresse annehmen. Eine offene
+        Einladung an dieselbe Adresse wird ersetzt. Mit Standard-Mailserver geht eine Mail raus (mailed).
+        Höchstens 10 Mitglieder je Fahrzeug und 20 Einladungen je Tag.
+      operationId: postVehicleInvitation
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                email: { type: string, format: email }
+                role: { type: string, enum: [editor, viewer], default: editor, description: "editor = Mitfahrer (sehen und erfassen), viewer = nur ansehen" }
+              required: [email]
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/VehicleInvitation"
+                  - type: object
+                    properties:
+                      mailed: { type: boolean }
+        "400":
+          description: invalid_email | invalid_role | cannot_invite_self
+        "403":
+          description: owner_only | plan_required (feature sharing) | email_not_verified
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: already_member | member_limit_reached
+        "429":
+          description: too_many_invitations
+
+  /api/v1/vehicles/{vehicleId}/invitations/{invitationId}:
+    delete:
+      tags: [Sharing]
+      summary: Withdraw an open invitation (owner only)
+      operationId: deleteVehicleInvitation
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+        - { name: invitationId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: owner_only
+        "404":
+          description: vehicle_not_found | invitation_not_found
+
+  /api/v1/invitations:
+    get:
+      tags: [Sharing]
+      summary: Open invitations to the own (confirmed) e-mail address
+      operationId: getInvitations
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/IncomingInvitation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/invitations/{invitationId}/accept:
+    post:
+      tags: [Sharing]
+      summary: Accept an invitation
+      operationId: postInvitationAccept
+      parameters:
+        - { name: invitationId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: "OK ({ accepted: true, vehicleId })"
+        "403":
+          description: email_not_verified
+        "404":
+          description: invitation_not_found (auch bei Einladungen an eine andere Adresse)
+        "410":
+          description: invitation_expired (abgelaufen, zurückgezogen oder schon beantwortet)
+
+  /api/v1/invitations/{invitationId}/decline:
+    post:
+      tags: [Sharing]
+      summary: Decline an invitation
+      operationId: postInvitationDecline
+      parameters:
+        - { name: invitationId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: "OK ({ declined: true, vehicleId })"
+        "404":
+          description: invitation_not_found
+        "410":
+          description: invitation_expired
+
   /api/v1/fillups:
     post:
       tags: [Fillups]
@@ -1304,6 +1581,167 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/ServerError"
+
+  /api/v1/trips:
+    post:
+      tags: [Trips]
+      summary: Create a trip (logbook, #52)
+      description: >
+        Tachostand Ende ist Pflicht. Strecke = Ende − Start, ohne Start aus distanceKm (bei ganzen km wird der Start
+        daraus berechnet). Zwecke: private und business im Free-Tarif, commute ab Plus (plan_required, feature
+        tripCategories). Erfassen dürfen Besitzer und Mitfahrer.
+      operationId: postTrip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/TripInput"
+                - type: object
+                  properties:
+                    vehicleId: { type: string, format: uuid }
+                  required: [vehicleId, odometerEnd]
+            example:
+              vehicleId: "24d22d87-8242-4fd2-8aa1-d2fa2c8ee43c"
+              startedAt: "2026-03-02T07:30:00Z"
+              odometerStart: 10000
+              odometerEnd: 10042
+              startPlace: "Bolbingen"
+              endPlace: "Aalen"
+              purpose: "business"
+      responses:
+        "201":
+          description: Created (mit warnings bei unplausiblem Tachostand)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trip"
+        "400":
+          description: "missing_vehicleId | invalid_odometerEnd | invalid_odometerStart | invalid_distanceKm | invalid_startedAt | invalid_endedAt | invalid_purpose"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: read_only | plan_required (tripCategories) | email_not_verified (maxEntries)
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/trips/{tripId}:
+    parameters:
+      - { name: tripId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Trips]
+      summary: Get a trip
+      operationId: getTrip
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trip"
+        "404":
+          description: trip_not_found
+    patch:
+      tags: [Trips]
+      summary: Change a trip (owner all, editor own trips)
+      operationId: patchTrip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trip"
+        "400":
+          description: siehe POST /trips
+        "403":
+          description: entry_not_editable | plan_required
+        "404":
+          description: trip_not_found
+    delete:
+      tags: [Trips]
+      summary: Delete a trip (owner all, editor own trips)
+      operationId: deleteTrip
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: entry_not_editable
+        "404":
+          description: trip_not_found
+
+  /api/v1/vehicles/{vehicleId}/trips:
+    get:
+      tags: [Trips]
+      summary: Trips of a vehicle, newest first
+      operationId: getVehicleTrips
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+        - { name: year, in: query, required: false, schema: { type: integer, minimum: 1900, maximum: 2100 }, description: "Jahr in Europe/Berlin" }
+        - { name: purpose, in: query, required: false, schema: { type: string, enum: [private, business, commute] } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500, default: 500 } }
+        - $ref: "#/components/parameters/Offset"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Trip"
+        "400":
+          description: invalid_year | invalid_purpose
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/vehicles/{vehicleId}/trips/summary:
+    get:
+      tags: [Trips]
+      summary: Logbook evaluation (km per purpose and month, business share, estimated cost)
+      description: "Geschätzte Kosten = Kosten pro km des Fahrzeugs (aus /costs, gleiches Jahr) × Strecke."
+      operationId: getVehicleTripSummary
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+        - { name: year, in: query, required: false, schema: { type: integer, minimum: 1900, maximum: 2100 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripSummary"
+        "400":
+          description: invalid_year
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/vehicles/{vehicleId}/trips/export:
+    get:
+      tags: [Trips]
+      summary: Logbook as CSV (plan feature tripExport)
+      description: "Semikolon-getrennt, deutsches Zahlenformat, mit BOM für Excel; Zellen, die mit = + - @ beginnen, werden entschärft."
+      operationId: getVehicleTripsExport
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+        - { name: year, in: query, required: false, schema: { type: integer, minimum: 1900, maximum: 2100 } }
+      responses:
+        "200":
+          description: CSV
+          content:
+            text/csv:
+              schema: { type: string }
+        "403":
+          description: plan_required (tripExport)
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /api/v1/categories:
     get:
@@ -2064,6 +2502,120 @@ components:
         bytes: { type: integer }
         created_at: { type: string, format: date-time }
 
+    VehicleMembers:
+      type: object
+      properties:
+        role: { type: string, enum: [owner, editor, viewer], description: Rolle des angemeldeten Kontos }
+        owner:
+          type: object
+          properties:
+            user_id: { type: string, format: uuid }
+            name: { type: string, description: Benutzername oder E-Mail-Adresse }
+            email: { type: string, format: email }
+            role: { type: string, enum: [owner] }
+        members:
+          type: array
+          items:
+            type: object
+            properties:
+              user_id: { type: string, format: uuid }
+              name: { type: string }
+              email: { type: string, format: email }
+              role: { type: string, enum: [editor, viewer] }
+              created_at: { type: string, format: date-time }
+        invitations:
+          type: array
+          description: Nur für den Besitzer
+          items:
+            $ref: "#/components/schemas/VehicleInvitation"
+
+    VehicleInvitation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        role: { type: string, enum: [editor, viewer] }
+        expires_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+
+    IncomingInvitation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        vehicle_id: { type: string, format: uuid }
+        vehicle_name: { type: string }
+        role: { type: string, enum: [editor, viewer] }
+        invited_by_name: { type: string, nullable: true }
+        expires_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+
+    TripInput:
+      type: object
+      additionalProperties: false
+      properties:
+        startedAt: { type: string, format: date-time, description: "Standard: jetzt" }
+        endedAt: { type: string, format: date-time, nullable: true }
+        odometerStart: { type: integer, nullable: true, minimum: 0 }
+        odometerEnd: { type: integer, minimum: 0, description: Tachostand am Ende der Fahrt }
+        distanceKm: { type: number, minimum: 0, description: "Nur ohne odometerStart" }
+        startPlace: { type: string, nullable: true, maxLength: 200 }
+        endPlace: { type: string, nullable: true, maxLength: 200 }
+        purpose: { type: string, enum: [private, business, commute], default: private }
+        note: { type: string, nullable: true, maxLength: 200 }
+
+    Trip:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        vehicle_id: { type: string, format: uuid }
+        created_by: { type: string, format: uuid, description: Fahrer bzw. wer die Fahrt erfasst hat }
+        created_by_name: { type: string, nullable: true }
+        started_at: { type: string, format: date-time }
+        ended_at: { type: string, format: date-time, nullable: true }
+        odometer_start: { type: integer, nullable: true }
+        odometer_end: { type: integer }
+        distance_km: { type: number }
+        start_place: { type: string, nullable: true }
+        end_place: { type: string, nullable: true }
+        purpose: { type: string, enum: [private, business, commute] }
+        note: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        warnings:
+          type: array
+          description: Nur bei POST/PATCH
+          items:
+            $ref: "#/components/schemas/OdometerWarning"
+
+    TripSummary:
+      type: object
+      properties:
+        year: { type: integer, nullable: true }
+        count: { type: integer }
+        totalKm: { type: number }
+        byPurpose:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              km: { type: number }
+              count: { type: integer }
+              estimatedCost: { type: number, nullable: true }
+        businessShare: { type: number, nullable: true, description: Anteil dienstlich in Prozent }
+        costPerKm: { type: number, nullable: true }
+        months:
+          type: array
+          items:
+            type: object
+            properties:
+              month: { type: string, example: "2026-03" }
+              private: { type: number }
+              business: { type: number }
+              commute: { type: number }
+        purposes: { type: array, items: { type: string } }
+        allowedPurposes: { type: array, items: { type: string }, description: Zwecke im Tarif des Kontos }
+        canExport: { type: boolean }
+
     LoginErrorResponse:
       type: object
       additionalProperties: false
@@ -2113,6 +2665,10 @@ components:
         beta_phase:
           type: boolean
           description: Läuft die Beta-Phase (neue Konten werden als Beta-Tester markiert)?
+        terms_version:
+          type: string
+          nullable: true
+          description: Gültige Fassung der Nutzungsbedingungen (TERMS_VERSION, #135); null = keine Zustimmung nötig
       required: [status, timestamp, service, version]
 
     DbPingResponse:
@@ -2152,6 +2708,27 @@ components:
           nullable: true
         beta_tester:
           type: boolean
+        email_verified:
+          type: boolean
+        pending_email:
+          type: string
+          nullable: true
+        unverified_limits:
+          type: object
+          nullable: true
+          description: "Grenzen ohne bestätigte Adresse (#135), z. B. { maxVehicles: 1, maxEntries: 1 }; null, wenn bestätigt"
+          additionalProperties: { type: integer }
+        pending_invitations:
+          type: integer
+          description: Offene Einladungen zu geteilten Fahrzeugen (#53)
+        terms:
+          type: object
+          description: Nutzungsbedingungen (#135); required = der gültigen Fassung noch nicht zugestimmt
+          properties:
+            version: { type: string, nullable: true }
+            accepted_version: { type: string, nullable: true }
+            accepted_at: { type: string, format: date-time, nullable: true }
+            required: { type: boolean }
         is_admin:
           type: boolean
           description: true, wenn die User-ID in ADMIN_USER_IDS steht
@@ -2202,6 +2779,12 @@ components:
         password:
           type: string
           minLength: 8
+        acceptTerms:
+          type: boolean
+          description: Zustimmung zu den Nutzungsbedingungen (#135); zusammen mit termsVersion
+        termsVersion:
+          type: string
+          description: Fassung aus GET /health (terms_version). Ohne Zustimmung wird sie nach der Anmeldung nachgeholt.
       required: [email, password]
 
     LoginRequest:
@@ -2252,6 +2835,13 @@ components:
         beta_tester:
           type: boolean
           description: Nur in der Antwort der Registrierung und in /whoami
+        email_verified:
+          type: boolean
+          description: E-Mail-Adresse bestätigt (#135); unbestätigt sind die Funktionen begrenzt
+        pending_email:
+          type: string
+          nullable: true
+          description: Neue Adresse, die noch bestätigt werden muss; bis dahin gilt email
         created_at:
           type: string
           format: date-time
@@ -2267,6 +2857,14 @@ components:
         email:
           type: string
           format: email
+        username:
+          type: string
+          nullable: true
+        profileImageUrl:
+          type: string
+          nullable: true
+          description: url aus POST /api/v1/media/upload; null entfernt das Bild
+
 
 
     VehicleFuelType:
@@ -2454,6 +3052,17 @@ components:
           format: uuid
         name:
           type: string
+        role:
+          type: string
+          enum: [owner, editor, viewer]
+          description: "Rolle des Kontos (#53): owner = Besitzer, editor = Mitfahrer, viewer = nur ansehen"
+        owner_id:
+          type: string
+          format: uuid
+        owner_name:
+          type: string
+          nullable: true
+          description: Benutzername oder E-Mail des Besitzers, nur bei geteilten Fahrzeugen
         brand:
           type: string
           nullable: true
@@ -2680,6 +3289,13 @@ components:
         user_id:
           type: string
           format: uuid
+        created_by:
+          type: string
+          format: uuid
+          description: Wer den Eintrag erfasst hat (#53); in Listen je Fahrzeug
+        created_by_name:
+          type: string
+          nullable: true
         vehicle_id:
           type: string
           format: uuid
@@ -2877,6 +3493,13 @@ components:
         user_id:
           type: string
           format: uuid
+        created_by:
+          type: string
+          format: uuid
+          description: Wer den Eintrag erfasst hat (#53); in Listen je Fahrzeug
+        created_by_name:
+          type: string
+          nullable: true
         vehicle_id:
           type: string
           format: uuid

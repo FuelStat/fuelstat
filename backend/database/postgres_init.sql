@@ -1,5 +1,5 @@
 -- backend/database/postgres_init.sql
--- Vollständiges Schema für eine NEUE Installation (Stand: Migration 019).
+-- Vollständiges Schema für eine NEUE Installation (Stand: Migration 020).
 -- Beim ersten Start der Datenbank spielt Docker diese Datei automatisch ein (siehe infra/docker-compose.yml).
 -- Bestehende Installationen nutzen stattdessen die Migrationen postgres_0XX_*.sql.
 BEGIN;
@@ -287,5 +287,17 @@ CREATE TABLE IF NOT EXISTS trips (
   CHECK (odometer_start IS NULL OR odometer_start <= odometer_end)
 );
 CREATE INDEX IF NOT EXISTS idx_trips_vehicle_started ON trips(vehicle_id, started_at DESC);
+
+
+-- Passwort vergessen (#141): nur der Hash des Tokens, 1 Stunde gültig, einmalig
+CREATE TABLE IF NOT EXISTS password_resets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash text NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL,
+  used_at timestamptz NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id, created_at DESC);
 
 COMMIT;

@@ -30,6 +30,7 @@ $email = ($b['email'] ?? '') !== '' ? htmlspecialchars(str_replace('@', '[at]', 
     <li><strong>Aktivität:</strong> Zeitpunkt der letzten Anmeldung und der letzten Nutzung (höchstens stündlich aktualisiert), damit ich als Betreiber sehe, ob Konten noch genutzt werden.</li>
     <li><strong>Beta-Phase:</strong> während der Beta wird dein Konto als „Beta-Tester“ gekennzeichnet.</li>
     <li><strong>E-Mail-Bestätigung:</strong> nach der Registrierung und beim Ändern der Adresse schicke ich einen Bestätigungslink an die Adresse. Gespeichert werden nur ein Prüfwert (Hash) des Links, sein Ablauf (24 Stunden) und der Zeitpunkt der Bestätigung. Bis zur Bestätigung gilt eine neue Adresse noch nicht.</li>
+    <li><strong>Passwort vergessen:</strong> forderst du einen Link zum Zurücksetzen an, speichere ich nur einen Prüfwert (Hash) des Links, seinen Ablauf (eine Stunde) und ob er benutzt wurde.</li>
     <li><strong>Nutzungsbedingungen:</strong> gespeichert werden die Fassung, der du zugestimmt hast, und der Zeitpunkt der Zustimmung, damit nachvollziehbar ist, welche Fassung gilt.</li>
     <li><strong>Bilder (Profil- und Fahrzeugbilder):</strong> werden beim Hochladen verkleinert und als WebP gespeichert; dabei werden alle eingebetteten Metadaten entfernt, insbesondere der <strong>Aufnahmeort (GPS)</strong>, Kameramodell und Aufnahmezeit. Das Original wird nicht aufbewahrt. Abrufbar sind die Bilder nur über zeitlich begrenzte, signierte Adressen, die nur du (angemeldet) erhältst.</li>
   </ul>

@@ -37,7 +37,9 @@ const importLimiter = limiter(10 * 60 * 1000, 60, 60);
 const stationsLimiter = limiter(60 * 1000, 30, 30);
 // Ladestationssuche (#123): schont das Open-Charge-Map-Kontingent (Ergebnisse sind zusätzlich 6 Stunden gecacht)
 const chargingStationsLimiter = limiter(60 * 1000, 30, 30);
+// Passwort vergessen (#141): ohne Anmeldung, je IP; schützt Postfächer vor Mail-Fluten (zusätzlich 3 je Konto und Stunde)
+const passwordResetLimiter = limiter(15 * 60 * 1000, 10, 10);
 // Signierte Bilder (#103): ohne Anmeldung, zählen je IP; großzügig, eine Seite lädt mehrere Bilder
 const fileLimiter = limiter(60 * 1000, 2000, 2000);
 
-module.exports = { apiLimiter, chargingStationsLimiter, fileLimiter, importLimiter, limitKey, limiter, stationsLimiter, uploadLimiter };
+module.exports = { apiLimiter, chargingStationsLimiter, fileLimiter, importLimiter, limitKey, limiter, passwordResetLimiter, stationsLimiter, uploadLimiter };

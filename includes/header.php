@@ -134,6 +134,8 @@ $seitenInfo = [
     'email_bestaetigen.php'    => ['E-Mail bestätigen', null],
     'einladungen.php'          => ['Einladungen', null],
     'nutzungsbedingungen.php'  => ['Nutzungsbedingungen', null],
+    'passwort_vergessen.php'   => ['Passwort vergessen', null],
+    'passwort_zuruecksetzen.php' => ['Neues Passwort', null],
     'fahrt.php'                => ['Fahrt', 'fahrzeug_detail.php?id=' . urlencode((string)($_GET['fahrzeug_id'] ?? '')) . '#fahrten'],
 ];
 [$seitenTitel, $zurueckUrl] = $angemeldet && isset($seitenInfo[$skript]) ? $seitenInfo[$skript] : [null, null];

@@ -321,6 +321,68 @@ paths:
         "503":
           description: mail_not_configured
 
+  /api/v1/auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request a password reset link (#141)
+      description: >
+        Antwort immer 202 und sofort – auch wenn es kein Konto mit der Adresse gibt (verrät keine Konten). Gibt es das
+        Konto, geht ein Link an die Konto-Adresse ({APP_URL}/pages/passwort_zuruecksetzen.php?token=…, ohne APP_URL
+        nur der Code), 1 Stunde gültig, nur einmal. Höchstens 3 Mails je Konto und Stunde, 10 Anfragen je IP in 15 Minuten.
+      operationId: postForgotPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                email: { type: string, format: email }
+              required: [email]
+      responses:
+        "202":
+          description: Angenommen
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted: { type: boolean, example: true }
+        "400":
+          description: invalid_email
+        "429":
+          description: too_many_requests
+        "503":
+          description: mail_not_configured (kein Standard-Mailserver)
+
+  /api/v1/auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Set a new password with the token from the mail (#141)
+      description: >
+        Setzt das Passwort, meldet auf allen Geräten ab (alle bisherigen Tokens ungültig) und bestätigt die E-Mail-Adresse.
+        Eine aktive 2FA bleibt aktiv.
+      operationId: postResetPassword
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                token: { type: string }
+                password: { type: string, minLength: 8 }
+              required: [token, password]
+      responses:
+        "200":
+          description: "OK ({ reset: true })"
+        "400":
+          description: invalid_token (falsch oder schon benutzt) | token_expired | password_too_short
+
   /api/v1/auth/accept-terms:
     post:
       tags: [Auth]

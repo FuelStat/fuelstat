@@ -96,7 +96,7 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 - Anmeldung
 - Optionale Zwei-Faktor-Authentifizierung
 - Benutzerprofil mit Profilbild
-- Passwortänderung und Abmeldung auf allen Geräten
+- Passwortänderung, „Passwort vergessen“ per Mail und Abmeldung auf allen Geräten
 - Kontolöschung
 - Administratorbereich mit Benutzer-, Fahrzeug- und Aktivitätsübersicht
 - Feedback-Funktion für Fehler, Ideen und Rückmeldungen

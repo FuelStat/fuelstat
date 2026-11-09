@@ -96,6 +96,9 @@ class FuelstatApi
 
     /** E-Mail-Bestätigung (#135): Token aus der Mail einlösen (ohne Anmeldung) bzw. Mail erneut senden */
     public function postVerifyEmail(string $token): array { return $this->request('POST', '/auth/verify-email', ['token' => $token]); }
+    /** Passwort vergessen (#141) */
+    public function postForgotPassword(string $email): array { return $this->request('POST', '/auth/forgot-password', ['email' => $email]); }
+    public function postResetPassword(string $token, string $password): array { return $this->request('POST', '/auth/reset-password', ['token' => $token, 'password' => $password]); }
     public function postAcceptTerms(string $version): array { return $this->request('POST', '/auth/accept-terms', ['version' => $version]); }
     public function postResendVerification(): array { return $this->request('POST', '/auth/resend-verification', []); }
 

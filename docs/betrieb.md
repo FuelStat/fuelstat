@@ -111,7 +111,7 @@ sudo docker compose exec api node scripts/bilder-optimieren.js           # umste
 
 ## Datenbank-Migrationen
 
-Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält bereits alles bis einschließlich 019. Bestehende Installationen spielen alle noch fehlenden Migrationen der Reihe nach ein:
+Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält bereits alles bis einschließlich 020. Bestehende Installationen spielen alle noch fehlenden Migrationen der Reihe nach ein:
 
 | Datei | Inhalt |
 |---|---|
@@ -130,6 +130,7 @@ Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält ber
 | `postgres_017_email_verification.sql` | E-Mail-Bestätigung (bestehende Konten gelten als bestätigt), ausstehende neue Adresse, Zustimmung zu den Nutzungsbedingungen (#135) |
 | `postgres_018_vehicle_sharing.sql` | Fahrzeuge teilen: Mitglieder und Einladungen (#53) |
 | `postgres_019_trips.sql` | Fahrtenbuch; übernimmt bisherige „Fahrt“-Einträge (#52) |
+| `postgres_020_password_resets.sql` | Passwort vergessen: Links zum Zurücksetzen (#141) |
 
 Alle Migrationen laufen in einer Transaktion und lassen sich gefahrlos ein zweites Mal ausführen. Mit `infra/ausrollen.sh` passiert das automatisch; von Hand wie unter [Aktualisieren](#von-hand-oder-ohne-registry), Schritt 4, z. B. `< ../backend/database/postgres_014_expense_categories.sql`.
 

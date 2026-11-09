@@ -243,3 +243,72 @@ test('Ohne Mailserver bzw. mit EMAIL_VERIFICATION=false gelten neue Konten als b
     delete process.env.EMAIL_VERIFICATION;
   }
 });
+
+// Passwort vergessen (#141): Link aus der Mail (pages/passwort_zuruecksetzen.php?token=…)
+function resetTokenAus(adresse) {
+  const mail = [...postfach].reverse().find((m) => m.includes(adresse) && m.includes('Passwort'));
+  assert.ok(mail, `keine Passwort-Mail an ${adresse}`);
+  const text = mail.replace(/=\r\n/g, '').replace(/=3D/g, '=');
+  const m = text.match(/passwort_zuruecksetzen\.php\?token=([A-Za-z0-9_-]{20,})/) || text.match(/\n([A-Za-z0-9_-]{40,})\r?\n/);
+  assert.ok(m, 'kein Token in der Mail');
+  return m[1];
+}
+
+test('Passwort vergessen: gleiche Antwort für alle, Link setzt Passwort und meldet ab', async () => {
+  process.env.APP_URL = 'https://fuelstat.example.test';
+  try {
+    const u = await registrieren();
+    // Unbekannte Adresse: dieselbe Antwort, keine Mail
+    const anzahl = postfach.length;
+    const fremd = await api('POST', '/auth/forgot-password', { body: { email: `gibtsnicht-${unique()}@example.test` } });
+    assert.equal(fremd.status, 202);
+    assert.deepEqual(fremd.body, { accepted: true });
+    const echt = await api('POST', '/auth/forgot-password', { body: { email: u.email.toUpperCase() } });
+    assert.equal(echt.status, 202);
+    assert.deepEqual(echt.body, fremd.body, 'gleiche Antwort');
+    for (let i = 0; i < 50 && !postfach.slice(anzahl).some((m) => m.includes(u.email) && m.includes('Passwort')); i++) await warte(50);
+    assert.ok(!postfach.slice(anzahl).some((m) => m.includes('gibtsnicht-')), 'keine Mail an unbekannte Adressen');
+
+    const token = resetTokenAus(u.email);
+    const gespeichert = await pool.query('SELECT token_hash FROM password_resets WHERE user_id = $1 AND used_at IS NULL', [u.id]);
+    assert.equal(gespeichert.rows[0].token_hash, require('../src/services/passwordReset').hashToken(token), 'nur der Hash');
+
+    assert.equal((await api('POST', '/auth/reset-password', { body: { token, password: 'kurz' } })).body.error, 'password_too_short');
+    assert.equal((await api('POST', '/auth/reset-password', { body: { token: 'falsch', password: 'NeuesPasswort1' } })).body.error, 'invalid_token');
+    await new Promise((r) => setTimeout(r, 1100)); // revoked_after liegt sekundengenau hinter dem alten Token
+    const ok = await api('POST', '/auth/reset-password', { body: { token, password: 'NeuesPasswort1' } });
+    assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    // Nur einmal, alte Tokens abgemeldet, neues Passwort gilt, Adresse bestätigt
+    assert.equal((await api('POST', '/auth/reset-password', { body: { token, password: 'NochEinsNeu1' } })).body.error, 'invalid_token');
+    assert.equal((await api('GET', '/whoami', { token: u.token })).status, 401, 'alte Anmeldung widerrufen');
+    assert.equal((await api('POST', '/auth/login', { body: { email: u.email, password: 'Passwort123' } })).status, 401);
+    const login = await api('POST', '/auth/login', { body: { email: u.email, password: 'NeuesPasswort1' } });
+    assert.equal(login.status, 200);
+    assert.equal(login.body.user.email_verified, true, 'Link beweist das Postfach');
+  } finally {
+    delete process.env.APP_URL;
+  }
+});
+
+test('Passwort vergessen: abgelaufen, höchstens 3 Mails je Stunde, neuer Link entwertet den alten', async () => {
+  const u = await registrieren();
+  await api('POST', '/auth/forgot-password', { body: { email: u.email } });
+  for (let i = 0; i < 50 && !postfach.some((m) => m.includes(u.email) && m.includes('Passwort')); i++) await warte(50);
+  const erstes = resetTokenAus(u.email);
+  const vorher = postfach.length;
+  await api('POST', '/auth/forgot-password', { body: { email: u.email } });
+  for (let i = 0; i < 50 && postfach.length === vorher; i++) await warte(50);
+  const zweites = resetTokenAus(u.email);
+  assert.notEqual(erstes, zweites);
+  assert.equal((await api('POST', '/auth/reset-password', { body: { token: erstes, password: 'NeuesPasswort1' } })).body.error, 'invalid_token');
+  await pool.query(`UPDATE password_resets SET expires_at = now() - interval '1 minute' WHERE user_id = $1 AND used_at IS NULL`, [u.id]);
+  assert.equal((await api('POST', '/auth/reset-password', { body: { token: zweites, password: 'NeuesPasswort1' } })).body.error, 'token_expired');
+  // Drittes Mal geht noch, das vierte nicht mehr (Antwort bleibt trotzdem gleich)
+  await api('POST', '/auth/forgot-password', { body: { email: u.email } });
+  await warte(300);
+  const n = postfach.length;
+  const viertes = await api('POST', '/auth/forgot-password', { body: { email: u.email } });
+  assert.equal(viertes.status, 202);
+  await warte(500);
+  assert.equal(postfach.length, n, 'keine weitere Mail');
+});

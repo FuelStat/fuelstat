@@ -11,6 +11,9 @@ const { serverError } = require('../lib/http');
 const { MAX_SESSION_DAYS, auth, isAdmin, recordLogin, signToken } = require('../middleware/auth');
 const { MFA_TOKEN_SECRET, base32Encode, consumeTotp, readMfaSecret, storeMfaSecret } = require('../services/mfa');
 const emailVerification = require('../services/emailVerification');
+const passwordReset = require('../services/passwordReset');
+const { loadDefaultSmtp } = require('../services/mail');
+const { passwordResetLimiter } = require('../middleware/rateLimits');
 
 const router = express.Router();
 
@@ -80,6 +83,32 @@ router.post('/auth/verify-email', async (req, res) => {
     if (r.error === 'email_already_exists') return res.status(409).json({ error: r.error });
     if (r.error) return res.status(400).json({ error: r.error });
     res.json({ verified: true, email: r.email });
+  } catch (e) {
+    serverError(res, e);
+  }
+});
+
+// Passwort vergessen (#141): Antwort immer gleich und sofort, damit weder Inhalt noch Antwortzeit verraten, ob es ein
+// Konto mit dieser Adresse gibt. Der Versand läuft danach im Hintergrund.
+router.post('/auth/forgot-password', passwordResetLimiter, async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  if (!email || !email.includes('@') || email.length > 254) return res.status(400).json({ error: 'invalid_email' });
+  try {
+    if (!(await loadDefaultSmtp(pool))) return res.status(503).json({ error: 'mail_not_configured' });
+    res.status(202).json({ accepted: true });
+    passwordReset.requestReset(pool, email).catch((e) => console.error('[forgot-password] Versand fehlgeschlagen:', e.code || e.message));
+  } catch (e) {
+    serverError(res, e);
+  }
+});
+
+// Neues Passwort mit dem Token aus der Mail setzen; meldet überall ab
+// Kein eigenes Limit nötig: das Token (256 Bit) ist nicht zu erraten; es gilt das allgemeine Limit
+router.post('/auth/reset-password', async (req, res) => {
+  try {
+    const r = await passwordReset.resetPassword(pool, req.body?.token, req.body?.password);
+    if (r.error) return res.status(400).json({ error: r.error });
+    res.json({ reset: true });
   } catch (e) {
     serverError(res, e);
   }

@@ -21,6 +21,8 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | POST | `/auth/verify-email` | – | E-Mail-Adresse mit dem Token aus der Mail bestätigen (#135) |
 | POST | `/auth/resend-verification` | ✓ | Bestätigungsmail erneut senden |
 | POST | `/auth/accept-terms` | ✓ | Nutzungsbedingungen zustimmen (`version`) |
+| POST | `/auth/forgot-password` | – | Link zum Zurücksetzen des Passworts anfordern (#141) |
+| POST | `/auth/reset-password` | – | Neues Passwort mit dem Token aus der Mail setzen |
 | POST | `/auth/refresh` | ✓ | Anmeldung verlängern: neues Token (7 Tage), höchstens 90 Tage nach dem letzten Login |
 | POST | `/auth/password` | ✓ | Passwort ändern, widerruft alle Tokens |
 | POST | `/auth/mfa/setup` · `/enable` · `/disable` | ✓ | 2FA einrichten, aktivieren, abschalten |
@@ -169,6 +171,12 @@ Neue Konten bekommen nach der Registrierung eine Mail mit einem Link (`{APP_URL}
 **Neue E-Mail-Adresse:** `PATCH /auth/users/:userId` mit `email` ändert die eigene Adresse erst nach Bestätigung. Bis dahin steht sie in `pending_email`, Anmelden geht weiter mit der alten. Admins ändern fremde Adressen direkt.
 
 Ohne Standard-Mailserver (siehe E-Mail-Benachrichtigungen) oder mit `EMAIL_VERIFICATION=false` gelten neue Konten sofort als bestätigt. Konten, die es beim Einspielen der Migration 017 schon gab, gelten als bestätigt.
+
+## Passwort vergessen (#141)
+
+`POST /auth/forgot-password` `{ "email" }` antwortet **immer** sofort mit 202 `{ "accepted": true }` – auch wenn es kein Konto mit dieser Adresse gibt, damit weder Antwort noch Antwortzeit Konten verraten. Gibt es das Konto, geht eine Mail mit einem Link an die Konto-Adresse (`{APP_URL}/pages/passwort_zuruecksetzen.php?token=…`, ohne `APP_URL` nur der Code). Der Link gilt eine Stunde und nur einmal; ein neuer Link entwertet den alten; in der Datenbank liegt nur der Hash. Höchstens 3 Mails je Konto und Stunde, 10 Anfragen je IP in 15 Minuten. Ohne Standard-Mailserver: 503 `mail_not_configured`.
+
+`POST /auth/reset-password` `{ "token", "password" }` setzt das neue Passwort (mindestens 8 Zeichen), meldet auf **allen Geräten** ab (bisherige Tokens: 401) und bestätigt die E-Mail-Adresse, weil der Link das Postfach beweist. Eine aktive 2FA bleibt aktiv. Fehler: 400 `invalid_token`, `token_expired`, `password_too_short`.
 
 ## Nutzungsbedingungen (#135)
 

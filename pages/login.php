@@ -158,6 +158,7 @@ try {
                                 <input type="password" class="form-control" id="password" name="password" autocomplete="current-password"
                                        placeholder="Ihr Passwort" required>
                             </div>
+                            <div class="text-end mt-1"><a href="passwort_vergessen.php" class="small text-decoration-none">Passwort vergessen?</a></div>
                         </div>
                         <div class="d-grid">
                             <button type="submit" class="btn btn-primary">

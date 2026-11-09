@@ -17,7 +17,7 @@ const ZEILEN = [
 function fakeDb(zeilen, gehoert = true) {
   return {
     query: async (sql) => (sql.includes('FROM vehicles')
-      ? { rowCount: gehoert ? 1 : 0, rows: [] }
+      ? { rowCount: gehoert ? 1 : 0, rows: gehoert ? [{ role: 'owner' }] : [] } // Zugriffsprüfung (#53)
       : { rowCount: zeilen.length, rows: zeilen })
   };
 }

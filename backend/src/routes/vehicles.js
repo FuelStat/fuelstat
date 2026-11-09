@@ -9,8 +9,21 @@ const { auth } = require('../middleware/auth');
 const { FUEL_TYPES } = require('../services/stats');
 const { VEHICLE_EXTRA_COLUMNS, parseVehicleExtras } = require('../services/vehicleFields');
 const { checkUnverifiedLimit } = require('../middleware/verified');
+const { accessibleVehicles, vehicleRole } = require('../services/vehicleAccess');
 
 const router = express.Router();
+
+// Spalten eines Fahrzeugs für Liste und Einzelabruf (Alias v = vehicles, o = Besitzer, $1 = angemeldetes Konto).
+// role: owner | editor | viewer (#53); owner_name nur bei geteilten Fahrzeugen (Benutzername oder E-Mail des Besitzers).
+const VEHICLE_SELECT = `
+  v.id, v.name, v.fuel_type, v.brand, v.model, v.year, v.image_url,
+  v.odometer_km, v.mileage_km, v.tank_capacity, v.battery_capacity, v.sort_order,
+  ${VEHICLE_EXTRA_COLUMNS.split(',').map((c) => 'v.' + c.trim()).join(', ')},
+  v.created_at, v.updated_at,
+  CASE WHEN v.user_id = $1 THEN 'owner'
+       ELSE (SELECT m.role FROM vehicle_members m WHERE m.vehicle_id = v.id AND m.user_id = $1) END AS role,
+  v.user_id AS owner_id,
+  CASE WHEN v.user_id = $1 THEN NULL ELSE COALESCE(o.username, o.email) END AS owner_name`;
 
 // Create vehicle
 router.post('/vehicles', auth, async (req, res) => {
@@ -91,9 +104,9 @@ router.post('/vehicles', auth, async (req, res) => {
                    created_at, updated_at`,
         [r.rows[0].id, req.user.sub, ...cols.map((c) => extras.values[c])]
       );
-      return res.status(201).json(u2.rows[0]);
+      return res.status(201).json({ ...u2.rows[0], role: 'owner', owner_id: req.user.sub, owner_name: null });
     }
-    res.status(201).json(r.rows[0]);
+    res.status(201).json({ ...r.rows[0], role: 'owner', owner_id: req.user.sub, owner_name: null });
   } catch (e) {
     serverError(res, e);
   }
@@ -102,13 +115,12 @@ router.post('/vehicles', auth, async (req, res) => {
 // List vehicles
 router.get('/vehicles', auth, async (req, res) => {
   try {
+    // Eigene und mit dem Konto geteilte Fahrzeuge (#53); geteilte stehen hinter den eigenen
     const r = await pool.query(
-      `SELECT id, name, fuel_type, brand, model, year, image_url,
-              odometer_km, mileage_km, tank_capacity, battery_capacity, sort_order, ${VEHICLE_EXTRA_COLUMNS},
-              created_at, updated_at
-       FROM vehicles
-       WHERE user_id = $1
-       ORDER BY sort_order ASC, created_at DESC`,
+      `SELECT ${VEHICLE_SELECT}
+       FROM vehicles v JOIN users o ON o.id = v.user_id
+       WHERE ${accessibleVehicles('v', 1)}
+       ORDER BY (v.user_id <> $1), v.sort_order ASC, v.created_at DESC`,
       [req.user.sub]
     );
     res.json(r.rows);
@@ -125,25 +137,10 @@ router.get('/vehicles/:vehicleId', auth, async (req, res) => {
 
   try {
     const r = await pool.query(
-      `SELECT
-         id,
-         name,
-         fuel_type,
-         brand,
-         model,
-         year,
-         image_url,
-         odometer_km,
-         mileage_km,
-         tank_capacity,
-         battery_capacity,
-         sort_order,
-         ${VEHICLE_EXTRA_COLUMNS},
-         created_at,
-         updated_at
-       FROM vehicles
-       WHERE id = $1 AND user_id = $2`,
-      [vehicleId, req.user.sub]
+      `SELECT ${VEHICLE_SELECT}
+       FROM vehicles v JOIN users o ON o.id = v.user_id
+       WHERE v.id = $2 AND ${accessibleVehicles('v', 1)}`,
+      [req.user.sub, vehicleId]
     );
 
     if (r.rowCount === 0) {
@@ -223,14 +220,10 @@ router.patch('/vehicles/:vehicleId', auth, async (req, res) => {
   }
 
   try {
-    // Sicherstellen, dass das Fahrzeug dem User gehört
-    const existing = await pool.query(
-      'SELECT id FROM vehicles WHERE id = $1 AND user_id = $2',
-      [vehicleId, req.user.sub]
-    );
-    if (existing.rowCount === 0) {
-      return res.status(404).json({ error: 'vehicle_not_found' });
-    }
+    // Fahrzeugdaten ändert nur der Besitzer (#53)
+    const role = await vehicleRole(pool, req.user.sub, vehicleId);
+    if (!role) return res.status(404).json({ error: 'vehicle_not_found' });
+    if (role !== 'owner') return res.status(403).json({ error: 'owner_only' });
 
     // Dynamisches Update je nach gesendeten Feldern
     const fields = [];
@@ -300,7 +293,7 @@ router.patch('/vehicles/:vehicleId', auth, async (req, res) => {
       values
     );
 
-    res.json(r.rows[0]);
+    res.json({ ...r.rows[0], role: 'owner', owner_id: req.user.sub, owner_name: null });
   } catch (e) {
     serverError(res, e);
   }
@@ -312,6 +305,9 @@ router.delete('/vehicles/:vehicleId', auth, async (req, res) => {
   if (!vehicleId) return res.status(400).json({ error: 'missing_vehicleId' });
 
   try {
+    // Löschen nur durch den Besitzer; Mitglieder verlassen ein Fahrzeug über DELETE /vehicles/:id/members/me (#53)
+    const role = await vehicleRole(pool, req.user.sub, vehicleId);
+    if (role && role !== 'owner') return res.status(403).json({ error: 'owner_only' });
     const r = await pool.query(
       'DELETE FROM vehicles WHERE id = $1 AND user_id = $2 RETURNING id',
       [vehicleId, req.user.sub]

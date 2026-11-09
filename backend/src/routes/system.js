@@ -2,6 +2,7 @@
 // Aus backend/src/server.js ausgelagert (#110), Inhalt unverändert.
 const express = require('express');
 const { UNVERIFIED_LIMITS } = require('../middleware/verified');
+const sharing = require('../services/sharing');
 const plans = require('../services/plans');
 const { API_VERSION, isBetaPhase } = require('../config');
 const { pool } = require('../db');
@@ -48,6 +49,8 @@ router.get('/whoami', auth, async (req, res) => {
       pending_email: r.rows[0].pending_email,
       // Grenzen ohne bestätigte Adresse (#135); null, wenn bestätigt
       unverified_limits: r.rows[0].email_verified ? null : UNVERIFIED_LIMITS,
+      // Offene Einladungen zu geteilten Fahrzeugen (#53), für einen Hinweis in den Clients
+      pending_invitations: (await sharing.invitationsFor(pool, req.user.sub)).length,
       created_at: r.rows[0].created_at,
       updated_at: r.rows[0].updated_at,
       is_admin: isAdmin(req),

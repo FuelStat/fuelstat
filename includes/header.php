@@ -124,6 +124,7 @@ $seitenInfo = [
     'kategorien.php'           => ['Kategorien', null],
     'neuigkeiten.php'          => ['Neuigkeiten', null],
     'email_bestaetigen.php'    => ['E-Mail bestätigen', null],
+    'einladungen.php'          => ['Einladungen', null],
 ];
 [$seitenTitel, $zurueckUrl] = $angemeldet && isset($seitenInfo[$skript]) ? $seitenInfo[$skript] : [null, null];
 
@@ -135,7 +136,7 @@ $tabbarAktiv = [
     'eintrag_hinzufuegen.php' => 'eintrag', 'eintrag_bearbeiten.php' => 'eintrag', 'schnell.php' => 'eintrag',
     'einstellungen.php' => 'profil', 'passwort_aendern.php' => 'profil', 'mfa_einrichten.php' => 'profil',
     'benachrichtigungen.php' => 'profil', 'admin.php' => 'profil', 'feedback.php' => 'profil',
-    'kategorien.php' => 'profil', 'neuigkeiten.php' => 'profil', 'email_bestaetigen.php' => 'profil',
+    'kategorien.php' => 'profil', 'neuigkeiten.php' => 'profil', 'email_bestaetigen.php' => 'profil', 'einladungen.php' => 'profil',
 ][$skript] ?? null;
 
 // Ziel von "+ Eintrag" und "Statistik": aktuelles Fahrzeug, das einzige Fahrzeug oder Auswahl im Blatt
@@ -387,6 +388,16 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
 <!-- Hauptinhalt (wird in footer.php geschlossen) -->
 <div class="hauptinhalt">
 
+<?php if ($angemeldet && is_array($currentUser) && !empty($currentUser['pending_invitations']) && $skript !== 'einladungen.php'): ?>
+<!-- Offene Einladungen zu geteilten Fahrzeugen (#53) -->
+<div class="container mt-3 mt-lg-4">
+  <div class="alert alert-info d-flex flex-wrap align-items-center gap-2 mb-0" role="status">
+    <i class="fas fa-users" aria-hidden="true"></i>
+    <span class="flex-grow-1"><?= (int)$currentUser['pending_invitations'] === 1 ? 'Jemand möchte ein Fahrzeug mit dir teilen.' : (int)$currentUser['pending_invitations'] . ' Einladungen zu geteilten Fahrzeugen warten auf dich.' ?></span>
+    <a class="btn btn-sm btn-outline-dark" href="<?= htmlspecialchars($baseUrl) ?>pages/einladungen.php">Ansehen</a>
+  </div>
+</div>
+<?php endif; ?>
 <?php if ($angemeldet && is_array($currentUser) && isset($currentUser['email_verified']) && !$currentUser['email_verified'] && $skript !== 'email_bestaetigen.php'): ?>
 <!-- E-Mail-Adresse noch nicht bestätigt (#135): Funktionen sind bis dahin begrenzt -->
 <div class="container mt-3 mt-lg-4">

@@ -9,6 +9,7 @@ const { auth } = require('../middleware/auth');
 const { uploadLimiter } = require('../middleware/rateLimits');
 const { removeUpload, storedMediaPath, upload, verifyUploadedImage } = require('../middleware/upload');
 const { requireVerified } = require('../middleware/verified');
+const { vehicleRole } = require('../services/vehicleAccess');
 
 const router = express.Router();
 
@@ -125,14 +126,11 @@ router.post('/vehicles/:vehicleId/media/upload', auth, requireVerified('upload')
   }
 
   try {
-    // Prüfen, ob das Fahrzeug dem User gehört
-    const v = await pool.query(
-      'SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2',
-      [vehicleId, req.user.sub]
-    );
-    if (v.rowCount === 0) {
+    // Bilder des Fahrzeugs ändert nur der Besitzer (#53)
+    const role = await vehicleRole(pool, req.user.sub, vehicleId);
+    if (role !== 'owner') {
       removeUpload(req.file);
-      return res.status(404).json({ error: 'vehicle_not_found' });
+      return role ? res.status(403).json({ error: 'owner_only' }) : res.status(404).json({ error: 'vehicle_not_found' });
     }
 
     const mediaType = String(req.body?.mediaType || 'image').trim();
@@ -161,21 +159,17 @@ router.get('/vehicles/:vehicleId/media', auth, async (req, res) => {
   if (!vehicleId) return res.status(400).json({ error: 'missing_vehicleId' });
 
   try {
-    // Prüfen, ob das Fahrzeug dem User gehört
-    const v = await pool.query(
-      'SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2',
-      [vehicleId, req.user.sub]
-    );
-    if (v.rowCount === 0) {
+    // Sichtbar für Besitzer und Mitglieder (#53)
+    if (!(await vehicleRole(pool, req.user.sub, vehicleId))) {
       return res.status(404).json({ error: 'vehicle_not_found' });
     }
 
     const r = await pool.query(
       `SELECT id, vehicle_id, user_id, media_type, url, mime_type, bytes, created_at
        FROM vehicle_media
-       WHERE vehicle_id = $1 AND user_id = $2
+       WHERE vehicle_id = $1
        ORDER BY created_at DESC`,
-      [vehicleId, req.user.sub]
+      [vehicleId]
     );
     res.json(r.rows);
   } catch (e) {

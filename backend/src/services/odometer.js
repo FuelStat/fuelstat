@@ -56,13 +56,14 @@ function odometerWarnings(points, candidate, purchaseKm = null) {
 async function loadOdometerPoints(db, userId, vehicleId, excludeId = null) {
   const r = await db.query(
     `SELECT id, filled_at AS at, odometer_km AS km FROM fillups
-       WHERE user_id = $1 AND vehicle_id = $2 AND odometer_km IS NOT NULL AND NOT odometer_estimated
+       WHERE vehicle_id = $1 AND odometer_km IS NOT NULL AND NOT odometer_estimated
      UNION ALL
      SELECT id, occurred_at AS at, odometer_km AS km FROM expenses
-       WHERE user_id = $1 AND vehicle_id = $2 AND odometer_km IS NOT NULL`,
-    [userId, vehicleId]
+       WHERE vehicle_id = $1 AND odometer_km IS NOT NULL`,
+    [vehicleId]
   );
-  const v = await db.query('SELECT odometer_km FROM vehicles WHERE id = $1 AND user_id = $2', [vehicleId, userId]);
+  // Aufrufer prüfen den Zugriff aufs Fahrzeug (#53); die Punkte gehören zum Fahrzeug, egal wer sie erfasst hat
+  const v = await db.query('SELECT odometer_km FROM vehicles WHERE id = $1', [vehicleId]);
   return {
     points: r.rows.filter((p) => String(p.id) !== String(excludeId)).map((p) => ({ id: p.id, date: dayOf(p.at), km: Number(p.km) })),
     purchaseKm: v.rows[0]?.odometer_km ?? null

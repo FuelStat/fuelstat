@@ -8,6 +8,7 @@ const { loadPlanUser } = require('../lib/planUser');
 const { auth } = require('../middleware/auth');
 const { checkOdometer } = require('../services/odometer');
 const { checkUnverifiedLimit } = require('../middleware/verified');
+const { vehicleRole, canEditEntry, RECHTE } = require('../services/vehicleAccess');
 
 const router = express.Router();
 
@@ -43,12 +44,10 @@ router.post('/entries', auth, async (req, res) => {
   }
 
   try {
-    // Prüfen, ob das Fahrzeug zum User gehört
-    const v = await pool.query(
-      'SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2',
-      [vehicleId, req.user.sub]
-    );
-    if (v.rowCount === 0) return res.status(404).json({ error: 'vehicle_not_found' });
+    // Zugriff (#53): erfassen dürfen Besitzer und Mitfahrer
+    const role = await vehicleRole(pool, req.user.sub, vehicleId);
+    if (!role) return res.status(404).json({ error: 'vehicle_not_found' });
+    if (!RECHTE.write.has(role)) return res.status(403).json({ error: 'read_only' });
 
     // Kategorie bekannt und im Tarif enthalten? (#95)
     const fehler = await categories.checkUsable(pool, await loadPlanUser(pool, req.user.sub), category);
@@ -112,11 +111,11 @@ const ENTRY_COLUMNS = `
 router.get('/entries/:entryId', auth, async (req, res) => {
   const entryId = String(req.params.entryId || '').trim();
   try {
-    const r = await pool.query(
-      `SELECT ${ENTRY_COLUMNS} FROM expenses WHERE id = $1 AND user_id = $2`,
-      [entryId, req.user.sub]
-    );
-    if (r.rowCount === 0) return res.status(404).json({ error: 'entry_not_found' });
+    const r = await pool.query(`SELECT ${ENTRY_COLUMNS} FROM expenses WHERE id = $1`, [entryId]);
+    // Sichtbar für alle mit Zugriff aufs Fahrzeug (#53)
+    if (r.rowCount === 0 || !(await vehicleRole(pool, req.user.sub, r.rows[0].vehicle_id))) {
+      return res.status(404).json({ error: 'entry_not_found' });
+    }
     res.json({ ...r.rows[0], warnings: await checkOdometer(pool, req.user.sub, r.rows[0].vehicle_id, r.rows[0]) });
   } catch (e) {
     if (e.code === '22P02') return res.status(404).json({ error: 'entry_not_found' });
@@ -170,20 +169,23 @@ router.patch('/entries/:entryId', auth, async (req, res) => {
   if (fields.length === 0) return res.status(400).json({ error: 'nothing_to_update' });
 
   try {
+    // Besitzer ändern alle Einträge, Mitfahrer nur selbst erfasste (#53)
+    const alt = await pool.query('SELECT category, user_id, vehicle_id FROM expenses WHERE id = $1', [entryId]);
+    const role = alt.rowCount ? await vehicleRole(pool, req.user.sub, alt.rows[0].vehicle_id) : null;
+    if (!role) return res.status(404).json({ error: 'entry_not_found' });
+    if (!canEditEntry(role, alt.rows[0].user_id, req.user.sub)) return res.status(403).json({ error: 'entry_not_editable' });
     // Neue Kategorie prüfen; die bisherige bleibt immer erlaubt (auch nach dem Herabstufen oder aus alten Importen)
     if (body.category !== undefined) {
-      const alt = await pool.query('SELECT category FROM expenses WHERE id = $1 AND user_id = $2', [entryId, req.user.sub]);
-      if (alt.rowCount === 0) return res.status(404).json({ error: 'entry_not_found' });
       const neu = String(body.category).trim();
       if (alt.rows[0].category !== neu) {
         const fehler = await categories.checkUsable(pool, await loadPlanUser(pool, req.user.sub), neu);
         if (fehler) return res.status(fehler.status).json(fehler.body);
       }
     }
-    values.push(entryId, req.user.sub);
+    values.push(entryId);
     const r = await pool.query(
       `UPDATE expenses SET ${fields.join(', ')}
-       WHERE id = $${idx++} AND user_id = $${idx}
+       WHERE id = $${idx}
        RETURNING ${ENTRY_COLUMNS}`,
       values
     );
@@ -199,11 +201,11 @@ router.patch('/entries/:entryId', auth, async (req, res) => {
 router.delete('/entries/:entryId', auth, async (req, res) => {
   const entryId = String(req.params.entryId || '').trim();
   try {
-    const r = await pool.query(
-      'DELETE FROM expenses WHERE id = $1 AND user_id = $2 RETURNING id',
-      [entryId, req.user.sub]
-    );
-    if (r.rowCount === 0) return res.status(404).json({ error: 'entry_not_found' });
+    const alt = await pool.query('SELECT user_id, vehicle_id FROM expenses WHERE id = $1', [entryId]);
+    const role = alt.rowCount ? await vehicleRole(pool, req.user.sub, alt.rows[0].vehicle_id) : null;
+    if (!role) return res.status(404).json({ error: 'entry_not_found' });
+    if (!canEditEntry(role, alt.rows[0].user_id, req.user.sub)) return res.status(403).json({ error: 'entry_not_editable' });
+    await pool.query('DELETE FROM expenses WHERE id = $1', [entryId]);
     res.status(204).send();
   } catch (e) {
     if (e.code === '22P02') return res.status(404).json({ error: 'entry_not_found' });
@@ -217,12 +219,8 @@ router.get('/vehicles/:vehicleId/entries', auth, async (req, res) => {
   const offset = Math.max(0, Math.floor(Number(req.query.offset || 0)) || 0);
 
   try {
-    // Fahrzeug-Besitz prüfen
-    const v = await pool.query(
-      'SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2',
-      [vehicleId, req.user.sub]
-    );
-    if (v.rowCount === 0) return res.status(404).json({ error: 'vehicle_not_found' });
+    // Zugriff (#53): Besitzer und Mitglieder sehen alle Einträge des Fahrzeugs
+    if (!(await vehicleRole(pool, req.user.sub, vehicleId))) return res.status(404).json({ error: 'vehicle_not_found' });
 
     const r = await pool.query(
       `SELECT
@@ -235,12 +233,14 @@ router.get('/vehicles/:vehicleId/entries', auth, async (req, res) => {
          occurred_at,
          vendor,
          description,
-         created_at
+         created_at,
+         user_id AS created_by,
+         (SELECT COALESCE(u.username, u.email) FROM users u WHERE u.id = expenses.user_id) AS created_by_name
        FROM expenses
-       WHERE user_id = $1 AND vehicle_id = $2
+       WHERE vehicle_id = $1
        ORDER BY occurred_at DESC, created_at DESC
-       LIMIT $3 OFFSET $4`,
-      [req.user.sub, vehicleId, limit, offset]
+       LIMIT $2 OFFSET $3`,
+      [vehicleId, limit, offset]
     );
 
     res.json(r.rows);

@@ -10,6 +10,7 @@ const { importLimiter } = require('../middleware/rateLimits');
 const { loadOdometerPoints, odometerWarnings } = require('../services/odometer');
 const { unitsForFuelType } = require('../services/stats');
 const { requireVerified } = require('../middleware/verified');
+const { vehicleRole } = require('../services/vehicleAccess');
 
 const router = express.Router();
 
@@ -19,6 +20,15 @@ router.post('/vehicles/:vehicleId/import', auth, requireVerified('import'), impo
   const fillups = Array.isArray(req.body?.fillups) ? req.body.fillups : [];
   const entries = Array.isArray(req.body?.entries) ? req.body.entries : [];
 
+  // Importieren darf nur der Besitzer (#53) – vor allen anderen Prüfungen
+  try {
+    const role = await vehicleRole(pool, req.user.sub, vehicleId);
+    if (!role) return res.status(404).json({ error: 'vehicle_not_found' });
+    if (role !== 'owner') return res.status(403).json({ error: 'owner_only' });
+  } catch (e) {
+    if (e.code === '22P02') return res.status(404).json({ error: 'vehicle_not_found' });
+    return serverError(res, e);
+  }
   if (fillups.length + entries.length === 0) return res.status(400).json({ error: 'nothing_to_import' });
   if (fillups.length + entries.length > 1000) return res.status(400).json({ error: 'too_many_rows', max: 1000 });
 

@@ -50,6 +50,7 @@ app.use('/api/v1', require('./routes/auth')); // Registrierung, Login, 2FA, Pass
 app.use('/api/v1', require('./routes/users')); // Konten, Tarife, Beta (Admin bzw. eigenes Konto)
 app.use('/api/v1', require('./routes/mailSettings')); // E-Mail-Einstellungen, Test- und Sofortversand
 app.use('/api/v1', require('./routes/vehicles')); // Fahrzeuge
+app.use('/api/v1', require('./routes/sharing')); // Fahrzeuge teilen: Mitglieder und Einladungen (#53)
 app.use('/api/v1', require('./routes/fillups')); // Tank- und Ladevorgänge
 app.use('/api/v1', require('./routes/categories')); // Ausgaben-Kategorien
 app.use('/api/v1', require('./routes/entries')); // Ausgaben, Fahrten, Kilometerstände

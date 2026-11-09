@@ -6,6 +6,7 @@
 // - Erstzulassung: erster TÜV nach 36 Monaten, danach alle 24
 // - eigenes Wartungsintervall (Monate, km)
 // - Fälligkeitsmonat von Versicherung und Steuer
+const { canAccessVehicle } = require('./vehicleAccess');
 
 const RULES = [
   { title: 'TÜV', categories: ['TUV'], months: 24, km: null },
@@ -31,27 +32,29 @@ function addMonths(date, months) {
  * @returns Liste mit title, category, last, due_date, due_km, status (ok|bald|ueberfaellig|unbekannt), days
  */
 async function getVehicleReminders(pool, userId, vehicleId, warnDays = 30, today = new Date()) {
+  // Zugriff (#53): Besitzer und Mitglieder; ohne Zugriff keine Termine
+  if (!(await canAccessVehicle(pool, userId, vehicleId, 'read'))) return [];
   const categories = RULES.flatMap((r) => r.categories);
   const last = await pool.query(
     `SELECT DISTINCT ON (category) category, occurred_at, odometer_km
      FROM expenses
-     WHERE user_id = $1 AND vehicle_id = $2 AND category = ANY($3)
+     WHERE vehicle_id = $1 AND category = ANY($2)
      ORDER BY category, occurred_at DESC`,
-    [userId, vehicleId, categories]
+    [vehicleId, categories]
   );
   const odo = await pool.query(
     `SELECT GREATEST(
-       (SELECT MAX(odometer_km) FROM fillups WHERE user_id = $1 AND vehicle_id = $2 AND NOT odometer_estimated),
-       (SELECT MAX(odometer_km) FROM expenses WHERE user_id = $1 AND vehicle_id = $2)
+       (SELECT MAX(odometer_km) FROM fillups WHERE vehicle_id = $1 AND NOT odometer_estimated),
+       (SELECT MAX(odometer_km) FROM expenses WHERE vehicle_id = $1)
      ) AS max_odo`,
-    [userId, vehicleId]
+    [vehicleId]
   );
   const currentOdo = odo.rows[0]?.max_odo ?? null;
 
   const v = await pool.query(
     `SELECT first_registration, service_interval_months, service_interval_km, insurance_due_month, tax_due_month
-     FROM vehicles WHERE id = $1 AND user_id = $2`,
-    [vehicleId, userId]
+     FROM vehicles WHERE id = $1`,
+    [vehicleId]
   );
   const fz = v.rows[0] || {};
 

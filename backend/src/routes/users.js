@@ -10,6 +10,7 @@ const { UUID_RE, optionalText, serverError } = require('../lib/http');
 const { auth, requireAdmin, requireSelfOrAdmin } = require('../middleware/auth');
 const { storedMediaPath } = require('../middleware/upload');
 const emailVerification = require('../services/emailVerification');
+const sharing = require('../services/sharing');
 
 const router = express.Router();
 
@@ -256,10 +257,21 @@ router.delete('/auth/users/:userId', auth, requireSelfOrAdmin, async (req, res) 
       [userId]
     );
 
-    const r = await pool.query(
-      'DELETE FROM users WHERE id = $1 RETURNING id',
-      [userId]
-    );
+    // Einträge an geteilten Fahrzeugen anderer bleiben beim Fahrzeug (#53): sie gehen an den jeweiligen Besitzer über,
+    // statt mit dem Konto gelöscht zu werden. Eigene Fahrzeuge samt allen Einträgen werden mit dem Konto gelöscht.
+    const client = await pool.connect();
+    let r;
+    try {
+      await client.query('BEGIN');
+      await sharing.handOverEntries(client, userId);
+      r = await client.query('DELETE FROM users WHERE id = $1 RETURNING id', [userId]);
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally {
+      client.release();
+    }
 
     if (r.rowCount === 0) {
       return res.status(404).json({ error: 'user_not_found' });

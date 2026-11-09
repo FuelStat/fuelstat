@@ -51,6 +51,15 @@ class FuelstatApi
         return $this->request('POST', '/auth/password', ['currentPassword' => $currentPassword, 'newPassword' => $newPassword]);
     }
 
+    /** Fahrzeuge teilen (#53) */
+    public function getVehicleMembers(string $vehicleId): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/members'); }
+    public function postVehicleInvitation(string $vehicleId, string $email, string $role): array { return $this->request('POST', '/vehicles/' . rawurlencode($vehicleId) . '/invitations', ['email' => $email, 'role' => $role]); }
+    public function deleteVehicleInvitation(string $vehicleId, string $invitationId): void { $this->request('DELETE', '/vehicles/' . rawurlencode($vehicleId) . '/invitations/' . rawurlencode($invitationId)); }
+    public function patchVehicleMember(string $vehicleId, string $userId, string $role): array { return $this->request('PATCH', '/vehicles/' . rawurlencode($vehicleId) . '/members/' . rawurlencode($userId), ['role' => $role]); }
+    public function deleteVehicleMember(string $vehicleId, string $userId): void { $this->request('DELETE', '/vehicles/' . rawurlencode($vehicleId) . '/members/' . rawurlencode($userId)); }
+    public function getInvitations(): array { return $this->request('GET', '/invitations'); }
+    public function postInvitationAnswer(string $invitationId, bool $annehmen): array { return $this->request('POST', '/invitations/' . rawurlencode($invitationId) . '/' . ($annehmen ? 'accept' : 'decline'), []); }
+
     /** E-Mail-Bestätigung (#135): Token aus der Mail einlösen (ohne Anmeldung) bzw. Mail erneut senden */
     public function postVerifyEmail(string $token): array { return $this->request('POST', '/auth/verify-email', ['token' => $token]); }
     public function postResendVerification(): array { return $this->request('POST', '/auth/resend-verification', []); }

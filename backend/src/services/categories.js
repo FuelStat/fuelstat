@@ -73,6 +73,21 @@ async function loadCustom(db, userId) {
   return r.rows;
 }
 
+// Eigene Kategorien der Besitzer von Fahrzeugen, die mit dem Benutzer geteilt sind (#53): nur zum Anzeigen,
+// damit Einträge des Besitzers nicht als "custom:…" erscheinen. Auswählen kann sie nur ihr Besitzer.
+async function loadSharedCustom(db, userId) {
+  const r = await db.query(
+    `SELECT DISTINCT c.id, c.name, c.icon, c.color, c.group_key, c.created_at, c.updated_at
+       FROM vehicle_members m
+       JOIN vehicles v ON v.id = m.vehicle_id
+       JOIN expense_categories c ON c.user_id = v.user_id
+      WHERE m.user_id = $1
+      ORDER BY c.name`,
+    [userId]
+  );
+  return r.rows;
+}
+
 function customToApi(row, available) {
   return {
     key: customKey(row.id),
@@ -105,6 +120,7 @@ async function listForUser(db, user) {
   const categories = [
     ...BUILTIN.map((c) => ({ ...c, custom: false, available: c.selectable && (c.plan === 'free' || premium) })),
     ...custom.map((row) => customToApi(row, maxCustom > 0)),
+    ...(await loadSharedCustom(db, user.id)).map((row) => ({ ...customToApi(row, false), selectable: false, shared: true })),
     ...legacy.rows.map((r) => ({
       key: r.category, name: r.category, icon: 'fa-tag', color: '#adb5bd', group: 'sonstiges', form: 'expense',
       countsAsCost: true, plan: 'free', custom: false, legacy: true, selectable: false, available: false
@@ -185,11 +201,12 @@ function validateCustomInput(body, partial = false) {
 // Anzeigenamen für Schlüssel (z. B. Monatsbericht); eigene Kategorien über die Tabelle
 async function namesForUser(db, userId) {
   const names = Object.fromEntries(BUILTIN.map((c) => [c.key, c.name]));
+  for (const row of await loadSharedCustom(db, userId)) names[customKey(row.id)] = row.name;
   for (const row of await loadCustom(db, userId)) names[customKey(row.id)] = row.name;
   return names;
 }
 
 module.exports = {
   GROUPS, BUILTIN, BUILTIN_BY_KEY, NON_COST_KEYS, CUSTOM_ICONS, CUSTOM_COLORS, NAME_MAX,
-  customKey, isCustomKey, customIdOf, loadCustom, customToApi, listForUser, checkUsable, validateCustomInput, namesForUser
+  customKey, isCustomKey, customIdOf, loadCustom, loadSharedCustom, customToApi, listForUser, checkUsable, validateCustomInput, namesForUser
 };

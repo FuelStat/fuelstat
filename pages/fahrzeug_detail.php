@@ -23,10 +23,18 @@ $einheitKurz = einheitKurz(getEinheitFuerKraftstoff($fahrzeug['fuel_type'] ?? nu
 // Begriffe für alle Reiter: Tankfüllung/Ladevorgang, Tankstelle/Ladestation usw.
 $fuelType = (string)($fahrzeug['fuel_type'] ?? 'other');
 $begriffe = verbrauchsBegriffe($fuelType);
+// Geteilte Fahrzeuge (#53): owner, editor (Mitfahrer) oder viewer (nur ansehen); die API setzt die Rechte durch
+$rolle = (string)($fahrzeug['role'] ?? 'owner');
+$istBesitzer = $rolle === 'owner';
+$darfErfassen = in_array($rolle, ['owner', 'editor'], true);
+$ichId = (string)($_SESSION['user_id'] ?? '');
 ?>
 
 <div class="container mt-lg-5">
     <h1 class="d-none d-lg-block"><?= htmlspecialchars($fahrzeug['name'] ?? 'Fahrzeug') ?></h1>
+    <?php if (!$istBesitzer): ?>
+    <p class="text-body-secondary mb-2"><i class="fas fa-users me-1" aria-hidden="true"></i>Geteilt von <?= htmlspecialchars((string)($fahrzeug['owner_name'] ?? '')) ?> · <?= $rolle === 'editor' ? 'du kannst Einträge erfassen' : 'nur ansehen' ?></p>
+    <?php endif; ?>
 
     <!-- Reiter: am PC Tabs, mobil wischbare Leiste, die unter der Kopfleiste stehen bleibt -->
     <ul class="nav nav-tabs fahrzeug-reiter no-swipe" id="fahrzeugTabs" role="tablist">

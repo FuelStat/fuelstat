@@ -44,9 +44,11 @@ $zeilenNr = 0;
 <div class="mt-3 mt-lg-4 eintraege-liste">
   <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
     <!-- Mobil steckt "Neuer Eintrag" im Plus der unteren Leiste -->
+    <?php if ($darfErfassen): ?>
     <a href="../pages/eintrag_hinzufuegen.php?fahrzeug_id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>" class="btn btn-success flex-shrink-0 d-none d-lg-inline-block">
       <i class="fas fa-plus me-1"></i> Neuer&nbsp;Eintrag
     </a>
+    <?php endif; ?>
     <div class="input-group flex-grow-1" style="min-width: 12rem; max-width: 22rem;">
       <span class="input-group-text"><i class="fas fa-magnifying-glass"></i></span>
       <input type="search" class="form-control" id="eintragSuche" placeholder="Ort oder Beschreibung" aria-label="Einträge durchsuchen">
@@ -68,9 +70,11 @@ $zeilenNr = 0;
       <a href="../pages/bericht.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?><?= $jahr !== null ? '&jahr=' . $jahr : '' ?>" class="btn btn-outline-primary" title="Druckansicht, auch zum Speichern als PDF" target="_blank">
         <i class="fas fa-file-pdf"></i><span class="d-none d-sm-inline ms-1">Bericht</span>
       </a>
+      <?php if ($istBesitzer): ?>
       <a href="../pages/import.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>" class="btn btn-outline-primary" title="Einträge aus einer CSV-Datei übernehmen">
         <i class="fas fa-file-import"></i><span class="d-none d-sm-inline ms-1">Import</span>
       </a>
+      <?php endif; ?>
     </div>
   </div>
 
@@ -110,13 +114,19 @@ $zeilenNr = 0;
           ]);
           $editUrl = '../pages/eintrag_bearbeiten.php?id=' . urlencode($e['id']) . '&fahrzeug_id=' . urlencode($fahrzeug_id) . '&type=' . $type;
           $nachtragenUrl = '../pages/tachostand_nachtragen.php?id=' . urlencode($e['id']) . '&fahrzeug_id=' . urlencode($fahrzeug_id);
+          // Geteilte Fahrzeuge (#53): Besitzer ändern alle Einträge, Mitfahrer nur eigene, Nur-Ansehen keine
+          $vonAnderen = !empty($e['erfasst_von']) && (string)$e['erfasst_von'] !== $ichId;
+          $darfAendern = $istBesitzer || ($darfErfassen && !$vonAnderen);
+          if ($vonAnderen && !empty($e['erfasst_von_name'])) {
+              $details[] = 'von ' . $e['erfasst_von_name'];
+          }
           $zeilenNr++;
         ?>
           <li class="list-group-item eintrag-zeile" data-art="<?= $art ?>" data-kosten="<?= $ohneKosten ? 0 : (float)($e['kosten'] ?? 0) ?>"
               data-suche="<?= htmlspecialchars(mb_strtolower(($e['standort'] ?? '') . ' ' . ($e['beschreibung'] ?? '') . ' ' . getKategorieName($e['kategorie'], $fuelType, $eEinheit))) ?>"
               <?= $zeilenNr > $proSeite ? 'hidden data-spaeter' : '' ?>>
             <span class="eintrag-icon text-bg-<?= $farbe[$art] ?>"><i class="fas <?= getCategoryIcon($e['kategorie'], $fuelType, $eEinheit) ?>"></i></span>
-            <a href="<?= htmlspecialchars($editUrl) ?>" class="eintrag-text text-reset text-decoration-none min-w-0">
+            <a <?= $darfAendern ? 'href="' . htmlspecialchars($editUrl) . '"' : 'aria-disabled="true"' ?> class="eintrag-text text-reset text-decoration-none min-w-0">
               <span class="d-block fw-semibold text-truncate"><?= htmlspecialchars($titel) ?></span>
               <span class="d-block small text-body-secondary"><?= htmlspecialchars(implode(' · ', $details)) ?></span>
               <?php if (!empty($e['beschreibung']) && $type !== 'fillup'): ?><span class="d-block small text-truncate"><?= htmlspecialchars($e['beschreibung']) ?></span><?php endif; ?>
@@ -128,6 +138,7 @@ $zeilenNr = 0;
               <?php endif; ?>
             </a>
             <span class="eintrag-betrag"><?= $ohneKosten ? '' : $euro($e['kosten'] ?? 0) ?></span>
+            <?php if ($darfAendern): ?>
             <div class="dropdown">
               <button class="btn btn-sm btn-link text-body-secondary px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Aktionen">
                 <i class="fas fa-ellipsis-vertical"></i>
@@ -149,7 +160,10 @@ $zeilenNr = 0;
                 </li>
               </ul>
             </div>
-            <?php if ($tachoFehlt): ?>
+            <?php else: ?>
+            <span class="px-2" aria-hidden="true"></span>
+            <?php endif; ?>
+            <?php if ($tachoFehlt && $darfAendern): ?>
             <a class="visually-hidden-focusable small" href="<?= htmlspecialchars($nachtragenUrl) ?>">Nachtragen</a>
             <?php endif; ?>
           </li>

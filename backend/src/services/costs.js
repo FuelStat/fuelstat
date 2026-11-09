@@ -12,6 +12,7 @@
 //   Strecke vom ersten bis zum letzten (die erste Füllung hat die Strecke davor bezahlt).
 // - Gesamtkosten pro km: alle Kosten im Zeitraum geteilt durch die Strecke im Zeitraum.
 // - Ohne Strecke ist der Wert null, nie 0.
+const { canAccessVehicle } = require('./vehicleAccess');
 
 const { NON_COST_KEYS } = require('./categories');
 
@@ -49,16 +50,15 @@ function typeOf(row) {
 
 /** Alle Einträge eines Fahrzeugs als einheitliche Zeilen; null, wenn das Fahrzeug nicht dem Konto gehört. */
 async function loadRows(db, userId, vehicleId) {
-  const v = await db.query('SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2', [vehicleId, userId]);
-  if (v.rowCount === 0) return null;
+  if (!(await canAccessVehicle(db, userId, vehicleId, 'read'))) return null;
   const r = await db.query(
     `SELECT 'fillup' AS src, unit AS kind, total_cost_eur::float8 AS cost,
             CASE WHEN odometer_estimated THEN NULL ELSE odometer_km END AS odo, filled_at AS at, created_at
-       FROM fillups WHERE user_id = $1 AND vehicle_id = $2
+       FROM fillups WHERE vehicle_id = $1
      UNION ALL
      SELECT 'expense', category, amount_eur::float8, odometer_km, occurred_at, created_at
-       FROM expenses WHERE user_id = $1 AND vehicle_id = $2`,
-    [userId, vehicleId]
+       FROM expenses WHERE vehicle_id = $1`,
+    [vehicleId]
   );
   return r.rows.map((row) => {
     const at = new Date(row.at);

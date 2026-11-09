@@ -109,6 +109,9 @@ function ladeMergedEintraegeFromApi($api, string $vehicleId): array
             'standort' => $f['station'] ?? '',
             'einheit' => $f['unit'] ?? 'l',
             'l_per_100km' => $lPer100ByFillupId[$f['id']] ?? null,
+            // Geteilte Fahrzeuge (#53): wer den Eintrag erfasst hat
+            'erfasst_von' => $f['created_by'] ?? null,
+            'erfasst_von_name' => $f['created_by_name'] ?? null,
         ];
     }
 
@@ -125,6 +128,8 @@ function ladeMergedEintraegeFromApi($api, string $vehicleId): array
             'standort' => $e['vendor'] ?? '',
             'menge' => null,
             'vollgetankt' => false,
+            'erfasst_von' => $e['created_by'] ?? null,
+            'erfasst_von_name' => $e['created_by_name'] ?? null,
         ];
     }
 
@@ -576,6 +581,15 @@ function tarifHinweis(Throwable $e): ?string
 {
     if ($e instanceof FuelstatApiException && $e->getMessage() === 'email_not_verified') {
         return emailBestaetigenHinweis($e);
+    }
+    // Geteilte Fahrzeuge (#53)
+    $zugriff = [
+        'read_only' => 'Dieses Fahrzeug ist mit dir nur zum Ansehen geteilt.',
+        'owner_only' => 'Das darf nur der Besitzer des Fahrzeugs.',
+        'entry_not_editable' => 'Diesen Eintrag hat jemand anderes erfasst. Ändern kann ihn nur der Besitzer des Fahrzeugs.',
+    ];
+    if ($e instanceof FuelstatApiException && isset($zugriff[$e->getMessage()])) {
+        return $zugriff[$e->getMessage()];
     }
     if (!($e instanceof FuelstatApiException) || $e->getMessage() !== 'plan_required') {
         return null;

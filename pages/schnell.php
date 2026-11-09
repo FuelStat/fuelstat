@@ -13,7 +13,8 @@ if (!isApiAuthenticated()) {
 
 $api = getApiClient();
 try {
-    $fahrzeuge = $api->getVehicles();
+    // Nur Fahrzeuge, bei denen man erfassen darf (geteilte zum Ansehen nicht, #53)
+    $fahrzeuge = array_values(array_filter($api->getVehicles(), fn($v) => ($v['role'] ?? 'owner') !== 'viewer'));
 } catch (Throwable $e) {
     $fahrzeuge = [];
 }

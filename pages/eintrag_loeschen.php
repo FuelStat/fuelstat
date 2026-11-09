@@ -18,14 +18,22 @@ if ($type === 'fillup') {
         $api->deleteFillup($eintrag_id);
         $_SESSION['success_message'] = 'Eintrag gelöscht.';
     } catch (Throwable $e) {
-        $_SESSION['error_message'] = $e->getMessage();
+        $_SESSION['error_message'] = tarifHinweis($e) ?? $e->getMessage();
+    }
+} elseif ($type === 'trip') {
+    // Fahrtenbuch (#52)
+    try {
+        $api->deleteTrip($eintrag_id);
+        $_SESSION['success_message'] = 'Fahrt gelöscht.';
+    } catch (Throwable $e) {
+        $_SESSION['error_message'] = tarifHinweis($e) ?? $e->getMessage();
     }
 } else {
     try {
         $api->deleteEntry($eintrag_id);
         $_SESSION['success_message'] = 'Ausgabe gelöscht.';
     } catch (Throwable $e) {
-        $_SESSION['error_message'] = $e->getMessage();
+        $_SESSION['error_message'] = tarifHinweis($e) ?? $e->getMessage();
     }
 }
 header('Location: fahrzeug_detail.php?id=' . rawurlencode($fahrzeug_id));

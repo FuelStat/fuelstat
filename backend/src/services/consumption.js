@@ -47,13 +47,13 @@ function rate(amount, km) {
 async function getVehicleConsumption(db, userId, vehicleId) {
   const stats = await getVehicleStats(db, userId, vehicleId);
   if (stats?.error) return null;
-  const v = await db.query('SELECT fuel_type FROM vehicles WHERE id = $1 AND user_id = $2', [vehicleId, userId]);
+  const v = await db.query('SELECT fuel_type FROM vehicles WHERE id = $1', [vehicleId]);
   const fuelType = v.rows[0]?.fuel_type ?? null;
 
   const fills = await db.query(
     `SELECT unit, amount::float8 AS amount, total_cost_eur::float8 AS cost, filled_at
-       FROM fillups WHERE user_id = $1 AND vehicle_id = $2`,
-    [userId, vehicleId]
+       FROM fillups WHERE vehicle_id = $1`,
+    [vehicleId]
   );
 
   // Einheiten: vorhandene, die zur Antriebsart passende zuerst; ohne Einträge die Standardeinheit

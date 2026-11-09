@@ -253,8 +253,15 @@ $heute = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->form
             <div class="row g-2 mb-3">
                 <div class="col-6"><label for="startort" class="form-label">Von</label><input type="text" id="startort" name="startort" class="form-control"></div>
                 <div class="col-6"><label for="zielort" class="form-label">Nach</label><input type="text" id="zielort" name="zielort" class="form-control"></div>
-                <div class="col-7"><label for="zweck" class="form-label">Zweck</label><input type="text" id="zweck" name="zweck" class="form-control"></div>
+                <div class="col-7">
+                    <label for="fahrt_zweck" class="form-label">Zweck</label>
+                    <select id="fahrt_zweck" name="fahrt_zweck" class="form-select">
+                        <?php foreach (fahrtZwecke() as $wert => $name): ?><option value="<?= $wert ?>"><?= $name ?></option><?php endforeach; ?>
+                    </select>
+                </div>
                 <div class="col-5"><label for="gefahrene_km" class="form-label">km</label><input type="number" inputmode="decimal" id="gefahrene_km" name="gefahrene_km" class="form-control" min="0" step="0.1"></div>
+                <div class="col-12"><label for="zweck" class="form-label">Notiz (optional)</label><input type="text" id="zweck" name="zweck" class="form-control" placeholder="z. B. Kundentermin Müller"></div>
+                <div class="col-12 form-text">Der Tachostand oben ist der Stand am Ende der Fahrt. Die Fahrt landet im Fahrtenbuch (Reiter „Fahrten“).</div>
             </div>
         </div>
 

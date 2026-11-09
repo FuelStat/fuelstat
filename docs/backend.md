@@ -19,8 +19,8 @@ backend/src/
 | Ordner | Inhalt | Regel |
 |---|---|---|
 | `routes/` | Ein `express.Router` je Fachbereich: Eingaben prüfen, Rechte prüfen, Service bzw. Datenbank aufrufen, Antwort senden | Keine Berechnungen, die auch ein anderer Endpunkt oder der Monatsbericht braucht – die gehören in `services/` |
-| `services/` | Fachlogik: Statistik (`stats`, `consumption`, `costs`), Tarife (`plans`, `planChanges`), Kategorien, Fälligkeiten, Mail und Benachrichtigungen, Bilder, Stationssuchen, 2FA (`mfa`) | Kein `req`/`res`; Datenbank als Parameter (`db`) oder über `db.js` |
-| `middleware/` | `auth` (Token, Admin, eigenes Konto), `rateLimits`, `upload` (multer, Typprüfung am Inhalt) | Gilt für viele Routen |
+| `services/` | Fachlogik: Statistik (`stats`, `consumption`, `costs`), Tarife (`plans`, `planChanges`), Kategorien, Fälligkeiten, Mail und Benachrichtigungen, Bilder, Stationssuchen, 2FA (`mfa`), E-Mail-Bestätigung (`emailVerification`), **Zugriff auf Fahrzeuge (`vehicleAccess`)**, Teilen (`sharing`), Fahrtenbuch (`trips`) | Kein `req`/`res`; Datenbank als Parameter (`db`) oder über `db.js` |
+| `middleware/` | `auth` (Token, Admin, eigenes Konto), `rateLimits`, `upload` (multer, Typprüfung am Inhalt), `verified` (Grenzen ohne bestätigte E-Mail-Adresse) | Gilt für viele Routen |
 | `lib/` | `http` (500-Antwort, Eingaben wandeln, UUID), `attempts` (Fehlversuche sperren), `planUser` | Klein und ohne Fachwissen |
 
 Die Routen-Module:
@@ -67,3 +67,19 @@ DATABASE_URL=postgresql://…/fuelstat_test npm test
 ```
 
 `api.test.js` braucht eine Datenbank mit `database/postgres_init.sql`; die übrigen Tests (`costs`, `stations`, `chargingStations`, `odometer`, `helpers`) laufen ohne.
+
+## Zugriff auf Fahrzeuge (#53)
+
+Fahrzeuge können geteilt sein. Deshalb prüft keine Route und kein Service mehr `user_id = $x`, sondern immer
+`services/vehicleAccess.js`:
+
+- `vehicleRole(db, userId, vehicleId)` → `owner` | `editor` | `viewer` | `null`
+- `canAccessVehicle(db, userId, vehicleId, 'read' | 'write' | 'manage')`
+- `canEditEntry(role, eintragUserId, userId)` – Besitzer alle Einträge, Mitfahrer eigene
+- `accessibleVehicles('v', 1)` – SQL-Bedingung für Listen
+
+Daten eines Fahrzeugs (Tank-/Ladevorgänge, Ausgaben, Fahrten) werden **nach `vehicle_id`** gelesen, nicht nach
+`user_id`; `user_id` eines Eintrags ist der, der ihn erfasst hat. Ohne Zugriff antwortet die API mit 404
+(die Existenz des Fahrzeugs bleibt verborgen), mit zu wenig Rechten mit 403 (`read_only`, `entry_not_editable`,
+`owner_only`). Neue Endpunkte zu Fahrzeugdaten nutzen diese Funktionen und bekommen einen Test in
+`test/sharing.test.js`, dass Fremde nichts sehen.

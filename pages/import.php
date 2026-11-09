@@ -139,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $schritt === 'importieren' && $umge
             header('Location: fahrzeug_detail.php?id=' . rawurlencode($fahrzeug_id) . '#eintraege');
             exit;
         } catch (Throwable $e) {
-            $error = 'Import fehlgeschlagen: ' . $e->getMessage() . '. Bereits übertragene Pakete bleiben gespeichert; ein erneuter Import überspringt sie.';
+            $error = tarifHinweis($e) ?? 'Import fehlgeschlagen: ' . $e->getMessage() . '. Bereits übertragene Pakete bleiben gespeichert; ein erneuter Import überspringt sie.';
         }
     }
 }

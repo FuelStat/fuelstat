@@ -1,5 +1,5 @@
 -- backend/database/postgres_init.sql
--- Vollständiges Schema für eine NEUE Installation (Stand: Migration 016).
+-- Vollständiges Schema für eine NEUE Installation (Stand: Migration 020).
 -- Beim ersten Start der Datenbank spielt Docker diese Datei automatisch ein (siehe infra/docker-compose.yml).
 -- Bestehende Installationen nutzen stattdessen die Migrationen postgres_0XX_*.sql.
 BEGIN;
@@ -21,9 +21,25 @@ CREATE TABLE IF NOT EXISTS users (
   plan_until timestamptz NULL,             -- Ende des Tarifs, NULL = unbefristet
   last_login_at timestamptz NULL,
   last_seen_at timestamptz NULL,           -- höchstens stündlich aktualisiert
+  email_verified_at timestamptz NULL,      -- Adresse bestätigt (#135); NULL = noch nicht, Funktionen begrenzt
+  pending_email text NULL,                 -- neue Adresse, bis sie bestätigt ist
+  terms_version text NULL,                 -- zugestimmte Fassung der Nutzungsbedingungen (TERMS_VERSION, #135)
+  terms_accepted_at timestamptz NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- E-Mail-Bestätigung (#135): nur der Hash des Tokens, das Token steht nur in der Mail
+CREATE TABLE IF NOT EXISTS email_verifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email text NOT NULL,
+  token_hash text NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL,
+  used_at timestamptz NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_email_verifications_user ON email_verifications(user_id, created_at DESC);
 
 -- Fahrzeuge
 CREATE TABLE IF NOT EXISTS vehicles (
@@ -223,5 +239,65 @@ CREATE TABLE IF NOT EXISTS plan_changes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_plan_changes_user ON plan_changes(user_id, created_at DESC);
+
+
+-- Fahrzeuge teilen (#53): Mitglieder mit Rolle und Einladungen; der Besitzer ist vehicles.user_id
+CREATE TABLE IF NOT EXISTS vehicle_members (
+  vehicle_id uuid NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role text NOT NULL CHECK (role IN ('editor', 'viewer')), -- editor = Mitfahrer (erfassen), viewer = nur ansehen
+  invited_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (vehicle_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_vehicle_members_user ON vehicle_members(user_id);
+
+-- Einladungen gelten für eine E-Mail-Adresse: Annehmen kann nur, wer mit genau dieser (bestätigten) Adresse angemeldet ist
+CREATE TABLE IF NOT EXISTS vehicle_invitations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  vehicle_id uuid NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+  invited_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
+  email text NOT NULL,
+  role text NOT NULL CHECK (role IN ('editor', 'viewer')),
+  expires_at timestamptz NOT NULL,
+  accepted_at timestamptz NULL,
+  declined_at timestamptz NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_vehicle_invitations_email ON vehicle_invitations(lower(email)) WHERE accepted_at IS NULL AND declined_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_vehicle_invitations_vehicle ON vehicle_invitations(vehicle_id);
+
+-- Fahrtenbuch (#52)
+CREATE TABLE IF NOT EXISTS trips (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  vehicle_id uuid NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- Fahrer bzw. wer die Fahrt erfasst hat (#53)
+  started_at timestamptz NOT NULL,
+  ended_at timestamptz NULL,
+  odometer_start integer NULL CHECK (odometer_start IS NULL OR odometer_start >= 0),
+  odometer_end integer NOT NULL CHECK (odometer_end >= 0),
+  distance_km numeric(9,1) NOT NULL CHECK (distance_km >= 0),
+  start_place text NULL,
+  end_place text NULL,
+  purpose text NOT NULL DEFAULT 'private' CHECK (purpose IN ('private', 'business', 'commute')),
+  note text NULL,
+  legacy_expense_id uuid NULL UNIQUE,      -- übernommene alte "Fahrt"-Ausgabe
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (odometer_start IS NULL OR odometer_start <= odometer_end)
+);
+CREATE INDEX IF NOT EXISTS idx_trips_vehicle_started ON trips(vehicle_id, started_at DESC);
+
+
+-- Passwort vergessen (#141): nur der Hash des Tokens, 1 Stunde gültig, einmalig
+CREATE TABLE IF NOT EXISTS password_resets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash text NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL,
+  used_at timestamptz NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id, created_at DESC);
 
 COMMIT;

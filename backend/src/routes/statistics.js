@@ -8,6 +8,7 @@ const { getVehicleConsumption } = require('../services/consumption');
 const { getVehicleCosts } = require('../services/costs');
 const { getVehicleReminders } = require('../services/reminders');
 const { getVehicleStats } = require('../services/stats');
+const { vehicleRole } = require('../services/vehicleAccess');
 
 const router = express.Router();
 
@@ -15,8 +16,7 @@ const router = express.Router();
 router.get('/vehicles/:vehicleId/reminders', auth, async (req, res) => {
   const vehicleId = String(req.params.vehicleId || '').trim();
   try {
-    const v = await pool.query('SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2', [vehicleId, req.user.sub]);
-    if (v.rowCount === 0) return res.status(404).json({ error: 'vehicle_not_found' });
+    if (!(await vehicleRole(pool, req.user.sub, vehicleId))) return res.status(404).json({ error: 'vehicle_not_found' });
     const s = await pool.query('SELECT reminder_days FROM user_mail_settings WHERE user_id = $1', [req.user.sub]);
     res.json(await getVehicleReminders(pool, req.user.sub, vehicleId, s.rows[0]?.reminder_days ?? 30));
   } catch (e) {

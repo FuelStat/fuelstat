@@ -51,6 +51,57 @@ class FuelstatApi
         return $this->request('POST', '/auth/password', ['currentPassword' => $currentPassword, 'newPassword' => $newPassword]);
     }
 
+    /** Fahrtenbuch (#52) */
+    public function postTrip(array $data): array { return $this->request('POST', '/trips', $data); }
+    public function getTrip(string $tripId): array { return $this->request('GET', '/trips/' . rawurlencode($tripId)); }
+    public function patchTrip(string $tripId, array $data): array { return $this->request('PATCH', '/trips/' . rawurlencode($tripId), $data); }
+    public function deleteTrip(string $tripId): void { $this->request('DELETE', '/trips/' . rawurlencode($tripId)); }
+    public function getVehicleTrips(string $vehicleId, ?int $jahr = null, ?string $zweck = null): array
+    {
+        $query = http_build_query(array_filter(['year' => $jahr, 'purpose' => $zweck], fn($v) => $v !== null && $v !== ''));
+        return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/trips' . ($query !== '' ? '?' . $query : ''));
+    }
+    public function getTripSummary(string $vehicleId, ?int $jahr = null): array
+    {
+        return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/trips/summary' . ($jahr !== null ? '?year=' . $jahr : ''));
+    }
+    /** CSV-Export des Fahrtenbuchs (Plus); liefert den Dateiinhalt */
+    public function getTripsCsv(string $vehicleId, ?int $jahr = null): string
+    {
+        $url = $this->baseUrl . '/vehicles/' . rawurlencode($vehicleId) . '/trips/export' . ($jahr !== null ? '?year=' . $jahr : '');
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt_array($ch, $this->curlOptionen('GET', ['Accept: text/csv']));
+        $body = curl_exec($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        curl_close($ch);
+        if ($body === false) {
+            throw new RuntimeException('API request failed');
+        }
+        if ($code >= 400) {
+            $daten = json_decode((string)$body, true) ?: [];
+            throw new FuelstatApiException((string)($daten['error'] ?? 'HTTP ' . $code), $code, null, $daten);
+        }
+        return (string)$body;
+    }
+
+    /** Fahrzeuge teilen (#53) */
+    public function getVehicleMembers(string $vehicleId): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/members'); }
+    public function postVehicleInvitation(string $vehicleId, string $email, string $role): array { return $this->request('POST', '/vehicles/' . rawurlencode($vehicleId) . '/invitations', ['email' => $email, 'role' => $role]); }
+    public function deleteVehicleInvitation(string $vehicleId, string $invitationId): void { $this->request('DELETE', '/vehicles/' . rawurlencode($vehicleId) . '/invitations/' . rawurlencode($invitationId)); }
+    public function patchVehicleMember(string $vehicleId, string $userId, string $role): array { return $this->request('PATCH', '/vehicles/' . rawurlencode($vehicleId) . '/members/' . rawurlencode($userId), ['role' => $role]); }
+    public function deleteVehicleMember(string $vehicleId, string $userId): void { $this->request('DELETE', '/vehicles/' . rawurlencode($vehicleId) . '/members/' . rawurlencode($userId)); }
+    public function getInvitations(): array { return $this->request('GET', '/invitations'); }
+    public function postInvitationAnswer(string $invitationId, bool $annehmen): array { return $this->request('POST', '/invitations/' . rawurlencode($invitationId) . '/' . ($annehmen ? 'accept' : 'decline'), []); }
+
+    /** E-Mail-Bestätigung (#135): Token aus der Mail einlösen (ohne Anmeldung) bzw. Mail erneut senden */
+    public function postVerifyEmail(string $token): array { return $this->request('POST', '/auth/verify-email', ['token' => $token]); }
+    /** Passwort vergessen (#141) */
+    public function postForgotPassword(string $email): array { return $this->request('POST', '/auth/forgot-password', ['email' => $email]); }
+    public function postResetPassword(string $token, string $password): array { return $this->request('POST', '/auth/reset-password', ['token' => $token, 'password' => $password]); }
+    public function postAcceptTerms(string $version): array { return $this->request('POST', '/auth/accept-terms', ['version' => $version]); }
+    public function postResendVerification(): array { return $this->request('POST', '/auth/resend-verification', []); }
+
     public function postMfaSetup(): array { return $this->request('POST', '/auth/mfa/setup', []); }
     public function postMfaEnable(string $code): array { return $this->request('POST', '/auth/mfa/enable', ['code' => $code]); }
     public function postMfaDisable(string $password, string $code): array { return $this->request('POST', '/auth/mfa/disable', ['password' => $password, 'code' => $code]); }
@@ -63,12 +114,15 @@ class FuelstatApi
         return $this->request('POST', '/media/upload', null, ['file' => new CURLFile($filePath, $mimeType, $fileName)]);
     }
 
-    public function postAuthRegister(string $email, string $password): array
+    /** Registrierung; $termsVersion = zugestimmte Fassung der Nutzungsbedingungen (#135) oder null */
+    public function postAuthRegister(string $email, string $password, ?string $termsVersion = null): array
     {
-        return $this->request('POST', '/auth/register', [
-            'email' => $email,
-            'password' => $password,
-        ]);
+        $daten = ['email' => $email, 'password' => $password];
+        if ($termsVersion !== null) {
+            $daten['acceptTerms'] = true;
+            $daten['termsVersion'] = $termsVersion;
+        }
+        return $this->request('POST', '/auth/register', $daten);
     }
 
     public function getVehicles(): array { return $this->request('GET', '/vehicles'); }

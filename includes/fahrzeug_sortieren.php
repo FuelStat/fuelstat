@@ -22,7 +22,8 @@ if ($id === '' || !in_array($richtung, ['hoch', 'runter'], true)) {
 try {
     $api = getApiClient();
     // Die API liefert die Fahrzeuge bereits in der gespeicherten Reihenfolge
-    $ids = array_column($api->getVehicles(), 'id');
+    // Nur eigene Fahrzeuge: geteilte (#53) stehen immer dahinter und lassen sich nicht umsortieren
+    $ids = array_column(array_filter($api->getVehicles(), fn($v) => ($v['role'] ?? 'owner') === 'owner'), 'id');
     $pos = array_search($id, $ids, true);
     $ziel = $richtung === 'hoch' ? $pos - 1 : $pos + 1;
     if ($pos !== false && $ziel >= 0 && $ziel < count($ids)) {

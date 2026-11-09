@@ -88,6 +88,14 @@ if (isApiAuthenticated()) {
     }
 }
 
+// Nutzungsbedingungen (#135): Wer der gültigen Fassung noch nicht zugestimmt hat, stimmt zuerst zu. Erreichbar bleiben
+// die Rechtstexte, das Profil (Konto löschen) und das Abmelden.
+if (is_array($currentUser) && !empty($currentUser['terms']['required'])
+    && !in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['nutzungsbedingungen.php', 'datenschutz.php', 'impressum.php', 'einstellungen.php', 'logout.php', 'email_bestaetigen.php'], true)) {
+    header('Location: ' . $baseUrl . 'pages/nutzungsbedingungen.php');
+    exit;
+}
+
 // --- Navigation: Seitentitel, Zurück-Link und Fahrzeug-Kontext für die mobile Ansicht ---
 $angemeldet = isApiAuthenticated();
 $userVehicles = $angemeldet ? getUserVehicles($_SESSION['user_id'] ?? null) : [];
@@ -123,6 +131,12 @@ $seitenInfo = [
     'feedback.php'             => ['Feedback', null],
     'kategorien.php'           => ['Kategorien', null],
     'neuigkeiten.php'          => ['Neuigkeiten', null],
+    'email_bestaetigen.php'    => ['E-Mail bestätigen', null],
+    'einladungen.php'          => ['Einladungen', null],
+    'nutzungsbedingungen.php'  => ['Nutzungsbedingungen', null],
+    'passwort_vergessen.php'   => ['Passwort vergessen', null],
+    'passwort_zuruecksetzen.php' => ['Neues Passwort', null],
+    'fahrt.php'                => ['Fahrt', 'fahrzeug_detail.php?id=' . urlencode((string)($_GET['fahrzeug_id'] ?? '')) . '#fahrten'],
 ];
 [$seitenTitel, $zurueckUrl] = $angemeldet && isset($seitenInfo[$skript]) ? $seitenInfo[$skript] : [null, null];
 
@@ -134,7 +148,7 @@ $tabbarAktiv = [
     'eintrag_hinzufuegen.php' => 'eintrag', 'eintrag_bearbeiten.php' => 'eintrag', 'schnell.php' => 'eintrag',
     'einstellungen.php' => 'profil', 'passwort_aendern.php' => 'profil', 'mfa_einrichten.php' => 'profil',
     'benachrichtigungen.php' => 'profil', 'admin.php' => 'profil', 'feedback.php' => 'profil',
-    'kategorien.php' => 'profil', 'neuigkeiten.php' => 'profil',
+    'kategorien.php' => 'profil', 'neuigkeiten.php' => 'profil', 'email_bestaetigen.php' => 'profil', 'einladungen.php' => 'profil', 'fahrt.php' => 'fahrzeuge',
 ][$skript] ?? null;
 
 // Ziel von "+ Eintrag" und "Statistik": aktuelles Fahrzeug, das einzige Fahrzeug oder Auswahl im Blatt
@@ -385,6 +399,27 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
 
 <!-- Hauptinhalt (wird in footer.php geschlossen) -->
 <div class="hauptinhalt">
+
+<?php if ($angemeldet && is_array($currentUser) && !empty($currentUser['pending_invitations']) && $skript !== 'einladungen.php'): ?>
+<!-- Offene Einladungen zu geteilten Fahrzeugen (#53) -->
+<div class="container mt-3 mt-lg-4">
+  <div class="alert alert-info d-flex flex-wrap align-items-center gap-2 mb-0" role="status">
+    <i class="fas fa-users" aria-hidden="true"></i>
+    <span class="flex-grow-1"><?= (int)$currentUser['pending_invitations'] === 1 ? 'Jemand möchte ein Fahrzeug mit dir teilen.' : (int)$currentUser['pending_invitations'] . ' Einladungen zu geteilten Fahrzeugen warten auf dich.' ?></span>
+    <a class="btn btn-sm btn-outline-dark" href="<?= htmlspecialchars($baseUrl) ?>pages/einladungen.php">Ansehen</a>
+  </div>
+</div>
+<?php endif; ?>
+<?php if ($angemeldet && is_array($currentUser) && isset($currentUser['email_verified']) && !$currentUser['email_verified'] && $skript !== 'email_bestaetigen.php'): ?>
+<!-- E-Mail-Adresse noch nicht bestätigt (#135): Funktionen sind bis dahin begrenzt -->
+<div class="container mt-3 mt-lg-4">
+  <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2 mb-0" role="status">
+    <i class="fas fa-envelope-open-text" aria-hidden="true"></i>
+    <span class="flex-grow-1">Bitte bestätige deine E-Mail-Adresse <strong><?= htmlspecialchars((string)($currentUser['email'] ?? '')) ?></strong> über den Link in unserer Mail. Bis dahin sind ein Fahrzeug und ein Eintrag möglich.</span>
+    <a class="btn btn-sm btn-outline-dark" href="<?= htmlspecialchars($baseUrl) ?>pages/email_bestaetigen.php">Erneut senden oder Code eingeben</a>
+  </div>
+</div>
+<?php endif; ?>
 
 <?php if (isset($_SESSION['success_message']) || isset($_SESSION['warning_message']) || isset($_SESSION['error_message'])): ?>
 <!-- Meldungen -->

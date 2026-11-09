@@ -31,4 +31,11 @@ function isBetaPhase() {
   return process.env.BETA_PHASE !== 'false';
 }
 
-module.exports = { API_VERSION, BACKEND_ROOT, CORS_ORIGINS, MEDIA_BASE_URL, PORT, UPLOAD_DIR, isBetaPhase };
+// Nutzungsbedingungen (#135): Version der gültigen Fassung, z. B. "2026-11-09". Leer = keine Zustimmung nötig
+// (z. B. private Installation). Neue Version setzen, wenn sich der Text ändert: Konten müssen dann neu zustimmen.
+function termsVersion() {
+  const v = String(process.env.TERMS_VERSION || '').trim();
+  return /^[0-9A-Za-z._-]{1,40}$/.test(v) ? v : null;
+}
+
+module.exports = { API_VERSION, BACKEND_ROOT, CORS_ORIGINS, MEDIA_BASE_URL, PORT, UPLOAD_DIR, isBetaPhase, termsVersion };

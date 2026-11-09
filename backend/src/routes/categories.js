@@ -8,6 +8,7 @@ const { pool } = require('../db');
 const { serverError } = require('../lib/http');
 const { loadPlanUser } = require('../lib/planUser');
 const { auth } = require('../middleware/auth');
+const { requireVerified } = require('../middleware/verified');
 
 const router = express.Router();
 
@@ -28,7 +29,7 @@ router.get('/categories', auth, async (req, res) => {
 });
 
 // Eigene Kategorie anlegen (nur mit Tarif-Recht customCategories, höchstens customCategories Stück)
-router.post('/categories', auth, async (req, res) => {
+router.post('/categories', auth, requireVerified('customCategories'), async (req, res) => {
   const v = categories.validateCustomInput(req.body || {});
   if (v.error) return res.status(400).json(v);
   try {

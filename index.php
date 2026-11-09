@@ -111,6 +111,7 @@ try {
                             <?php endif; ?>
                         </h2>
                         <?php if (!empty($row['license_plate'])): ?><span class="kennzeichen small mb-1"><?= htmlspecialchars($row['license_plate']) ?></span><?php endif; ?>
+                        <?php if (($row['role'] ?? 'owner') !== 'owner'): ?><span class="badge text-bg-light border mb-1 text-truncate mw-100 d-inline-block align-bottom"><i class="fas fa-users me-1" aria-hidden="true"></i>von <?= htmlspecialchars((string)($row['owner_name'] ?? '')) ?></span><?php endif; ?>
                         <div class="small text-body-secondary text-truncate"><?= $kennzahlen ? implode(' · ', $kennzahlen) : 'Noch keine Einträge' ?></div>
                         <?php if ($hinweis): ?>
                             <span class="badge text-bg-<?= $ueberfaellig ? 'danger' : 'warning' ?> mt-2"><i class="fas fa-bell me-1"></i><?= htmlspecialchars($hinweis) ?></span>

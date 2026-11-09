@@ -9,6 +9,8 @@ const { pool } = require('../db');
 const { UUID_RE, optionalText, serverError } = require('../lib/http');
 const { auth, requireAdmin, requireSelfOrAdmin } = require('../middleware/auth');
 const { storedMediaPath } = require('../middleware/upload');
+const emailVerification = require('../services/emailVerification');
+const sharing = require('../services/sharing');
 
 const router = express.Router();
 
@@ -23,6 +25,7 @@ router.get('/auth/users', auth, requireAdmin, async (req, res) => {
          mfa_enabled,
          profile_image_url,
          beta_tester,
+         (email_verified_at IS NOT NULL) AS email_verified, pending_email,
          plan,
          plan_until,
          created_at,
@@ -137,7 +140,8 @@ router.get('/auth/users/:userId', auth, requireSelfOrAdmin, async (req, res) => 
          mfa_enabled,
          profile_image_url,
          created_at,
-         updated_at
+         updated_at,
+         (email_verified_at IS NOT NULL) AS email_verified, pending_email
        FROM users
        WHERE id = $1`,
       [userId]
@@ -178,9 +182,25 @@ router.patch('/auth/users/:userId', auth, requireSelfOrAdmin, async (req, res) =
     const values = [];
     let idx = 1;
 
+    // Neue E-Mail-Adresse (#135): Wer seine eigene Adresse ändert, muss die neue erst bestätigen; bis dahin gilt die
+    // alte weiter (pending_email). Admins ändern fremde Adressen direkt; ohne Mailserver ändert sich die Adresse sofort.
+    let bestaetigungAn = null;
     if (email !== undefined) {
-      fields.push(`email = $${idx++}`);
-      values.push(email);
+      const aktuell = await pool.query('SELECT email FROM users WHERE id = $1', [userId]);
+      if (aktuell.rowCount === 0) return res.status(404).json({ error: 'user_not_found' });
+      const eigene = userId === String(req.user.sub);
+      if (email === aktuell.rows[0].email) {
+        fields.push('pending_email = NULL');
+      } else if (eigene && (await emailVerification.required(pool))) {
+        const belegt = await pool.query('SELECT 1 FROM users WHERE email = $1 AND id <> $2', [email, userId]);
+        if (belegt.rowCount > 0) return res.status(409).json({ error: 'email_already_exists' });
+        fields.push(`pending_email = $${idx++}`);
+        values.push(email);
+        bestaetigungAn = email;
+      } else {
+        fields.push(`email = $${idx++}`, 'pending_email = NULL', 'email_verified_at = now()');
+        values.push(email);
+      }
     }
     if (username !== undefined) {
       fields.push(`username = $${idx++}`);
@@ -198,7 +218,8 @@ router.patch('/auth/users/:userId', auth, requireSelfOrAdmin, async (req, res) =
       `UPDATE users
        SET ${fields.join(', ')}
        WHERE id = $${idx}
-       RETURNING id, email, username, mfa_enabled, profile_image_url, created_at, updated_at`,
+       RETURNING id, email, username, mfa_enabled, profile_image_url, created_at, updated_at,
+                 (email_verified_at IS NOT NULL) AS email_verified, pending_email`,
       values
     );
 
@@ -206,6 +227,13 @@ router.patch('/auth/users/:userId', auth, requireSelfOrAdmin, async (req, res) =
       return res.status(404).json({ error: 'user_not_found' });
     }
 
+    if (bestaetigungAn) {
+      try {
+        await emailVerification.sendVerification(pool, userId, bestaetigungAn, { change: true });
+      } catch (e) {
+        console.error('[users] Bestätigungsmail für neue Adresse fehlgeschlagen:', e.code || e.message);
+      }
+    }
     res.json(r.rows[0]);
   } catch (e) {
     if (e.code === '23505') {
@@ -229,10 +257,21 @@ router.delete('/auth/users/:userId', auth, requireSelfOrAdmin, async (req, res) 
       [userId]
     );
 
-    const r = await pool.query(
-      'DELETE FROM users WHERE id = $1 RETURNING id',
-      [userId]
-    );
+    // Einträge an geteilten Fahrzeugen anderer bleiben beim Fahrzeug (#53): sie gehen an den jeweiligen Besitzer über,
+    // statt mit dem Konto gelöscht zu werden. Eigene Fahrzeuge samt allen Einträgen werden mit dem Konto gelöscht.
+    const client = await pool.connect();
+    let r;
+    try {
+      await client.query('BEGIN');
+      await sharing.handOverEntries(client, userId);
+      r = await client.query('DELETE FROM users WHERE id = $1 RETURNING id', [userId]);
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally {
+      client.release();
+    }
 
     if (r.rowCount === 0) {
       return res.status(404).json({ error: 'user_not_found' });

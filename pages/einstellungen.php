@@ -46,7 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $user = array_merge($user, $api->patchUser($userId, $daten));
             $_SESSION['user_email'] = $user['email'];
-            $_SESSION['success_message'] = 'Profil gespeichert.';
+            $_SESSION['success_message'] = !empty($user['pending_email']) && ($daten['email'] ?? '') === $user['pending_email']
+                ? 'Profil gespeichert. Wir haben einen Bestätigungslink an ' . $user['pending_email'] . ' geschickt; bis du ihn öffnest, gilt deine bisherige Adresse.'
+                : 'Profil gespeichert.';
         } elseif ($aktion === 'alle_abmelden') {
             $api->revokeAllTokens($userId);
             // Auch das eigene Token ist jetzt ungültig: lokal abmelden
@@ -69,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Throwable $e) {
         $error = $e->getMessage() === 'email_already_exists'
             ? 'Diese E-Mail-Adresse wird bereits verwendet.'
-            : $e->getMessage();
+            : (tarifHinweis($e) ?? $e->getMessage());
     }
 }
 
@@ -112,6 +114,11 @@ include '../includes/header.php';
                         <div class="mb-4">
                             <label for="email" class="form-label">E-Mail-Adresse</label>
                             <input type="email" class="form-control" id="email" name="email" value="<?= htmlspecialchars($user['email'] ?? '') ?>" required>
+                            <?php if (!empty($user['pending_email'])): ?>
+                                <div class="form-text">Neue Adresse <strong><?= htmlspecialchars($user['pending_email']) ?></strong> wartet auf Bestätigung. <a href="email_bestaetigen.php">Link erneut senden oder Code eingeben</a></div>
+                            <?php elseif (isset($user['email_verified']) && !$user['email_verified']): ?>
+                                <div class="form-text text-warning-emphasis">Noch nicht bestätigt. <a href="email_bestaetigen.php">E-Mail bestätigen</a></div>
+                            <?php endif; ?>
                         </div>
                         <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Speichern</button>
                     </form>

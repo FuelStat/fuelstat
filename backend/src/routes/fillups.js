@@ -6,11 +6,19 @@ const { optionalNumber, serverError } = require('../lib/http');
 const { auth } = require('../middleware/auth');
 const { checkOdometer } = require('../services/odometer');
 const { unitForFuelType, unitsForFuelType } = require('../services/stats');
+const { checkUnverifiedLimit } = require('../middleware/verified');
+const { vehicleRole, canEditEntry, RECHTE } = require('../services/vehicleAccess');
 
 const router = express.Router();
 
 // Add fillup (generalisiert: amount + unit)
 router.post('/fillups', auth, async (req, res) => {
+  // Ohne bestätigte E-Mail-Adresse nur ein Eintrag (#135)
+  try {
+    if (await checkUnverifiedLimit(res, req.user.sub, 'entry')) return;
+  } catch (e) {
+    return serverError(res, e);
+  }
   const vehicleId = String(req.body?.vehicleId || '').trim();
   // Tachostand darf fehlen (#41) und später nachgetragen werden; geschätzte Werte sind nur Platzhalter
   const odometerKm = optionalNumber(req.body?.odometerKm) ?? null;
@@ -37,12 +45,11 @@ router.post('/fillups', auth, async (req, res) => {
   const allowedUnits = new Set(['l', 'kwh', 'kg']);
 
   try {
-    // ownership + fuel_type
-    const v = await pool.query(
-      'SELECT fuel_type FROM vehicles WHERE id = $1 AND user_id = $2',
-      [vehicleId, req.user.sub]
-    );
-    if (v.rowCount === 0) return res.status(404).json({ error: 'vehicle_not_found' });
+    // Zugriff (#53): erfassen dürfen Besitzer und Mitfahrer
+    const role = await vehicleRole(pool, req.user.sub, vehicleId);
+    if (!role) return res.status(404).json({ error: 'vehicle_not_found' });
+    if (!RECHTE.write.has(role)) return res.status(403).json({ error: 'read_only' });
+    const v = await pool.query('SELECT fuel_type FROM vehicles WHERE id = $1', [vehicleId]);
 
     const fuelType = String(v.rows[0].fuel_type || '').toLowerCase();
 
@@ -119,11 +126,12 @@ router.get('/fillups/:fillupId', auth, async (req, res) => {
          skip_previous,
          odometer_estimated
        FROM fillups
-       WHERE id = $1 AND user_id = $2`,
-      [fillupId, req.user.sub]
+       WHERE id = $1`,
+      [fillupId]
     );
 
-    if (r.rowCount === 0) {
+    // Sichtbar für alle mit Zugriff aufs Fahrzeug (#53)
+    if (r.rowCount === 0 || !(await vehicleRole(pool, req.user.sub, r.rows[0].vehicle_id))) {
       return res.status(404).json({ error: 'fillup_not_found' });
     }
 
@@ -167,12 +175,17 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
          skip_previous,
          odometer_estimated
        FROM fillups
-       WHERE id = $1 AND user_id = $2`,
-      [fillupId, req.user.sub]
+       WHERE id = $1`,
+      [fillupId]
     );
 
-    if (existingRes.rowCount === 0) {
+    const roleBearbeiten = existingRes.rowCount ? await vehicleRole(pool, req.user.sub, existingRes.rows[0].vehicle_id) : null;
+    if (!roleBearbeiten) {
       return res.status(404).json({ error: 'fillup_not_found' });
+    }
+    // Besitzer ändern alle Einträge, Mitfahrer nur selbst erfasste (#53)
+    if (!canEditEntry(roleBearbeiten, existingRes.rows[0].user_id, req.user.sub)) {
+      return res.status(403).json({ error: 'entry_not_editable' });
     }
 
     const existing = existingRes.rows[0];
@@ -306,8 +319,8 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
          filled_at     = $6,
          is_full       = $7,
          skip_previous = $8,
-         odometer_estimated = $11
-       WHERE id = $9 AND user_id = $10
+         odometer_estimated = $10
+       WHERE id = $9
        RETURNING
          id,
          user_id,
@@ -333,7 +346,6 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
         newIsFull,
         newSkipPrevious,
         fillupId,
-        req.user.sub,
         newOdometerEstimated
       ]
     );
@@ -370,14 +382,19 @@ router.delete('/fillups/:fillupId', auth, async (req, res) => {
          odometer_km,
          filled_at
        FROM fillups
-       WHERE id = $1 AND user_id = $2
+       WHERE id = $1
        FOR UPDATE`,
-      [fillupId, req.user.sub]
+      [fillupId]
     );
 
-    if (existingRes.rowCount === 0) {
+    const roleLoeschen = existingRes.rowCount ? await vehicleRole(client, req.user.sub, existingRes.rows[0].vehicle_id) : null;
+    if (!roleLoeschen) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'fillup_not_found' });
+    }
+    if (!canEditEntry(roleLoeschen, existingRes.rows[0].user_id, req.user.sub)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'entry_not_editable' });
     }
 
     const existing = existingRes.rows[0];
@@ -388,10 +405,7 @@ router.delete('/fillups/:fillupId', auth, async (req, res) => {
     const olderThan14Days = diffMs > maxMs;
 
     // Fillup löschen
-    await client.query(
-      'DELETE FROM fillups WHERE id = $1 AND user_id = $2',
-      [fillupId, req.user.sub]
-    );
+    await client.query('DELETE FROM fillups WHERE id = $1', [fillupId]);
 
     let nextUpdated = false;
 
@@ -400,12 +414,11 @@ router.delete('/fillups/:fillupId', auth, async (req, res) => {
       const nextRes = await client.query(
         `SELECT id
          FROM fillups
-         WHERE user_id = $1
-           AND vehicle_id = $2
-           AND filled_at > $3
+         WHERE vehicle_id = $1
+           AND filled_at > $2
          ORDER BY filled_at ASC
          LIMIT 1`,
-        [req.user.sub, existing.vehicle_id, filledAt]
+        [existing.vehicle_id, filledAt]
       );
 
       if (nextRes.rowCount === 1) {
@@ -413,8 +426,8 @@ router.delete('/fillups/:fillupId', auth, async (req, res) => {
         await client.query(
           `UPDATE fillups
            SET skip_previous = true
-           WHERE id = $1 AND user_id = $2`,
-          [nextId, req.user.sub]
+           WHERE id = $1`,
+          [nextId]
         );
         nextUpdated = true;
       }
@@ -445,8 +458,7 @@ router.get('/vehicles/:vehicleId/fillups', auth, async (req, res) => {
   const offset = Math.max(0, Math.floor(Number(req.query.offset || 0)) || 0);
 
   try {
-    const v = await pool.query('SELECT 1 FROM vehicles WHERE id = $1 AND user_id = $2', [vehicleId, req.user.sub]);
-    if (v.rowCount === 0) return res.status(404).json({ error: 'vehicle_not_found' });
+    if (!(await vehicleRole(pool, req.user.sub, vehicleId))) return res.status(404).json({ error: 'vehicle_not_found' });
 
     const r = await pool.query(
       `SELECT
@@ -461,12 +473,14 @@ router.get('/vehicles/:vehicleId/fillups', auth, async (req, res) => {
          created_at,
          is_full,
          skip_previous,
-         odometer_estimated
+         odometer_estimated,
+         user_id AS created_by,
+         (SELECT COALESCE(u.username, u.email) FROM users u WHERE u.id = fillups.user_id) AS created_by_name
        FROM fillups
-       WHERE user_id = $1 AND vehicle_id = $2
+       WHERE vehicle_id = $1
        ORDER BY filled_at DESC, created_at DESC
-       LIMIT $3 OFFSET $4`,
-      [req.user.sub, vehicleId, limit, offset]
+       LIMIT $2 OFFSET $3`,
+      [vehicleId, limit, offset]
     );
 
     // Für ältere Clients zusätzlich kompatible Felder anbieten

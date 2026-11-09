@@ -10,6 +10,7 @@ $menue = [
     ['pages/mfa_einrichten.php', 'fa-shield-alt', '2FA einrichten'],
     ['pages/benachrichtigungen.php', 'fa-envelope', 'E-Mail-Benachrichtigungen'],
     ['pages/kategorien.php', 'fa-tags', 'Kategorien'],
+    ['pages/einladungen.php', 'fa-users', 'Einladungen'],
     ['pages/neuigkeiten.php', 'fa-bullhorn', 'Neuigkeiten'],
 ];
 if (!empty($currentUser['is_admin'])) {

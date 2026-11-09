@@ -46,6 +46,38 @@ function istBetaPhase(): bool
 }
 
 /**
+ * Gültige Fassung der Nutzungsbedingungen (#135) aus /health (TERMS_VERSION der API), 10 Minuten zwischengespeichert;
+ * null = keine Zustimmung nötig.
+ */
+function nutzungsbedingungenVersion(): ?string
+{
+    $cache = $_SESSION['terms_version_cache'] ?? null;
+    if (is_array($cache) && $cache['bis'] > time()) {
+        return $cache['wert'];
+    }
+    try {
+        $wert = getApiClient(null)->getHealth()['terms_version'] ?? null;
+        $wert = is_string($wert) && $wert !== '' ? $wert : null;
+    } catch (Throwable $e) {
+        return null;
+    }
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        $_SESSION['terms_version_cache'] = ['wert' => $wert, 'bis' => time() + 600];
+    }
+    return $wert;
+}
+
+/** "Stand" der Nutzungsbedingungen: Version im Format JJJJ-MM-TT als Datum, sonst die Version selbst */
+function nutzungsbedingungenStand(?string $version): string
+{
+    if ($version !== null && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $version, $m)) {
+        $monate = [1 => 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+        return (int)$m[3] . '. ' . $monate[(int)$m[2]] . ' ' . $m[1];
+    }
+    return $version ?? 'Entwurf';
+}
+
+/**
  * Fillups und Entries einer Fahrzeug-ID holen und zu einer einheitlichen Liste
  * mit Keys (id, datum, kategorie, menge, kosten, tachostand, vollgetankt, …) zusammenführen.
  * @return array [ 'eintraege' => [ 'Y-m' => [ ... ] ], 'jahrListe' => [ Jahre ] ]
@@ -68,11 +100,17 @@ function ladeMergedEintraegeFromApi($api, string $vehicleId): array
 {
     $fillups = [];
     $entries = [];
+    $fahrten = [];
     try {
         $fillups = $api->getAllVehicleFillups($vehicleId);
         $entries = $api->getAllVehicleEntries($vehicleId);
     } catch (Throwable $e) {
         return ['eintraege' => [], 'jahrListe' => []];
+    }
+    try {
+        $fahrten = $api->getVehicleTrips($vehicleId);
+    } catch (Throwable $e) {
+        error_log('[Einträge] Fahrten nicht geladen: ' . $e->getMessage());
     }
 
     $stats = null;
@@ -109,6 +147,9 @@ function ladeMergedEintraegeFromApi($api, string $vehicleId): array
             'standort' => $f['station'] ?? '',
             'einheit' => $f['unit'] ?? 'l',
             'l_per_100km' => $lPer100ByFillupId[$f['id']] ?? null,
+            // Geteilte Fahrzeuge (#53): wer den Eintrag erfasst hat
+            'erfasst_von' => $f['created_by'] ?? null,
+            'erfasst_von_name' => $f['created_by_name'] ?? null,
         ];
     }
 
@@ -125,6 +166,27 @@ function ladeMergedEintraegeFromApi($api, string $vehicleId): array
             'standort' => $e['vendor'] ?? '',
             'menge' => null,
             'vollgetankt' => false,
+            'erfasst_von' => $e['created_by'] ?? null,
+            'erfasst_von_name' => $e['created_by_name'] ?? null,
+        ];
+    }
+
+    // Fahrtenbuch (#52): Fahrten als eigene Einträge, Bearbeiten über pages/fahrt.php
+    foreach ($fahrten as $t) {
+        $list[] = [
+            'id' => $t['id'],
+            'type' => 'trip',
+            'datum' => isset($t['started_at']) ? date('Y-m-d', strtotime($t['started_at'])) : '',
+            'kategorie' => 'Fahrt',
+            'kosten' => 0,
+            'tachostand' => $t['odometer_end'] ?? null,
+            'beschreibung' => fahrtText($t),
+            'standort' => '',
+            'menge' => null,
+            'vollgetankt' => false,
+            'zweck' => $t['purpose'] ?? 'private',
+            'erfasst_von' => $t['created_by'] ?? null,
+            'erfasst_von_name' => $t['created_by_name'] ?? null,
         ];
     }
 
@@ -426,7 +488,7 @@ function speichereFahrzeugBild($api, string $vehicleId, array $files, array $pos
             $api->patchVehicle($vehicleId, ['imageUrl' => $media['url']]);
             $neueMediaId = $media['id'] ?? null;
         } catch (Throwable $e) {
-            return 'Bild-Upload fehlgeschlagen: ' . $e->getMessage();
+            return tarifHinweis($e) ?? 'Bild-Upload fehlgeschlagen: ' . $e->getMessage();
         }
     } else {
         try {
@@ -503,6 +565,25 @@ function mengeUndKostenAusFormular(array $post): array
     return ['menge' => $menge, 'kosten' => $kosten, 'fehler' => $fehler];
 }
 
+/** Fahrtenbuch (#52): Anzeigenamen der Zwecke */
+function fahrtZwecke(): array
+{
+    return ['private' => 'Privat', 'business' => 'Dienstlich', 'commute' => 'Arbeitsweg'];
+}
+
+/** Kurztext einer Fahrt aus dem Fahrtenbuch, z. B. "Bolbingen → Aalen · Dienstlich · 42 km" */
+function fahrtText(array $t): string
+{
+    $strecke = implode(' → ', array_filter([(string)($t['start_place'] ?? ''), (string)($t['end_place'] ?? '')], fn($x) => $x !== ''));
+    $km = (float)($t['distance_km'] ?? 0);
+    return implode(' · ', array_filter([
+        $strecke,
+        fahrtZwecke()[$t['purpose'] ?? ''] ?? '',
+        $km > 0 ? number_format($km, fmod($km, 1) ? 1 : 0, ',', '.') . ' km' : '',
+        (string)($t['note'] ?? ''),
+    ], fn($x) => $x !== ''));
+}
+
 /**
  * Beschreibung einer Fahrt aus dem Formular, z. B. "Bolbingen → Aalen – Arbeit (42 km)".
  * Bis zum neuen Fahrtenbuch (#52) stehen die gefahrenen Kilometer in der Beschreibung (#43).
@@ -574,6 +655,18 @@ function eintragFehlerText(Throwable $e): string
  */
 function tarifHinweis(Throwable $e): ?string
 {
+    if ($e instanceof FuelstatApiException && $e->getMessage() === 'email_not_verified') {
+        return emailBestaetigenHinweis($e);
+    }
+    // Geteilte Fahrzeuge (#53)
+    $zugriff = [
+        'read_only' => 'Dieses Fahrzeug ist mit dir nur zum Ansehen geteilt.',
+        'owner_only' => 'Das darf nur der Besitzer des Fahrzeugs.',
+        'entry_not_editable' => 'Diesen Eintrag hat jemand anderes erfasst. Ändern kann ihn nur der Besitzer des Fahrzeugs.',
+    ];
+    if ($e instanceof FuelstatApiException && isset($zugriff[$e->getMessage()])) {
+        return $zugriff[$e->getMessage()];
+    }
     if (!($e instanceof FuelstatApiException) || $e->getMessage() !== 'plan_required') {
         return null;
     }
@@ -589,6 +682,27 @@ function tarifHinweis(Throwable $e): ?string
     $feature = (string)($e->data['feature'] ?? '');
     $limit = (int)($e->data['limit'] ?? 1);
     return sprintf($texte[$feature] ?? 'Das ist eine Premium-Funktion.', $limit === 1 ? 'ein Fahrzeug' : $limit . ' Fahrzeuge');
+}
+
+/**
+ * E-Mail-Bestätigung (#135): Text für die API-Antwort 403 email_not_verified.
+ * Bis zur Bestätigung erlaubt die API ein Fahrzeug und einen Eintrag; alles Weitere erst danach.
+ */
+function emailBestaetigenHinweis(?Throwable $e = null): string
+{
+    $feature = $e instanceof FuelstatApiException ? (string)($e->data['feature'] ?? '') : '';
+    $was = [
+        'maxVehicles' => 'Weitere Fahrzeuge kannst du anlegen',
+        'maxEntries' => 'Weitere Einträge kannst du erfassen',
+        'upload' => 'Bilder kannst du hochladen',
+        'import' => 'Der Import ist möglich',
+        'mail' => 'E-Mail-Benachrichtigungen kannst du einrichten',
+        'feedback' => 'Feedback kannst du senden',
+        'stations' => 'Die Tankstellen- und Ladestationssuche ist verfügbar',
+        'customCategories' => 'Eigene Kategorien kannst du anlegen',
+        'sharing' => 'Fahrzeuge kannst du teilen',
+    ][$feature] ?? 'Diese Funktion ist verfügbar';
+    return $was . ', sobald du deine E-Mail-Adresse bestätigt hast. Den Link dazu haben wir dir per Mail geschickt (Profil → „E-Mail bestätigen“).';
 }
 
 /** Anzeigenamen der Tarife */

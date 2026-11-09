@@ -35,6 +35,7 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 - Versicherungs- und Steuerinformationen
 - Individuelle Reifengrößen
 - Frei sortierbare Fahrzeugübersicht
+- Fahrzeuge mit anderen Konten teilen: Mitfahrer erfassen mit, „Nur ansehen“ sieht alles; Einladung per E-Mail
 - Hinweise auf anstehende und überfällige Termine
 
 ### Tank- und Ladeverwaltung
@@ -54,7 +55,7 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 
 - Erfassung von Versicherung, Werkstatt, Inspektion, Steuer, Reparaturen, Reifen, TÜV und weiteren Kosten
 - Verwaltung eigener Ausgabenkategorien
-- Erfassung von Fahrten
+- Fahrtenbuch zur eigenen Übersicht: Fahrten mit Tachostand Start/Ende, Von/Nach, Zweck (privat, dienstlich, Arbeitsweg), km je Monat und Zweck, Anteil dienstlich, geschätzte Kosten, CSV-Export
 - Monatlich gruppierte Eintragsübersicht
 - Suche und Filter nach Eintragsart, Ort und Beschreibung
 - Bearbeiten und Löschen von Einträgen
@@ -91,10 +92,11 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 
 ### Konto und Benutzerverwaltung
 
-- Registrierung und Anmeldung
+- Registrierung mit Bestätigung der E-Mail-Adresse und Zustimmung zu den Nutzungsbedingungen
+- Anmeldung
 - Optionale Zwei-Faktor-Authentifizierung
 - Benutzerprofil mit Profilbild
-- Passwortänderung und Abmeldung auf allen Geräten
+- Passwortänderung, „Passwort vergessen“ per Mail und Abmeldung auf allen Geräten
 - Kontolöschung
 - Administratorbereich mit Benutzer-, Fahrzeug- und Aktivitätsübersicht
 - Feedback-Funktion für Fehler, Ideen und Rückmeldungen
@@ -293,13 +295,10 @@ Ausführlich mit allen Befehlen, der Liste der Migrationen, einmaligen Umstellun
 Kurzfassung – die vollständige Reihenfolge mit Sicherung und Prüfung steht in [docs/betrieb.md](docs/betrieb.md#aktualisieren). Wichtig: neue **Migrationen vor dem Neustart der API** einspielen.
 
 ```bash
-git pull
-# „Hinweise zum Update“ in CHANGELOG.md lesen, neue Migrationen aus backend/database/ einspielen,
-# neue Variablen aus infra/.env.example übernehmen
-cd infra
-sudo docker compose up -d --build
-sudo systemctl reload php8.4-fpm
+sudo infra/ausrollen.sh 0.11.0
 ```
+
+Das Skript zeigt die „Hinweise zum Update“ und neue Migrationen, lädt das fertige API-Image der Version, stellt den Code auf das Tag um, spielt die Migrationen ein, startet die API und prüft `/api/v1/health`. Ohne Registry (eigener Fork, Entwicklung) wie bisher `git pull`, Migrationen einspielen, `cd infra && sudo docker compose up -d --build`.
 
 ### Datenbank-Migrationen
 

@@ -7,6 +7,7 @@
     &copy; <?php echo date('Y'); ?> Mario Caraggiu — 
     <a href="<?php echo htmlspecialchars($baseUrl); ?>pages/impressum.php" class="text-decoration-none">Impressum</a> | 
     <a href="<?php echo htmlspecialchars($baseUrl); ?>pages/datenschutz.php" class="text-decoration-none">Datenschutz</a> |
+    <a href="<?php echo htmlspecialchars($baseUrl); ?>pages/nutzungsbedingungen.php" class="text-decoration-none">Nutzungsbedingungen</a> |
     <button type="button" class="btn btn-link btn-sm p-0 align-baseline text-decoration-none" id="cookieHinweisOeffnen" style="font-size: inherit;">Cookie-Hinweis</button> |
     <a href="<?php echo htmlspecialchars($baseUrl); ?>pages/neuigkeiten.php" class="text-decoration-none" title="Neuigkeiten">Version <?= htmlspecialchars(fuelstatVersion()) ?><span class="badge rounded-pill text-bg-primary ms-1 d-none" data-neu-version>neu</span></a>
   </small>

@@ -23,10 +23,18 @@ $einheitKurz = einheitKurz(getEinheitFuerKraftstoff($fahrzeug['fuel_type'] ?? nu
 // Begriffe für alle Reiter: Tankfüllung/Ladevorgang, Tankstelle/Ladestation usw.
 $fuelType = (string)($fahrzeug['fuel_type'] ?? 'other');
 $begriffe = verbrauchsBegriffe($fuelType);
+// Geteilte Fahrzeuge (#53): owner, editor (Mitfahrer) oder viewer (nur ansehen); die API setzt die Rechte durch
+$rolle = (string)($fahrzeug['role'] ?? 'owner');
+$istBesitzer = $rolle === 'owner';
+$darfErfassen = in_array($rolle, ['owner', 'editor'], true);
+$ichId = (string)($_SESSION['user_id'] ?? '');
 ?>
 
 <div class="container mt-lg-5">
     <h1 class="d-none d-lg-block"><?= htmlspecialchars($fahrzeug['name'] ?? 'Fahrzeug') ?></h1>
+    <?php if (!$istBesitzer): ?>
+    <p class="text-body-secondary mb-2"><i class="fas fa-users me-1" aria-hidden="true"></i>Geteilt von <?= htmlspecialchars((string)($fahrzeug['owner_name'] ?? '')) ?> · <?= $rolle === 'editor' ? 'du kannst Einträge erfassen' : 'nur ansehen' ?></p>
+    <?php endif; ?>
 
     <!-- Reiter: am PC Tabs, mobil wischbare Leiste, die unter der Kopfleiste stehen bleibt -->
     <ul class="nav nav-tabs fahrzeug-reiter no-swipe" id="fahrzeugTabs" role="tablist">
@@ -34,6 +42,7 @@ $begriffe = verbrauchsBegriffe($fuelType);
         <li class="nav-item" role="presentation"><a class="nav-link" id="eintraege-tab" data-bs-toggle="tab" data-bs-target="#reiter-eintraege" href="#eintraege" role="tab">Einträge</a></li>
         <li class="nav-item" role="presentation"><a class="nav-link" id="statistiken-tab" data-bs-toggle="tab" data-bs-target="#reiter-statistiken" href="#statistiken" role="tab">Statistiken</a></li>
         <li class="nav-item" role="presentation"><a class="nav-link" id="ausgaben-tab" data-bs-toggle="tab" data-bs-target="#reiter-ausgaben" href="#ausgaben" role="tab">Ausgaben</a></li>
+        <li class="nav-item" role="presentation"><a class="nav-link" id="fahrten-tab" data-bs-toggle="tab" data-bs-target="#reiter-fahrten" href="#fahrten" role="tab">Fahrten</a></li>
         <li class="nav-item" role="presentation"><a class="nav-link" id="einstellungen-tab" data-bs-toggle="tab" data-bs-target="#reiter-einstellungen" href="#einstellungen" role="tab">Einstellungen</a></li>
     </ul>
 
@@ -44,6 +53,7 @@ $begriffe = verbrauchsBegriffe($fuelType);
         <div class="tab-pane fade" id="reiter-eintraege" role="tabpanel"><?php include '../tabs/eintraege.php'; ?></div>
         <div class="tab-pane fade" id="reiter-statistiken" role="tabpanel"><?php include '../tabs/statistiken.php'; ?></div>
         <div class="tab-pane fade" id="reiter-ausgaben" role="tabpanel"><?php include '../tabs/ausgaben.php'; ?></div>
+        <div class="tab-pane fade" id="reiter-fahrten" role="tabpanel"><?php include '../tabs/fahrten.php'; ?></div>
         <div class="tab-pane fade" id="reiter-einstellungen" role="tabpanel"><?php include '../tabs/einstellungen.php'; ?></div>
     </div>
 </div>

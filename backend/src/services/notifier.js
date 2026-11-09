@@ -4,6 +4,7 @@ const { getVehicleReminders } = require('./reminders');
 const { getVehicleStats } = require('./stats');
 const { sendUserMail, loadDefaultSmtp, withDefaultSmtp } = require('./mail');
 const categories = require('./categories');
+const { accessibleVehicles } = require('./vehicleAccess');
 
 const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 const UNITS = { l: 'l', kwh: 'kWh', kg: 'kg' };
@@ -27,7 +28,9 @@ async function loadUserSettings(pool, userId, defaults) {
 
 async function loadVehicles(pool, userId) {
   const r = await pool.query(
-    'SELECT id, name, fuel_type FROM vehicles WHERE user_id = $1 ORDER BY sort_order ASC, created_at DESC',
+    // Eigene und geteilte Fahrzeuge (#53): Erinnerungen und Monatsbericht schaltet jedes Mitglied für sich ein
+    `SELECT id, name, fuel_type FROM vehicles v WHERE ${accessibleVehicles('v', 1)}
+     ORDER BY (v.user_id <> $1), sort_order ASC, created_at DESC`,
     [userId]
   );
   return r.rows;
@@ -110,22 +113,23 @@ async function buildMonthlyReport(pool, settings, year, month) {
   // Anzeigenamen der Kategorien inklusive eigener (#95)
   const categoryNames = await categories.namesForUser(pool, settings.user_id);
   for (const v of await loadVehicles(pool, settings.user_id)) {
+    // Summen des ganzen Fahrzeugs, auch was Mitglieder erfasst haben (#53)
     const f = await pool.query(
       `SELECT unit, COUNT(*)::int AS n, COALESCE(SUM(amount), 0) AS amount, COALESCE(SUM(total_cost_eur), 0) AS cost
-       FROM fillups WHERE user_id = $1 AND vehicle_id = $2 AND filled_at >= $3 AND filled_at < $4
+       FROM fillups WHERE vehicle_id = $1 AND filled_at >= $2 AND filled_at < $3
        GROUP BY unit ORDER BY unit = 'kwh', unit`,
-      [settings.user_id, v.id, start, end]
+      [v.id, start, end]
     );
     const e = await pool.query(
       `SELECT category, SUM(amount_eur) AS cost
-       FROM expenses WHERE user_id = $1 AND vehicle_id = $2 AND occurred_at >= $3 AND occurred_at < $4 AND category <> ALL($5)
+       FROM expenses WHERE vehicle_id = $1 AND occurred_at >= $2 AND occurred_at < $3 AND category <> ALL($4)
        GROUP BY category ORDER BY SUM(amount_eur) DESC`,
-      [settings.user_id, v.id, start, end, categories.NON_COST_KEYS]
+      [v.id, start, end, categories.NON_COST_KEYS]
     );
     const odo = await pool.query(
-      `SELECT (SELECT MAX(odometer_km) FROM fillups WHERE user_id = $1 AND vehicle_id = $2 AND filled_at < $4 AND NOT odometer_estimated) AS end_odo,
-              (SELECT MAX(odometer_km) FROM fillups WHERE user_id = $1 AND vehicle_id = $2 AND filled_at < $3 AND NOT odometer_estimated) AS start_odo`,
-      [settings.user_id, v.id, start, end]
+      `SELECT (SELECT MAX(odometer_km) FROM fillups WHERE vehicle_id = $1 AND filled_at < $3 AND NOT odometer_estimated) AS end_odo,
+              (SELECT MAX(odometer_km) FROM fillups WHERE vehicle_id = $1 AND filled_at < $2 AND NOT odometer_estimated) AS start_odo`,
+      [v.id, start, end]
     );
     const stats = await getVehicleStats(pool, settings.user_id, v.id);
     const segs = (stats.segments || []).filter((s) => new Date(s.full_at) >= start && new Date(s.full_at) < end);
@@ -277,7 +281,8 @@ async function notifyUser(pool, settings, now = new Date()) {
 
 async function runNotifications(pool, now = new Date()) {
   const defaults = await loadDefaultSmtp(pool);
-  const r = await pool.query(`${SETTINGS_SQL} WHERE s.reminders_enabled OR s.monthly_report`);
+  // Nur Konten mit bestätigter Adresse (#135): keine Mails an Adressen, deren Inhaber nicht zugestimmt hat
+  const r = await pool.query(`${SETTINGS_SQL} WHERE (s.reminders_enabled OR s.monthly_report) AND u.email_verified_at IS NOT NULL`);
   for (const row of r.rows) {
     const settings = withDefaultSmtp(row, defaults);
     if (!settings.smtp_host) continue;

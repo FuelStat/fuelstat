@@ -39,6 +39,7 @@ function stationssucheWeiterleiten(callable $abfrage, array $parameter, string $
             'stations_not_configured', 'charging_stations_not_configured' => $was . ' ist nicht eingerichtet.',
             'stations_unavailable', 'charging_stations_unavailable' => $was . ' ist gerade nicht erreichbar.',
             'too_many_requests' => 'Zu viele Suchen in kurzer Zeit. Bitte gleich noch einmal versuchen.',
+            'email_not_verified' => $was . ' ist verfügbar, sobald du deine E-Mail-Adresse bestätigt hast.',
             default => $was . ' ist fehlgeschlagen.',
         };
         $antwort($code >= 400 && $code < 600 ? $code : 502, ['error' => $meldung]);

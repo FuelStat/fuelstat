@@ -38,9 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: feedback.php?danke=1');
             exit;
         } catch (Throwable $e) {
-            $error = $e->getMessage() === 'too_many_attempts'
+            $error = tarifHinweis($e) ?? ($e->getMessage() === 'too_many_attempts'
                 ? 'Du hast gerade sehr viel Feedback geschickt. Bitte versuch es in 15 Minuten noch einmal.'
-                : 'Das Feedback konnte nicht gesendet werden. Bitte versuch es später noch einmal.';
+                : 'Das Feedback konnte nicht gesendet werden. Bitte versuch es später noch einmal.');
         }
     }
 }

@@ -1,4 +1,5 @@
 // backend/src/services/stats.js
+const { canAccessVehicle } = require('./vehicleAccess');
 
 // Antriebsarten; 'phev' (Plug-in-Hybrid) tankt und lädt
 const FUEL_TYPES = new Set(['diesel', 'e5', 'e10', 'lpg', 'cng', 'electric', 'hybrid', 'phev', 'hydrogen', 'other']);
@@ -32,10 +33,9 @@ function trendOf(allRows) {
 }
 
 async function getVehicleStats(pool, userId, vehicleId) {
-  const v = await pool.query(
-    'SELECT fuel_type, odometer_km FROM vehicles WHERE id = $1 AND user_id = $2',
-    [vehicleId, userId]
-  );
+  // Zugriff (#53): Besitzer und Mitglieder; Daten gehören zum Fahrzeug, nicht zu dem, der sie erfasst hat
+  if (!(await canAccessVehicle(pool, userId, vehicleId, 'read'))) return { error: 'vehicle_not_found' };
+  const v = await pool.query('SELECT fuel_type, odometer_km FROM vehicles WHERE id = $1', [vehicleId]);
   if (v.rowCount === 0) return { error: 'vehicle_not_found' };
   const primaryUnit = unitForFuelType(v.rows[0].fuel_type);
 
@@ -44,12 +44,13 @@ async function getVehicleStats(pool, userId, vehicleId) {
     // Aktueller Tachostand: höchster echter Wert aus Tank-/Ladevorgängen und Ausgaben (inkl. "km notieren", #42)
     `SELECT GREATEST(
               MAX(odometer_km) FILTER (WHERE NOT odometer_estimated),
-              (SELECT MAX(odometer_km) FROM expenses WHERE user_id=$1 AND vehicle_id=$2)
+              (SELECT MAX(odometer_km) FROM expenses WHERE vehicle_id=$1),
+              (SELECT MAX(odometer_end) FROM trips WHERE vehicle_id=$1)
             ) AS max_odo,
             COUNT(*) FILTER (WHERE odometer_km IS NULL OR odometer_estimated)::int AS missing,
             MIN(odometer_km) FILTER (WHERE NOT odometer_estimated) AS first_odo
-     FROM fillups WHERE user_id=$1 AND vehicle_id=$2`,
-    [userId, vehicleId]
+     FROM fillups WHERE vehicle_id=$1`,
+    [vehicleId]
   );
   const currentOdo = odo.rows[0]?.max_odo ?? null;
   const missingOdometer = odo.rows[0]?.missing ?? 0;
@@ -75,9 +76,9 @@ async function getVehicleStats(pool, userId, vehicleId) {
          ELSE NULL
        END AS avg_price
      FROM fillups
-     WHERE user_id=$1 AND vehicle_id=$2
+     WHERE vehicle_id=$1
      GROUP BY unit`,
-    [userId, vehicleId]
+    [vehicleId]
   );
 
   // Full-to-Full-Abschnitte je Einheit: Liter von Tankfüllung zu Tankfüllung, kWh von Ladung zu Ladung
@@ -91,7 +92,7 @@ async function getVehicleStats(pool, userId, vehicleId) {
         (odometer_km IS NOT NULL AND NOT odometer_estimated) AS has_km,
         ROW_NUMBER() OVER (ORDER BY filled_at, odometer_km NULLS LAST, created_at) AS rn
       FROM fillups
-      WHERE user_id=$1 AND vehicle_id=$2
+      WHERE vehicle_id=$1
     ),
     fulls AS (
       SELECT *,
@@ -124,7 +125,7 @@ async function getVehicleStats(pool, userId, vehicleId) {
     FROM seg
     ORDER BY rn DESC
     `,
-    [userId, vehicleId]
+    [vehicleId]
   );
 
   const segRows = segments.rows;

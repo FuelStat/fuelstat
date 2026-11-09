@@ -21,13 +21,16 @@ Fuelstat folgt [Semantic Versioning](https://semver.org/lang/de/) (`MAJOR.MINOR.
   git push origin v0.10.0
   ```
 
-  Der Workflow `.github/workflows/release.yml` prüft Tag, `VERSION` und `CHANGELOG.md` und legt das GitHub-Release mit dem Text der Version an (0.x und Vorabversionen als „Pre-release“).
+  Der Workflow `.github/workflows/release.yml` prüft Tag, `VERSION` und `CHANGELOG.md`, legt das GitHub-Release mit dem Text der Version an (0.x und Vorabversionen als „Pre-release“) und veröffentlicht das API-Image `ghcr.io/fuelstat/fuelstat-api:X.Y.Z` (#134).
+- **Changelog-Prüfung:** Die CI (`.github/workflows/changelog.yml`) verlangt in jedem PR einen Eintrag unter `## [Unreleased]`. Für PRs ohne sichtbare Änderung das Label `kein changelog` setzen.
 - **Ausrollen:** wie unter „Aktualisieren“. Unter „Neuigkeiten“ sehen Admins eine Warnung, wenn API und Frontend unterschiedliche Versionen melden (API-Image nicht neu gebaut).
 - **Welche Version?** PATCH für Fehlerbehebungen, MINOR für neue Funktionen, MAJOR für Brüche (z. B. API-Änderungen, die Apps anpassen müssen). Vorabversionen: `1.0.0-rc.1`.
 
 ## Aktualisieren
 
-Reihenfolge einhalten: **Migrationen vor dem Neustart der API**, sonst startet neuer API-Code gegen ein altes Schema.
+Live läuft immer genau eine **veröffentlichte Version** (Tag `vX.Y.Z`) mit dem fertigen API-Image dieser Version aus der GitHub Container Registry (#134). Reihenfolge einhalten: **Migrationen vor dem Neustart der API**, sonst startet neuer API-Code gegen ein altes Schema.
+
+### Mit dem Skript (empfohlen)
 
 1. **Sichern** (empfohlen, vor allem wenn Migrationen anstehen), falls die Datensicherung eingerichtet ist:
 
@@ -35,12 +38,34 @@ Reihenfolge einhalten: **Migrationen vor dem Neustart der API**, sonst startet n
    sudo systemctl start fuelstat-backup.service
    ```
 
-2. **Code holen:**
+2. **Ausrollen**, im Projektordner:
 
    ```bash
-   git pull
+   sudo infra/ausrollen.sh 0.11.0
    ```
 
+   Das Skript
+   - holt die Tags und zeigt die „Hinweise zum Update“ der Version, die neuen Migrationen und geänderte Beispiel-Konfigurationen (`infra/.env.example`, nginx, Backup) an und fragt, ob es weitergehen soll;
+   - lädt das API-Image der Version (die alte API läuft dabei weiter);
+   - stellt den Code auf das Tag um (Git läuft als Besitzer des Projektordners);
+   - spielt die neuen Migrationen der Reihe nach ein – **vor** dem Neustart der API;
+   - fragt bei geänderter Beispiel-Konfiguration, ob `.env` bzw. nginx nachgezogen sind (sonst Abbruch an dieser Stelle; erneut aufrufen, sobald es erledigt ist);
+   - setzt `FUELSTAT_VERSION` in `infra/.env`, startet die API mit dem neuen Image, lädt PHP-FPM neu und wartet, bis `/api/v1/health` die neue Version meldet.
+
+3. **Kontrollieren:** unter „Neuigkeiten“ erscheint für Admins keine Warnung zu unterschiedlichen Versionen.
+
+**Zurückrollen** auf die vorige Version: `sudo infra/ausrollen.sh 0.10.0`. Migrationen bleiben eingespielt; sie sind mit dem alten API-Code verträglich.
+
+Der Code steht danach auf dem Tag (detached HEAD). Ein `git pull` auf `main` ist nicht mehr nötig und würde unveröffentlichten Stand holen; zurück auf `main` mit `git checkout main`.
+
+**Das Image ist öffentlich?** Beim ersten Release legt GitHub das Paket `fuelstat-api` an. Unter GitHub → Organisation → Packages → `fuelstat-api` → Package settings die Sichtbarkeit auf „Public“ stellen. Bleibt es privat, braucht der Server einmalig `sudo docker login ghcr.io` mit einem Token (Recht `read:packages`).
+
+### Von Hand oder ohne Registry
+
+Wer einen eigenen Stand betreibt (Fork, Entwicklung) oder kein Image laden kann, baut die API wie bisher selbst. `FUELSTAT_VERSION` in `infra/.env` dann leer lassen bzw. entfernen.
+
+1. **Sichern** (siehe oben).
+2. **Code holen:** `git fetch --tags && git checkout vX.Y.Z` (oder `git pull` für den neuesten Stand von `main`).
 3. **Prüfen, was zu tun ist:** „Hinweise zum Update“ der neuen Version(en) in `CHANGELOG.md` lesen und nachsehen, ob Migrationen, Beispiel-Konfigurationen oder nginx-Beispiele dazugekommen sind:
 
    ```bash
@@ -51,7 +76,7 @@ Reihenfolge einhalten: **Migrationen vor dem Neustart der API**, sonst startet n
 
    ```bash
    cd infra
-   sudo docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_0NN_name.sql
+   sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_0NN_name.sql
    ```
 
 5. **Konfiguration nachziehen**, falls die Hinweise es verlangen: neue Variablen aus `infra/.env.example` in `infra/.env` übernehmen, nginx-Änderungen einspielen (`sudo nginx -t && sudo systemctl reload nginx`).
@@ -86,7 +111,7 @@ sudo docker compose exec api node scripts/bilder-optimieren.js           # umste
 
 ## Datenbank-Migrationen
 
-Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält bereits alles bis einschließlich 016. Bestehende Installationen spielen alle noch fehlenden Migrationen der Reihe nach ein:
+Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält bereits alles bis einschließlich 020. Bestehende Installationen spielen alle noch fehlenden Migrationen der Reihe nach ein:
 
 | Datei | Inhalt |
 |---|---|
@@ -102,8 +127,12 @@ Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält ber
 | `postgres_014_expense_categories.sql` | Eigene Kategorien für Ausgaben (Plus) |
 | `postgres_015_plan_changes.sql` | Protokoll der Tarifänderungen (#102) |
 | `postgres_016_mfa_last_counter.sql` | Zuletzt akzeptierter 2FA-Code je Konto, damit jeder Code nur einmal gilt |
+| `postgres_017_email_verification.sql` | E-Mail-Bestätigung (bestehende Konten gelten als bestätigt), ausstehende neue Adresse, Zustimmung zu den Nutzungsbedingungen (#135) |
+| `postgres_018_vehicle_sharing.sql` | Fahrzeuge teilen: Mitglieder und Einladungen (#53) |
+| `postgres_019_trips.sql` | Fahrtenbuch; übernimmt bisherige „Fahrt“-Einträge (#52) |
+| `postgres_020_password_resets.sql` | Passwort vergessen: Links zum Zurücksetzen (#141) |
 
-Alle Migrationen laufen in einer Transaktion und lassen sich gefahrlos ein zweites Mal ausführen. Einspielen wie unter [Aktualisieren](#aktualisieren), Schritt 4, z. B. `< ../backend/database/postgres_014_expense_categories.sql`.
+Alle Migrationen laufen in einer Transaktion und lassen sich gefahrlos ein zweites Mal ausführen. Mit `infra/ausrollen.sh` passiert das automatisch; von Hand wie unter [Aktualisieren](#von-hand-oder-ohne-registry), Schritt 4, z. B. `< ../backend/database/postgres_014_expense_categories.sql`.
 
 ## Tarife verwalten
 

@@ -5,12 +5,13 @@ const chargingStations = require('../services/chargingStations');
 const stations = require('../services/stations');
 const { auth } = require('../middleware/auth');
 const { chargingStationsLimiter, stationsLimiter } = require('../middleware/rateLimits');
+const { requireVerified } = require('../middleware/verified');
 
 const router = express.Router();
 
 // Tankstellen in der Nähe mit aktuellen Preisen (Tankerkönig), z. B. für die Erfassung in den Apps.
 // Nur angemeldet: sonst könnte jeder das Kontingent des Keys verbrauchen. Der Key verlässt den Server nie.
-router.get('/stations', auth, stationsLimiter, async (req, res) => {
+router.get('/stations', auth, requireVerified('stations'), stationsLimiter, async (req, res) => {
   const apiKey = String(process.env.TANKERKOENIG_API_KEY || '').trim();
   if (!apiKey) return res.status(503).json({ error: 'stations_not_configured' });
 
@@ -23,7 +24,7 @@ router.get('/stations', auth, stationsLimiter, async (req, res) => {
 });
 
 // Ladestationen in der Nähe (Open Charge Map, #123), für Web-App und Apps. Der Key verlässt den Server nie.
-router.get('/charging-stations', auth, chargingStationsLimiter, async (req, res) => {
+router.get('/charging-stations', auth, requireVerified('stations'), chargingStationsLimiter, async (req, res) => {
   const apiKey = String(process.env.OCM_API_KEY || '').trim();
   if (!apiKey) return res.status(503).json({ error: 'charging_stations_not_configured' });
 

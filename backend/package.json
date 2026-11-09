@@ -1,6 +1,6 @@
 {
   "name": "fuelstat-api",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

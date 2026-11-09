@@ -6,6 +6,8 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-09
+
 ### Neu
 - **Fahrzeuge teilen** (#53): Fahrzeuge lassen sich per E-Mail mit anderen Konten teilen – als Mitfahrer (sehen und erfassen, eigene Einträge ändern) oder nur zum Ansehen. Einladungen gelten 14 Tage und nur für die eingeladene, bestätigte Adresse. Bei jedem Eintrag steht, wer ihn erfasst hat. Mitglieder können ein Fahrzeug verlassen, der Besitzer kann Rollen ändern und Mitglieder entfernen; Einträge bleiben beim Fahrzeug. Teilen ist eine Plus-Funktion des Besitzers.
 - **Fahrtenbuch** (#52): eigener Reiter „Fahrten“ mit Tachostand Start und Ende, Von/Nach, Zweck (privat, dienstlich, Arbeitsweg) und Notiz; km je Monat und Zweck, Anteil dienstlich, geschätzte Kosten je Zweck, Filter nach Jahr und Zweck, CSV-Export (Plus). Bisherige Fahrten werden übernommen. Fahrten liefern Tachostände für Prüfung, aktuellen Stand und Termine. Ein Fahrtenbuch zur eigenen Übersicht, kein vom Finanzamt anerkanntes.
@@ -126,7 +128,8 @@ Erste Version mit Versionsnummer: alles, was Fuelstat bis zu diesem Stand kann.
 - Einmalig vorhandene Bilder umstellen: `sudo docker compose exec api node scripts/bilder-optimieren.js`
 - nginx: `/uploads/` sperren, `FUELSTAT_API_BASE_URL` direkt auf `127.0.0.1:3000` setzen (`docs/installation.md`)
 
-[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/FuelStat/fuelstat/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/FuelStat/fuelstat/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/FuelStat/fuelstat/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/FuelStat/fuelstat/releases/tag/v0.9.0

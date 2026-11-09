@@ -51,6 +51,10 @@ class FuelstatApi
         return $this->request('POST', '/auth/password', ['currentPassword' => $currentPassword, 'newPassword' => $newPassword]);
     }
 
+    /** E-Mail-Bestätigung (#135): Token aus der Mail einlösen (ohne Anmeldung) bzw. Mail erneut senden */
+    public function postVerifyEmail(string $token): array { return $this->request('POST', '/auth/verify-email', ['token' => $token]); }
+    public function postResendVerification(): array { return $this->request('POST', '/auth/resend-verification', []); }
+
     public function postMfaSetup(): array { return $this->request('POST', '/auth/mfa/setup', []); }
     public function postMfaEnable(string $code): array { return $this->request('POST', '/auth/mfa/enable', ['code' => $code]); }
     public function postMfaDisable(string $password, string $code): array { return $this->request('POST', '/auth/mfa/disable', ['password' => $password, 'code' => $code]); }

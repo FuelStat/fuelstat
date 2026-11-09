@@ -6,6 +6,7 @@ const { isLockedOut, recordFailure, tooManyAttempts } = require('../lib/attempts
 const { optionalText, serverError } = require('../lib/http');
 const { auth, requireAdmin } = require('../middleware/auth');
 const { loadDefaultSmtp, sendUserMail, withDefaultSmtp } = require('../services/mail');
+const { requireVerified } = require('../middleware/verified');
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ function feedbackRecipient(defaults) {
   return process.env.FEEDBACK_EMAIL || defaults?.to_address || defaults?.account_email || null;
 }
 
-router.post('/feedback', auth, async (req, res) => {
+router.post('/feedback', auth, requireVerified('feedback'), async (req, res) => {
   const category = String(req.body?.category || '');
   const message = String(req.body?.message || '').trim();
   const page = optionalText(req.body?.page) ?? null;

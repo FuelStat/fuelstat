@@ -10,6 +10,7 @@ const { LOGIN_IP_MAX_FAILURES, LOGIN_MAX_FAILURES, MFA_MAX_FAILURES, clearFailur
 const { serverError } = require('../lib/http');
 const { MAX_SESSION_DAYS, auth, isAdmin, recordLogin, signToken } = require('../middleware/auth');
 const { MFA_TOKEN_SECRET, base32Encode, consumeTotp, readMfaSecret, storeMfaSecret } = require('../services/mfa');
+const emailVerification = require('../services/emailVerification');
 
 const router = express.Router();
 
@@ -42,17 +43,66 @@ router.post('/auth/register', async (req, res) => {
 
   try {
     const passwordHash = await bcrypt.hash(password, 12);
+    // E-Mail-Bestätigung (#135): ohne Mailserver bzw. mit EMAIL_VERIFICATION=false gilt das Konto sofort als bestätigt
+    const bestaetigen = await emailVerification.required(pool);
     const r = await pool.query(
-      `INSERT INTO users (email, password_hash, beta_tester)
-       VALUES ($1, $2, $3)
-       RETURNING id, email, username, mfa_enabled, profile_image_url, beta_tester, created_at, updated_at`,
-      [email, passwordHash, isBetaPhase()]
+      `INSERT INTO users (email, password_hash, beta_tester, email_verified_at)
+       VALUES ($1, $2, $3, CASE WHEN $4 THEN NULL ELSE now() END)
+       RETURNING id, email, username, mfa_enabled, profile_image_url, beta_tester, created_at, updated_at,
+                 (email_verified_at IS NOT NULL) AS email_verified, pending_email`,
+      [email, passwordHash, isBetaPhase(), bestaetigen]
     );
     const user = r.rows[0];
     await recordLogin(user.id);
+    if (bestaetigen) {
+      // Ein Fehler beim Versand verhindert die Registrierung nicht; die Mail lässt sich erneut anfordern
+      try {
+        await emailVerification.sendVerification(pool, user.id, user.email);
+      } catch (e) {
+        console.error('[register] Bestätigungsmail fehlgeschlagen:', e.code || e.message);
+      }
+    }
     res.status(201).json({ token: signToken(user), user });
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'email_already_exists' });
+    serverError(res, e);
+  }
+});
+
+// E-Mail-Adresse bestätigen (#135): Token aus der Mail. Ohne Anmeldung, das Token selbst ist der Nachweis.
+router.post('/auth/verify-email', async (req, res) => {
+  try {
+    const r = await emailVerification.verify(pool, req.body?.token);
+    if (r.error === 'email_already_exists') return res.status(409).json({ error: r.error });
+    if (r.error) return res.status(400).json({ error: r.error });
+    res.json({ verified: true, email: r.email });
+  } catch (e) {
+    serverError(res, e);
+  }
+});
+
+// Bestätigungsmail erneut senden (an die ausstehende neue Adresse, sonst an die Konto-Adresse)
+router.post('/auth/resend-verification', auth, async (req, res) => {
+  try {
+    const r = await pool.query('SELECT email, pending_email, email_verified_at FROM users WHERE id = $1', [req.user.sub]);
+    const u = r.rows[0];
+    if (!u) return res.status(401).json({ error: 'account_not_found' });
+    if (u.email_verified_at && !u.pending_email) return res.status(409).json({ error: 'already_verified' });
+    const gesperrt = await emailVerification.resendBlocked(pool, req.user.sub);
+    if (gesperrt) {
+      return res.status(429).json({
+        error: gesperrt === 'too_soon' ? 'resend_too_soon' : 'too_many_attempts',
+        retry_after_seconds: gesperrt === 'too_soon' ? emailVerification.RESEND_SECONDS : 24 * 3600
+      });
+    }
+    const an = u.pending_email || u.email;
+    await emailVerification.sendVerification(pool, req.user.sub, an, { change: Boolean(u.pending_email) });
+    res.json({ sent: true, email: an });
+  } catch (e) {
+    if (e.code === 'mail_not_configured') return res.status(503).json({ error: 'mail_not_configured' });
+    if (e.code === 'EAUTH' || e.responseCode || e.code === 'ECONNECTION' || e.code === 'ETIMEDOUT') {
+      return res.status(502).json({ error: 'smtp_failed' });
+    }
     serverError(res, e);
   }
 });
@@ -66,7 +116,8 @@ router.post('/auth/login', async (req, res) => {
 
   try {
     const r = await pool.query(
-      `SELECT id, email, password_hash, username, mfa_enabled, mfa_secret, profile_image_url, created_at, updated_at
+      `SELECT id, email, password_hash, username, mfa_enabled, mfa_secret, profile_image_url, created_at, updated_at,
+              (email_verified_at IS NOT NULL) AS email_verified, pending_email
        FROM users WHERE email = $1`,
       [email]
     );
@@ -127,7 +178,8 @@ router.post('/auth/login/mfa', async (req, res) => {
   if (isLockedOut(mfaKey, MFA_MAX_FAILURES)) return tooManyAttempts(res);
   try {
     const r = await pool.query(
-      `SELECT id, email, username, mfa_enabled, mfa_secret, profile_image_url, created_at, updated_at
+      `SELECT id, email, username, mfa_enabled, mfa_secret, profile_image_url, created_at, updated_at,
+              (email_verified_at IS NOT NULL) AS email_verified, pending_email
        FROM users WHERE id = $1`,
       [payload.sub]
     );

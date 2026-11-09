@@ -8,11 +8,18 @@ const { optionalNumber, optionalText, serverError } = require('../lib/http');
 const { auth } = require('../middleware/auth');
 const { FUEL_TYPES } = require('../services/stats');
 const { VEHICLE_EXTRA_COLUMNS, parseVehicleExtras } = require('../services/vehicleFields');
+const { checkUnverifiedLimit } = require('../middleware/verified');
 
 const router = express.Router();
 
 // Create vehicle
 router.post('/vehicles', auth, async (req, res) => {
+  // Ohne bestätigte E-Mail-Adresse nur ein Fahrzeug (#135)
+  try {
+    if (await checkUnverifiedLimit(res, req.user.sub, 'vehicle')) return;
+  } catch (e) {
+    return serverError(res, e);
+  }
   const name = String(req.body?.name || '').trim();
   const fuelType = String(req.body?.fuelType || '').trim().toLowerCase();
 

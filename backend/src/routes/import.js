@@ -9,11 +9,12 @@ const { auth } = require('../middleware/auth');
 const { importLimiter } = require('../middleware/rateLimits');
 const { loadOdometerPoints, odometerWarnings } = require('../services/odometer');
 const { unitsForFuelType } = require('../services/stats');
+const { requireVerified } = require('../middleware/verified');
 
 const router = express.Router();
 
 // Massen-Import (z. B. aus CSV): alle Zeilen in einer Transaktion, Duplikate werden übersprungen
-router.post('/vehicles/:vehicleId/import', auth, importLimiter, async (req, res) => {
+router.post('/vehicles/:vehicleId/import', auth, requireVerified('import'), importLimiter, async (req, res) => {
   const vehicleId = String(req.params.vehicleId || '').trim();
   const fillups = Array.isArray(req.body?.fillups) ? req.body.fillups : [];
   const entries = Array.isArray(req.body?.entries) ? req.body.entries : [];

@@ -1,5 +1,5 @@
 -- backend/database/postgres_init.sql
--- Vollständiges Schema für eine NEUE Installation (Stand: Migration 016).
+-- Vollständiges Schema für eine NEUE Installation (Stand: Migration 017).
 -- Beim ersten Start der Datenbank spielt Docker diese Datei automatisch ein (siehe infra/docker-compose.yml).
 -- Bestehende Installationen nutzen stattdessen die Migrationen postgres_0XX_*.sql.
 BEGIN;
@@ -21,9 +21,23 @@ CREATE TABLE IF NOT EXISTS users (
   plan_until timestamptz NULL,             -- Ende des Tarifs, NULL = unbefristet
   last_login_at timestamptz NULL,
   last_seen_at timestamptz NULL,           -- höchstens stündlich aktualisiert
+  email_verified_at timestamptz NULL,      -- Adresse bestätigt (#135); NULL = noch nicht, Funktionen begrenzt
+  pending_email text NULL,                 -- neue Adresse, bis sie bestätigt ist
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- E-Mail-Bestätigung (#135): nur der Hash des Tokens, das Token steht nur in der Mail
+CREATE TABLE IF NOT EXISTS email_verifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email text NOT NULL,
+  token_hash text NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL,
+  used_at timestamptz NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_email_verifications_user ON email_verifications(user_id, created_at DESC);
 
 -- Fahrzeuge
 CREATE TABLE IF NOT EXISTS vehicles (

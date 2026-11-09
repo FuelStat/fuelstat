@@ -6,11 +6,18 @@ const { optionalNumber, serverError } = require('../lib/http');
 const { auth } = require('../middleware/auth');
 const { checkOdometer } = require('../services/odometer');
 const { unitForFuelType, unitsForFuelType } = require('../services/stats');
+const { checkUnverifiedLimit } = require('../middleware/verified');
 
 const router = express.Router();
 
 // Add fillup (generalisiert: amount + unit)
 router.post('/fillups', auth, async (req, res) => {
+  // Ohne bestätigte E-Mail-Adresse nur ein Eintrag (#135)
+  try {
+    if (await checkUnverifiedLimit(res, req.user.sub, 'entry')) return;
+  } catch (e) {
+    return serverError(res, e);
+  }
   const vehicleId = String(req.body?.vehicleId || '').trim();
   // Tachostand darf fehlen (#41) und später nachgetragen werden; geschätzte Werte sind nur Platzhalter
   const odometerKm = optionalNumber(req.body?.odometerKm) ?? null;

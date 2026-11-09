@@ -8,11 +8,12 @@ const { serverError } = require('../lib/http');
 const { auth } = require('../middleware/auth');
 const { uploadLimiter } = require('../middleware/rateLimits');
 const { removeUpload, storedMediaPath, upload, verifyUploadedImage } = require('../middleware/upload');
+const { requireVerified } = require('../middleware/verified');
 
 const router = express.Router();
 
 // Upload user media
-router.post('/media/upload', auth, uploadLimiter, (req, res, next) => { req.mediaArt = 'user'; next(); }, upload.single('file'), verifyUploadedImage, async (req, res) => {
+router.post('/media/upload', auth, requireVerified('upload'), uploadLimiter, (req, res, next) => { req.mediaArt = 'user'; next(); }, upload.single('file'), verifyUploadedImage, async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'missing_file' });
   }
@@ -115,7 +116,7 @@ router.delete('/media/:mediaId', auth, async (req, res) => {
 // ============================================
 
 // Upload vehicle media
-router.post('/vehicles/:vehicleId/media/upload', auth, uploadLimiter, (req, res, next) => { req.mediaArt = 'vehicle'; next(); }, upload.single('file'), verifyUploadedImage, async (req, res) => {
+router.post('/vehicles/:vehicleId/media/upload', auth, requireVerified('upload'), uploadLimiter, (req, res, next) => { req.mediaArt = 'vehicle'; next(); }, upload.single('file'), verifyUploadedImage, async (req, res) => {
   const vehicleId = String(req.params.vehicleId || '').trim();
   if (!vehicleId) return res.status(400).json({ error: 'missing_vehicleId' });
 

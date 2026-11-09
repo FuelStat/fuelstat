@@ -21,7 +21,9 @@ try {
             try {
                 $apiRegister = getApiClient(null);
                 $response = $apiRegister->postAuthRegister($email, $password);
-                $_SESSION['success_message'] = "Registrierung erfolgreich! Sie können sich jetzt anmelden.";
+                $_SESSION['success_message'] = isset($response['user']['email_verified']) && !$response['user']['email_verified']
+                    ? 'Registrierung erfolgreich! Wir haben dir einen Link zum Bestätigen deiner E-Mail-Adresse geschickt. Du kannst dich schon anmelden; ein Fahrzeug und ein Eintrag gehen sofort, alles Weitere nach der Bestätigung.'
+                    : 'Registrierung erfolgreich! Sie können sich jetzt anmelden.';
                 header('Location: login.php');
                 exit;
             } catch (RuntimeException $e) {

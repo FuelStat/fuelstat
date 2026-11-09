@@ -277,7 +277,8 @@ async function notifyUser(pool, settings, now = new Date()) {
 
 async function runNotifications(pool, now = new Date()) {
   const defaults = await loadDefaultSmtp(pool);
-  const r = await pool.query(`${SETTINGS_SQL} WHERE s.reminders_enabled OR s.monthly_report`);
+  // Nur Konten mit bestätigter Adresse (#135): keine Mails an Adressen, deren Inhaber nicht zugestimmt hat
+  const r = await pool.query(`${SETTINGS_SQL} WHERE (s.reminders_enabled OR s.monthly_report) AND u.email_verified_at IS NOT NULL`);
   for (const row of r.rows) {
     const settings = withDefaultSmtp(row, defaults);
     if (!settings.smtp_host) continue;

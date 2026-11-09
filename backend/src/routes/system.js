@@ -1,6 +1,7 @@
 // Routen: /db-ping, /health, /whoami
 // Aus backend/src/server.js ausgelagert (#110), Inhalt unverändert.
 const express = require('express');
+const { UNVERIFIED_LIMITS } = require('../middleware/verified');
 const plans = require('../services/plans');
 const { API_VERSION, isBetaPhase } = require('../config');
 const { pool } = require('../db');
@@ -26,7 +27,8 @@ router.get('/whoami', auth, async (req, res) => {
   try {
     // Zusätzlich User-Daten aus DB holen für vollständige Info
     const r = await pool.query(
-      `SELECT id, email, username, mfa_enabled, profile_image_url, beta_tester, plan, plan_until, created_at, updated_at
+      `SELECT id, email, username, mfa_enabled, profile_image_url, beta_tester, plan, plan_until, created_at, updated_at,
+              (email_verified_at IS NOT NULL) AS email_verified, pending_email
        FROM users WHERE id = $1`,
       [req.user.sub]
     );
@@ -42,6 +44,10 @@ router.get('/whoami', auth, async (req, res) => {
       mfa_enabled: r.rows[0].mfa_enabled,
       profile_image_url: r.rows[0].profile_image_url,
       beta_tester: r.rows[0].beta_tester,
+      email_verified: r.rows[0].email_verified,
+      pending_email: r.rows[0].pending_email,
+      // Grenzen ohne bestätigte Adresse (#135); null, wenn bestätigt
+      unverified_limits: r.rows[0].email_verified ? null : UNVERIFIED_LIMITS,
       created_at: r.rows[0].created_at,
       updated_at: r.rows[0].updated_at,
       is_admin: isAdmin(req),

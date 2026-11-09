@@ -426,7 +426,7 @@ function speichereFahrzeugBild($api, string $vehicleId, array $files, array $pos
             $api->patchVehicle($vehicleId, ['imageUrl' => $media['url']]);
             $neueMediaId = $media['id'] ?? null;
         } catch (Throwable $e) {
-            return 'Bild-Upload fehlgeschlagen: ' . $e->getMessage();
+            return tarifHinweis($e) ?? 'Bild-Upload fehlgeschlagen: ' . $e->getMessage();
         }
     } else {
         try {
@@ -574,6 +574,9 @@ function eintragFehlerText(Throwable $e): string
  */
 function tarifHinweis(Throwable $e): ?string
 {
+    if ($e instanceof FuelstatApiException && $e->getMessage() === 'email_not_verified') {
+        return emailBestaetigenHinweis($e);
+    }
     if (!($e instanceof FuelstatApiException) || $e->getMessage() !== 'plan_required') {
         return null;
     }
@@ -589,6 +592,27 @@ function tarifHinweis(Throwable $e): ?string
     $feature = (string)($e->data['feature'] ?? '');
     $limit = (int)($e->data['limit'] ?? 1);
     return sprintf($texte[$feature] ?? 'Das ist eine Premium-Funktion.', $limit === 1 ? 'ein Fahrzeug' : $limit . ' Fahrzeuge');
+}
+
+/**
+ * E-Mail-Bestätigung (#135): Text für die API-Antwort 403 email_not_verified.
+ * Bis zur Bestätigung erlaubt die API ein Fahrzeug und einen Eintrag; alles Weitere erst danach.
+ */
+function emailBestaetigenHinweis(?Throwable $e = null): string
+{
+    $feature = $e instanceof FuelstatApiException ? (string)($e->data['feature'] ?? '') : '';
+    $was = [
+        'maxVehicles' => 'Weitere Fahrzeuge kannst du anlegen',
+        'maxEntries' => 'Weitere Einträge kannst du erfassen',
+        'upload' => 'Bilder kannst du hochladen',
+        'import' => 'Der Import ist möglich',
+        'mail' => 'E-Mail-Benachrichtigungen kannst du einrichten',
+        'feedback' => 'Feedback kannst du senden',
+        'stations' => 'Die Tankstellen- und Ladestationssuche ist verfügbar',
+        'customCategories' => 'Eigene Kategorien kannst du anlegen',
+        'sharing' => 'Fahrzeuge kannst du teilen',
+    ][$feature] ?? 'Diese Funktion ist verfügbar';
+    return $was . ', sobald du deine E-Mail-Adresse bestätigt hast. Den Link dazu haben wir dir per Mail geschickt (Profil → „E-Mail bestätigen“).';
 }
 
 /** Anzeigenamen der Tarife */

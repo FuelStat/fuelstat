@@ -7,6 +7,7 @@ const { isLockedOut, recordFailure, tooManyAttempts } = require('../lib/attempts
 const { optionalNumber, optionalText, serverError } = require('../lib/http');
 const { auth } = require('../middleware/auth');
 const { ALLOWED_PORTS, encryptSecret, loadDefaultSmtp, resolveSmtpHost, sendUserMail } = require('../services/mail');
+const { requireVerified } = require('../middleware/verified');
 
 const router = express.Router();
 
@@ -49,7 +50,7 @@ router.get('/auth/mail-settings', auth, async (req, res) => {
   }
 });
 
-router.put('/auth/mail-settings', auth, async (req, res) => {
+router.put('/auth/mail-settings', auth, requireVerified('mail'), async (req, res) => {
   const b = req.body || {};
   const host = optionalText(b.smtpHost) ?? null;
   const port = optionalNumber(b.smtpPort) ?? null;
@@ -115,7 +116,7 @@ function manualMailLimited(settings, userId) {
 }
 
 // Test-Mail mit den gespeicherten Einstellungen
-router.post('/auth/mail-settings/test', auth, async (req, res) => {
+router.post('/auth/mail-settings/test', auth, requireVerified('mail'), async (req, res) => {
   try {
     const settings = await notifier.loadUserSettings(pool, req.user.sub);
     if (manualMailLimited(settings, req.user.sub)) return tooManyAttempts(res);
@@ -131,7 +132,7 @@ router.post('/auth/mail-settings/test', auth, async (req, res) => {
 });
 
 // Erinnerungen bzw. Monatsbericht (Vormonat) sofort senden – unabhängig davon, ob sie schon verschickt wurden
-router.post('/auth/mail-settings/send-now', auth, async (req, res) => {
+router.post('/auth/mail-settings/send-now', auth, requireVerified('mail'), async (req, res) => {
   const type = String(req.body?.type || '');
   if (!['reminders', 'report'].includes(type)) return res.status(400).json({ error: 'invalid_type' });
   try {

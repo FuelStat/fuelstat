@@ -7,11 +7,18 @@ const { optionalNumber, serverError } = require('../lib/http');
 const { loadPlanUser } = require('../lib/planUser');
 const { auth } = require('../middleware/auth');
 const { checkOdometer } = require('../services/odometer');
+const { checkUnverifiedLimit } = require('../middleware/verified');
 
 const router = express.Router();
 
 // Create non-fuel expense entry
 router.post('/entries', auth, async (req, res) => {
+  // Ohne bestätigte E-Mail-Adresse nur ein Eintrag (#135)
+  try {
+    if (await checkUnverifiedLimit(res, req.user.sub, 'entry')) return;
+  } catch (e) {
+    return serverError(res, e);
+  }
   const vehicleId = String(req.body?.vehicleId || '').trim();
   const category = String(req.body?.category || '').trim();
 

@@ -123,6 +123,7 @@ $seitenInfo = [
     'feedback.php'             => ['Feedback', null],
     'kategorien.php'           => ['Kategorien', null],
     'neuigkeiten.php'          => ['Neuigkeiten', null],
+    'email_bestaetigen.php'    => ['E-Mail bestätigen', null],
 ];
 [$seitenTitel, $zurueckUrl] = $angemeldet && isset($seitenInfo[$skript]) ? $seitenInfo[$skript] : [null, null];
 
@@ -134,7 +135,7 @@ $tabbarAktiv = [
     'eintrag_hinzufuegen.php' => 'eintrag', 'eintrag_bearbeiten.php' => 'eintrag', 'schnell.php' => 'eintrag',
     'einstellungen.php' => 'profil', 'passwort_aendern.php' => 'profil', 'mfa_einrichten.php' => 'profil',
     'benachrichtigungen.php' => 'profil', 'admin.php' => 'profil', 'feedback.php' => 'profil',
-    'kategorien.php' => 'profil', 'neuigkeiten.php' => 'profil',
+    'kategorien.php' => 'profil', 'neuigkeiten.php' => 'profil', 'email_bestaetigen.php' => 'profil',
 ][$skript] ?? null;
 
 // Ziel von "+ Eintrag" und "Statistik": aktuelles Fahrzeug, das einzige Fahrzeug oder Auswahl im Blatt
@@ -385,6 +386,17 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
 
 <!-- Hauptinhalt (wird in footer.php geschlossen) -->
 <div class="hauptinhalt">
+
+<?php if ($angemeldet && is_array($currentUser) && isset($currentUser['email_verified']) && !$currentUser['email_verified'] && $skript !== 'email_bestaetigen.php'): ?>
+<!-- E-Mail-Adresse noch nicht bestätigt (#135): Funktionen sind bis dahin begrenzt -->
+<div class="container mt-3 mt-lg-4">
+  <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2 mb-0" role="status">
+    <i class="fas fa-envelope-open-text" aria-hidden="true"></i>
+    <span class="flex-grow-1">Bitte bestätige deine E-Mail-Adresse <strong><?= htmlspecialchars((string)($currentUser['email'] ?? '')) ?></strong> über den Link in unserer Mail. Bis dahin sind ein Fahrzeug und ein Eintrag möglich.</span>
+    <a class="btn btn-sm btn-outline-dark" href="<?= htmlspecialchars($baseUrl) ?>pages/email_bestaetigen.php">Erneut senden oder Code eingeben</a>
+  </div>
+</div>
+<?php endif; ?>
 
 <?php if (isset($_SESSION['success_message']) || isset($_SESSION['warning_message']) || isset($_SESSION['error_message'])): ?>
 <!-- Meldungen -->

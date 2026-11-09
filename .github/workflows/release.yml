@@ -1,7 +1,8 @@
 # GitHub-Release aus einem Versions-Tag (#111).
 # Ablauf: node backend/scripts/neue-version.js X.Y.Z → PR → mergen → auf main: git tag -a vX.Y.Z && git push origin vX.Y.Z
 # Dieser Workflow prüft, dass Tag, VERSION, backend/package.json und CHANGELOG.md zusammenpassen, und
-# veröffentlicht das Release mit dem Abschnitt der Version aus CHANGELOG.md als Text.
+# veröffentlicht das Release mit dem Abschnitt der Version aus CHANGELOG.md als Text. Danach baut der Job „image“
+# das API-Image dieser Version und legt es in der GitHub Container Registry ab (#134).
 # Versionen 0.x und Vorabversionen (z. B. 1.0.0-rc.1) werden als "Pre-release" markiert, solange die Beta läuft.
 name: Release
 
@@ -55,3 +56,42 @@ jobs:
           if [ "${{ steps.version.outputs.vorab }}" = "true" ]; then vorab="--prerelease"; fi
           gh release create "$GITHUB_REF_NAME" --title "Fuelstat ${{ steps.version.outputs.version }}" \
             --notes-file release-notes.md --verify-tag $vorab
+
+  image:
+    # API-Image für genau diese Version (#134): Der Server lädt es nur noch, statt selbst zu bauen
+    # (infra/ausrollen.sh bzw. docs/betrieb.md, „Aktualisieren“). Tags: ghcr.io/fuelstat/fuelstat-api:X.Y.Z
+    name: API-Image veröffentlichen
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Name und Version
+        id: meta
+        run: |
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/fuelstat-api" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: backend
+          target: prod
+          push: true
+          tags: ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.title=Fuelstat API
+            org.opencontainers.image.licenses=AGPL-3.0

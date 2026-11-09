@@ -34,15 +34,17 @@ API-Änderungen, die Apps anpassen müssen). Die geplanten Versionen sind die Mi
    git push origin vX.Y.Z
    ```
 
+   Der Tag baut außerdem das API-Image `ghcr.io/fuelstat/fuelstat-api:X.Y.Z` (#134).
 5. **Ausrollen** auf dem Server, genau in der Reihenfolge aus `docs/betrieb.md` („Aktualisieren“):
-   sichern → `git pull` → „Hinweise zum Update“ lesen und geänderte Migrationen/Beispieldateien
-   prüfen → **Migrationen einspielen, bevor die API neu startet** → `.env`/nginx nachziehen →
-   `cd infra && sudo docker compose up -d --build` und `sudo systemctl reload php8.4-fpm` →
-   `/api/v1/health` zeigt die neue Version.
+   sichern → `sudo infra/ausrollen.sh X.Y.Z`. Das Skript zeigt die „Hinweise zum Update“, neue
+   Migrationen und geänderte Beispieldateien, lädt das Image, stellt den Code aufs Tag um, spielt
+   **Migrationen ein, bevor die API neu startet**, fragt nach `.env`/nginx, startet die API, lädt
+   PHP-FPM neu und prüft `/api/v1/health`. Zurückrollen: dasselbe Skript mit der vorigen Version.
 
-   Ohne `--build` meldet die API weiter die alte Version, und unter „Neuigkeiten“ warnt die Seite
-   Admins, dass API und Frontend nicht zusammenpassen. Wer Ausroll-Schritte nennt (in PRs,
-   CHANGELOG oder Antworten), nennt sie in dieser Reihenfolge.
+   Von Hand (ohne Registry): sichern → Tag auschecken → Hinweise lesen → Migrationen → `.env`/nginx →
+   `cd infra && sudo docker compose up -d --build` und `sudo systemctl reload php8.4-fpm` →
+   `/api/v1/health`. Wer Ausroll-Schritte nennt (in PRs, CHANGELOG oder Antworten), nennt sie in
+   dieser Reihenfolge.
 
 **Erinnern:** Der Maintainer möchte an diesen Ablauf erinnert werden. Weise am Ende einer Aufgabe
 darauf hin, wenn
@@ -59,7 +61,8 @@ Tags setzt und pusht Claude nur, wenn der Maintainer ausdrücklich darum bittet.
 Vor dem PR prüfen und am Ende einer Aufgabe daran erinnern, was davon fehlt:
 
 - **CHANGELOG:** sichtbare Änderung unter `## [Unreleased]` eingetragen; bei allem, was beim
-  Ausrollen zu tun ist, ein Punkt unter „Hinweise zum Update“ mit dem genauen Befehl.
+  Ausrollen zu tun ist, ein Punkt unter „Hinweise zum Update“ mit dem genauen Befehl. Die CI
+  (`changelog.yml`) prüft den Eintrag; ohne sichtbare Änderung das Label `kein changelog` setzen.
 - **Neue oder geänderte API-Endpunkte:** `docs/api.md` (Übersichtstabelle und eigener Abschnitt)
   und `docs/openapi.1.0.0.yaml` angepasst (neue Felder auch in den Schemas, die `additionalProperties: false`
   haben); nur abwärtskompatibel unter `/api/v1`. Die CI prüft mit `tests/openapi_abgleich.py`, dass jede Route

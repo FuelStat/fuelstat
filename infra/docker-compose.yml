@@ -1,10 +1,13 @@
 services:
   api:
+    # Betrieb (#134): fertiges Image der veröffentlichten Version aus der GitHub Container Registry.
+    # FUELSTAT_VERSION steht in .env und wird von infra/ausrollen.sh gesetzt; Ausrollen: sudo infra/ausrollen.sh X.Y.Z
+    # Ohne FUELSTAT_VERSION (oder mit "docker compose up -d --build") wird wie bisher aus dem Code gebaut.
+    image: ${FUELSTAT_API_IMAGE:-ghcr.io/fuelstat/fuelstat-api}:${FUELSTAT_VERSION:-lokal}
     build:
       context: ../backend
       dockerfile: Dockerfile
-      # Betrieb: Code und Pakete stecken im Image (läuft als Benutzer "node").
-      # Nach "git pull" genügt "docker compose up -d --build". Lokale Entwicklung: docker-compose.dev.yml
+      # Code und Pakete stecken im Image (läuft als Benutzer "node"). Lokale Entwicklung: docker-compose.dev.yml
       target: prod
     # Der Port 3000 wird an 127.0.0.1 gebunden, damit er nur lokal (für Nginx)
     # und nicht direkt aus dem Internet erreichbar ist.

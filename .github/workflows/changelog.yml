@@ -1,0 +1,57 @@
+# Changelog-Eintrag vorhanden? (#134)
+# Jeder PR mit sichtbarer Änderung trägt sie in CHANGELOG.md unter "## [Unreleased]" ein (CLAUDE.md, docs/betrieb.md).
+# Überspringen mit dem Label "kein changelog" (z. B. reine CI- oder Tippfehler-PRs). Dependabot-PRs werden übersprungen.
+name: Changelog
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  changelog:
+    name: Eintrag unter [Unreleased]
+    runs-on: ubuntu-latest
+    if: >-
+      !contains(github.event.pull_request.labels.*.name, 'kein changelog') &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: CHANGELOG.md geändert
+        env:
+          BASIS: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # Nur hinzugefügte Zeilen zwischen "## [Unreleased]" und der nächsten Version zählen
+          python3 - <<'PY'
+          import os, re, subprocess, sys
+          basis = os.environ['BASIS']
+          diff = subprocess.run(['git', 'diff', '-U0', f'{basis}...HEAD', '--', 'CHANGELOG.md'],
+                                capture_output=True, text=True, check=True).stdout
+          if not diff.strip():
+              print('::error::CHANGELOG.md ist unverändert. Sichtbare Änderungen unter "## [Unreleased]" eintragen '
+                    '(oder das Label "kein changelog" setzen).')
+              sys.exit(1)
+          neu = open('CHANGELOG.md', encoding='utf-8').read().splitlines()
+          try:
+              start = neu.index('## [Unreleased]')
+          except ValueError:
+              start = None
+          ende = next((i for i in range(start + 1 if start is not None else 0, len(neu)) if neu[i].startswith('## [')), len(neu))
+          zeilen = set()
+          for kopf in re.finditer(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@', diff, re.M):
+              anfang, anzahl = int(kopf.group(1)), int(kopf.group(2) or 1)
+              zeilen.update(range(anfang - 1, anfang - 1 + anzahl))
+          # Release-PRs schließen [Unreleased] ab (neue Versionsüberschrift): das zählt ebenfalls
+          release = any(neu[i].startswith('## [') and neu[i] != '## [Unreleased]' for i in zeilen if i < len(neu))
+          if start is not None and any(start < i < ende and neu[i].strip() for i in zeilen) or release:
+              print('ok   Eintrag in CHANGELOG.md vorhanden')
+          else:
+              print('::error::CHANGELOG.md geändert, aber nicht unter "## [Unreleased]".')
+              sys.exit(1)
+          PY

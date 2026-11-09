@@ -293,13 +293,10 @@ Ausführlich mit allen Befehlen, der Liste der Migrationen, einmaligen Umstellun
 Kurzfassung – die vollständige Reihenfolge mit Sicherung und Prüfung steht in [docs/betrieb.md](docs/betrieb.md#aktualisieren). Wichtig: neue **Migrationen vor dem Neustart der API** einspielen.
 
 ```bash
-git pull
-# „Hinweise zum Update“ in CHANGELOG.md lesen, neue Migrationen aus backend/database/ einspielen,
-# neue Variablen aus infra/.env.example übernehmen
-cd infra
-sudo docker compose up -d --build
-sudo systemctl reload php8.4-fpm
+sudo infra/ausrollen.sh 0.11.0
 ```
+
+Das Skript zeigt die „Hinweise zum Update“ und neue Migrationen, lädt das fertige API-Image der Version, stellt den Code auf das Tag um, spielt die Migrationen ein, startet die API und prüft `/api/v1/health`. Ohne Registry (eigener Fork, Entwicklung) wie bisher `git pull`, Migrationen einspielen, `cd infra && sudo docker compose up -d --build`.
 
 ### Datenbank-Migrationen
 

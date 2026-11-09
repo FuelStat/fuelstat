@@ -851,3 +851,36 @@ test('Tankstellensuche: nur angemeldet, prüft Eingaben, ohne Key 503', async ()
     if (vorher === undefined) delete process.env.TANKERKOENIG_API_KEY; else process.env.TANKERKOENIG_API_KEY = vorher;
   }
 });
+
+test('Nutzungsbedingungen (#135): Zustimmung bei Registrierung, nachholen, neue Fassung', async () => {
+  const vorher = process.env.TERMS_VERSION;
+  process.env.TERMS_VERSION = '2026-11-09';
+  try {
+    assert.equal((await api('GET', '/health')).body.terms_version, '2026-11-09');
+    const email = `agb-${unique()}@example.test`;
+    const mit = await api('POST', '/auth/register', { body: { email, password: 'Passwort123', acceptTerms: true, termsVersion: '2026-11-09' } });
+    assert.equal(mit.status, 201);
+    let me = (await api('GET', '/whoami', { token: mit.body.token })).body;
+    assert.equal(me.terms.required, false);
+    assert.equal(me.terms.accepted_version, '2026-11-09');
+
+    // Ältere Clients ohne Zustimmung: Konto entsteht, Zustimmung wird nachgeholt
+    const ohne = await newUser();
+    me = (await api('GET', '/whoami', { token: ohne.token })).body;
+    assert.equal(me.terms.required, true);
+    assert.equal((await api('POST', '/auth/accept-terms', { token: ohne.token, body: { version: 'alt' } })).body.error, 'invalid_terms_version');
+    assert.equal((await api('POST', '/auth/accept-terms', { token: ohne.token, body: { version: '2026-11-09' } })).status, 200);
+    assert.equal((await api('GET', '/whoami', { token: ohne.token })).body.terms.required, false);
+
+    // Neue Fassung: alle müssen erneut zustimmen
+    process.env.TERMS_VERSION = '2027-01-01';
+    assert.equal((await api('GET', '/whoami', { token: ohne.token })).body.terms.required, true);
+  } finally {
+    if (vorher === undefined) delete process.env.TERMS_VERSION; else process.env.TERMS_VERSION = vorher;
+  }
+  // Ohne TERMS_VERSION ist keine Zustimmung nötig
+  const u = await newUser();
+  const me = (await api('GET', '/whoami', { token: u.token })).body;
+  assert.equal(me.terms.version, null);
+  assert.equal(me.terms.required, false);
+});

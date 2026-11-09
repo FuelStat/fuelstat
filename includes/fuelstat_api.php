@@ -96,6 +96,7 @@ class FuelstatApi
 
     /** E-Mail-Bestätigung (#135): Token aus der Mail einlösen (ohne Anmeldung) bzw. Mail erneut senden */
     public function postVerifyEmail(string $token): array { return $this->request('POST', '/auth/verify-email', ['token' => $token]); }
+    public function postAcceptTerms(string $version): array { return $this->request('POST', '/auth/accept-terms', ['version' => $version]); }
     public function postResendVerification(): array { return $this->request('POST', '/auth/resend-verification', []); }
 
     public function postMfaSetup(): array { return $this->request('POST', '/auth/mfa/setup', []); }
@@ -110,12 +111,15 @@ class FuelstatApi
         return $this->request('POST', '/media/upload', null, ['file' => new CURLFile($filePath, $mimeType, $fileName)]);
     }
 
-    public function postAuthRegister(string $email, string $password): array
+    /** Registrierung; $termsVersion = zugestimmte Fassung der Nutzungsbedingungen (#135) oder null */
+    public function postAuthRegister(string $email, string $password, ?string $termsVersion = null): array
     {
-        return $this->request('POST', '/auth/register', [
-            'email' => $email,
-            'password' => $password,
-        ]);
+        $daten = ['email' => $email, 'password' => $password];
+        if ($termsVersion !== null) {
+            $daten['acceptTerms'] = true;
+            $daten['termsVersion'] = $termsVersion;
+        }
+        return $this->request('POST', '/auth/register', $daten);
     }
 
     public function getVehicles(): array { return $this->request('GET', '/vehicles'); }

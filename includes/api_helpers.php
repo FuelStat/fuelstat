@@ -46,6 +46,38 @@ function istBetaPhase(): bool
 }
 
 /**
+ * Gültige Fassung der Nutzungsbedingungen (#135) aus /health (TERMS_VERSION der API), 10 Minuten zwischengespeichert;
+ * null = keine Zustimmung nötig.
+ */
+function nutzungsbedingungenVersion(): ?string
+{
+    $cache = $_SESSION['terms_version_cache'] ?? null;
+    if (is_array($cache) && $cache['bis'] > time()) {
+        return $cache['wert'];
+    }
+    try {
+        $wert = getApiClient(null)->getHealth()['terms_version'] ?? null;
+        $wert = is_string($wert) && $wert !== '' ? $wert : null;
+    } catch (Throwable $e) {
+        return null;
+    }
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        $_SESSION['terms_version_cache'] = ['wert' => $wert, 'bis' => time() + 600];
+    }
+    return $wert;
+}
+
+/** "Stand" der Nutzungsbedingungen: Version im Format JJJJ-MM-TT als Datum, sonst die Version selbst */
+function nutzungsbedingungenStand(?string $version): string
+{
+    if ($version !== null && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $version, $m)) {
+        $monate = [1 => 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+        return (int)$m[3] . '. ' . $monate[(int)$m[2]] . ' ' . $m[1];
+    }
+    return $version ?? 'Entwurf';
+}
+
+/**
  * Fillups und Entries einer Fahrzeug-ID holen und zu einer einheitlichen Liste
  * mit Keys (id, datum, kategorie, menge, kosten, tachostand, vollgetankt, …) zusammenführen.
  * @return array [ 'eintraege' => [ 'Y-m' => [ ... ] ], 'jahrListe' => [ Jahre ] ]

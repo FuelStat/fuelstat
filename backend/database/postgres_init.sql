@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS users (
   last_seen_at timestamptz NULL,           -- höchstens stündlich aktualisiert
   email_verified_at timestamptz NULL,      -- Adresse bestätigt (#135); NULL = noch nicht, Funktionen begrenzt
   pending_email text NULL,                 -- neue Adresse, bis sie bestätigt ist
+  terms_version text NULL,                 -- zugestimmte Fassung der Nutzungsbedingungen (TERMS_VERSION, #135)
+  terms_accepted_at timestamptz NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );

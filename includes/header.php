@@ -88,6 +88,14 @@ if (isApiAuthenticated()) {
     }
 }
 
+// Nutzungsbedingungen (#135): Wer der gültigen Fassung noch nicht zugestimmt hat, stimmt zuerst zu. Erreichbar bleiben
+// die Rechtstexte, das Profil (Konto löschen) und das Abmelden.
+if (is_array($currentUser) && !empty($currentUser['terms']['required'])
+    && !in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['nutzungsbedingungen.php', 'datenschutz.php', 'impressum.php', 'einstellungen.php', 'logout.php', 'email_bestaetigen.php'], true)) {
+    header('Location: ' . $baseUrl . 'pages/nutzungsbedingungen.php');
+    exit;
+}
+
 // --- Navigation: Seitentitel, Zurück-Link und Fahrzeug-Kontext für die mobile Ansicht ---
 $angemeldet = isApiAuthenticated();
 $userVehicles = $angemeldet ? getUserVehicles($_SESSION['user_id'] ?? null) : [];
@@ -125,6 +133,7 @@ $seitenInfo = [
     'neuigkeiten.php'          => ['Neuigkeiten', null],
     'email_bestaetigen.php'    => ['E-Mail bestätigen', null],
     'einladungen.php'          => ['Einladungen', null],
+    'nutzungsbedingungen.php'  => ['Nutzungsbedingungen', null],
     'fahrt.php'                => ['Fahrt', 'fahrzeug_detail.php?id=' . urlencode((string)($_GET['fahrzeug_id'] ?? '')) . '#fahrten'],
 ];
 [$seitenTitel, $zurueckUrl] = $angemeldet && isset($seitenInfo[$skript]) ? $seitenInfo[$skript] : [null, null];

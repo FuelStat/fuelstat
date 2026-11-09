@@ -1,5 +1,6 @@
 -- backend/database/postgres_017_email_verification.sql
--- E-Mail-Adresse bestätigen (#135): Zeitpunkt der Bestätigung, ausstehende neue Adresse und Bestätigungs-Tokens.
+-- E-Mail-Adresse bestätigen (#135): Zeitpunkt der Bestätigung, ausstehende neue Adresse und Bestätigungs-Tokens;
+-- Zustimmung zu den Nutzungsbedingungen (Version und Zeitpunkt; bestehende Konten stimmen beim nächsten Login zu).
 -- Verträglich mit dem alten API-Code (nur neue Spalten und eine neue Tabelle), kann also vor dem Neustart laufen.
 -- Mehrfach ausführbar: Bestehende Konten gelten als bestätigt – aber nur beim ersten Einspielen, damit ein zweiter
 -- Lauf keine inzwischen neu registrierten, noch unbestätigten Konten freischaltet.
@@ -17,6 +18,8 @@ BEGIN
 END $$;
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_email text NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version text NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at timestamptz NULL;
 
 CREATE TABLE IF NOT EXISTS email_verifications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

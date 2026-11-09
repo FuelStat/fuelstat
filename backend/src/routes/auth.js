@@ -4,7 +4,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { randomBytes } = require('crypto');
-const { isBetaPhase } = require('../config');
+const { isBetaPhase, termsVersion } = require('../config');
 const { pool } = require('../db');
 const { LOGIN_IP_MAX_FAILURES, LOGIN_MAX_FAILURES, MFA_MAX_FAILURES, clearFailures, isLockedOut, recordFailure, tooManyAttempts } = require('../lib/attempts');
 const { serverError } = require('../lib/http');
@@ -45,12 +45,16 @@ router.post('/auth/register', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 12);
     // E-Mail-Bestätigung (#135): ohne Mailserver bzw. mit EMAIL_VERIFICATION=false gilt das Konto sofort als bestätigt
     const bestaetigen = await emailVerification.required(pool);
+    // Nutzungsbedingungen (#135): Zustimmung zur gültigen Fassung speichern. Ältere Clients ohne acceptTerms legen das
+    // Konto trotzdem an; die Zustimmung wird dann nach der Anmeldung nachgeholt (whoami.terms.required).
+    const fassung = termsVersion();
+    const zugestimmt = fassung !== null && req.body?.acceptTerms === true && String(req.body?.termsVersion || '') === fassung;
     const r = await pool.query(
-      `INSERT INTO users (email, password_hash, beta_tester, email_verified_at)
-       VALUES ($1, $2, $3, CASE WHEN $4 THEN NULL ELSE now() END)
+      `INSERT INTO users (email, password_hash, beta_tester, email_verified_at, terms_version, terms_accepted_at)
+       VALUES ($1, $2, $3, CASE WHEN $4 THEN NULL ELSE now() END, $5, CASE WHEN $5::text IS NULL THEN NULL ELSE now() END)
        RETURNING id, email, username, mfa_enabled, profile_image_url, beta_tester, created_at, updated_at,
                  (email_verified_at IS NOT NULL) AS email_verified, pending_email`,
-      [email, passwordHash, isBetaPhase(), bestaetigen]
+      [email, passwordHash, isBetaPhase(), bestaetigen, zugestimmt ? fassung : null]
     );
     const user = r.rows[0];
     await recordLogin(user.id);
@@ -76,6 +80,23 @@ router.post('/auth/verify-email', async (req, res) => {
     if (r.error === 'email_already_exists') return res.status(409).json({ error: r.error });
     if (r.error) return res.status(400).json({ error: r.error });
     res.json({ verified: true, email: r.email });
+  } catch (e) {
+    serverError(res, e);
+  }
+});
+
+// Nutzungsbedingungen zustimmen (#135): nur der gültigen Fassung (Version aus /health bzw. whoami.terms.version)
+router.post('/auth/accept-terms', auth, async (req, res) => {
+  const fassung = termsVersion();
+  if (fassung === null) return res.status(409).json({ error: 'terms_not_configured' });
+  if (String(req.body?.version || '') !== fassung) return res.status(400).json({ error: 'invalid_terms_version', current: fassung });
+  try {
+    const r = await pool.query(
+      'UPDATE users SET terms_version = $2, terms_accepted_at = now() WHERE id = $1 RETURNING terms_version, terms_accepted_at',
+      [req.user.sub, fassung]
+    );
+    if (r.rowCount === 0) return res.status(401).json({ error: 'account_not_found' });
+    res.json({ accepted_version: r.rows[0].terms_version, accepted_at: r.rows[0].terms_accepted_at });
   } catch (e) {
     serverError(res, e);
   }

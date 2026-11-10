@@ -3,8 +3,10 @@
 Web-App (PHP-Frontend), API (Node.js/Express) und Datenbank (PostgreSQL) von Fuelstat.
 Die Planung (Milestones) von Web-App und API liegt in diesem Repository. Die iOS-App
 ([FuelStat/fuelstat-ios](https://github.com/FuelStat/fuelstat-ios)) hat eine eigene Versionsnummer
-und plant ihre Versionen mit eigenen Milestones dort. Was die App von der API braucht, bleibt hier
-(Milestone 2.0.0); das Sammel-Issue #116 verbindet beides, die App-Issues hängen dort als Sub-Issues.
+und plant ihre Versionen mit eigenen Milestones dort. Was die App von der API braucht, steht hier in
+den Milestones mit Datum, und zwar vor der App-Version, die es braucht (Zeitplan in #116). Das
+Sammel-Issue #116 (Milestone „iOS-App“) verbindet beides, die App-Issues hängen dort als Sub-Issues.
+Ändern sich Termine auf einer Seite, den Abgleich in #116 nachziehen.
 
 ## Release-Prozess
 

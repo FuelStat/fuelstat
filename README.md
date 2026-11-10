@@ -437,16 +437,17 @@ Weitere Informationen:
 
 ## Roadmap
 
-Die Planung von Web-App und API läuft über die [Milestones](https://github.com/FuelStat/fuelstat/milestones) in diesem Repository. Die iOS-App hat eine eigene Versionsnummer und einen eigenen [Meilensteinplan in FuelStat/fuelstat-ios](https://github.com/FuelStat/fuelstat-ios/milestones); was sie von der API braucht, ist hier im Milestone 2.0.0 eingeplant und über das Sammel-Issue [#116](https://github.com/FuelStat/fuelstat/issues/116) verbunden.
+Die Planung von Web-App und API läuft über die [Milestones](https://github.com/FuelStat/fuelstat/milestones) in diesem Repository. Die iOS-App hat eine eigene Versionsnummer und einen eigenen [Meilensteinplan in FuelStat/fuelstat-ios](https://github.com/FuelStat/fuelstat-ios/milestones); was sie von der API braucht, ist hier in den Milestones mit Datum vor der jeweiligen App-Version eingeplant und über das Sammel-Issue [#116](https://github.com/FuelStat/fuelstat/issues/116) verbunden (dort auch der gemeinsame Zeitplan).
 
-| Version | Schwerpunkt |
-|---|---|
-| [0.10.0 – Foundation](https://github.com/FuelStat/fuelstat/milestone/1) | Grundlage für native Apps und Tarife: Tarif nur serverseitig, modulare API, Statistik in der API, Release-Prozess |
-| [0.11.0 – Sharing and Logbook](https://github.com/FuelStat/fuelstat/milestone/2) | Fahrzeuge mit anderen Konten teilen, neues Fahrtenbuch mit Zweck, Auswertung und Export |
-| [0.12.0 – Maintenance, Costs and Charging](https://github.com/FuelStat/fuelstat/milestone/3) | Service-Historie je Bauteil, Gesamtkosten und Fahrzeug-Lebenszyklus, Ladevorgänge, Web-Push |
-| [1.0.0 – End of Beta](https://github.com/FuelStat/fuelstat/milestone/4) | Bereit für zahlende Nutzer: Rechtliches und Zahlung, einheitliches Design, Fahrzeugvergleich, Budget und Kostenprognose |
-| [2.0.0 – native iOS-Version](https://github.com/FuelStat/fuelstat/milestone/6) | API-Voraussetzungen für die iOS-App 1.0 (Gerätesitzungen, API-Vertrag, Offline-Sync, APNs); ab hier ist die API ein festes Versprechen an App-Clients |
-| [Später](https://github.com/FuelStat/fuelstat/milestone/5) | Ideen ohne Termin, z. B. Dokumente je Fahrzeug, Flottenverwaltung, Passkeys, Kilometerstand automatisch |
+| Version | Geplant | Schwerpunkt |
+|---|---|---|
+| [0.10.0 – Foundation](https://github.com/FuelStat/fuelstat/milestone/1) | erschienen | Grundlage für native Apps und Tarife: Tarif nur serverseitig, modulare API, Statistik in der API, Release-Prozess |
+| [0.11.0 – Sharing and Logbook](https://github.com/FuelStat/fuelstat/milestone/2) | erschienen | Fahrzeuge mit anderen Konten teilen, neues Fahrtenbuch mit Zweck, Auswertung und Export |
+| [0.12.0 – Maintenance, Costs and Charging](https://github.com/FuelStat/fuelstat/milestone/3) | 20.12.2026 | Service-Historie je Bauteil, Gesamtkosten und Fahrzeug-Lebenszyklus, Ladevorgänge, mehrere Kraftstoffe je Fahrzeug, Web-Push |
+| [0.13.0](https://github.com/FuelStat/fuelstat/milestone/7) | 10.01.2027 | Gerätesitzungen und API-Vertrag für die iOS-App, Fahrten-Ansicht wie die Einträge |
+| [1.0.0 – End of Beta](https://github.com/FuelStat/fuelstat/milestone/4) | 07.02.2027 | Bereit für zahlende Nutzer: Rechtliches und Zahlung, einheitliches Design, Fahrzeugvergleich, Budget und Kostenprognose; Offline-Sync und Push über APNs für die iOS-App |
+| [iOS-App](https://github.com/FuelStat/fuelstat/milestone/6) | – | Sammel-Issue #116 der nativen iOS-App (eigene Versionen in FuelStat/fuelstat-ios) |
+| [Später](https://github.com/FuelStat/fuelstat/milestone/5) | – | Ideen ohne Termin, z. B. Dokumente je Fahrzeug, Flottenverwaltung, Passkeys, Kilometerstand automatisch |
 
 Leitlinie: erst Zuverlässigkeit und Datensicherheit, dann müheloses Erfassen im Alltag, dann große neue Funktionen.
 

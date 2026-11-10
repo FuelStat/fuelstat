@@ -1,8 +1,10 @@
 # Fuelstat – Hinweise für Claude und andere Agents
 
 Web-App (PHP-Frontend), API (Node.js/Express) und Datenbank (PostgreSQL) von Fuelstat.
-Die zentrale Planung (Milestones) liegt in diesem Repository, auch für die iOS-App
-([FuelStat/fuelstat-ios](https://github.com/FuelStat/fuelstat-ios)).
+Die Planung (Milestones) von Web-App und API liegt in diesem Repository. Die iOS-App
+([FuelStat/fuelstat-ios](https://github.com/FuelStat/fuelstat-ios)) hat eine eigene Versionsnummer
+und plant ihre Versionen mit eigenen Milestones dort. Was die App von der API braucht, bleibt hier
+(Milestone 2.0.0); das Sammel-Issue #116 verbindet beides, die App-Issues hängen dort als Sub-Issues.
 
 ## Release-Prozess
 

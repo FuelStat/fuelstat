@@ -56,7 +56,15 @@ Live läuft immer genau eine **veröffentlichte Version** (Tag `vX.Y.Z`) mit dem
 
 **Zurückrollen** auf die vorige Version: `sudo infra/ausrollen.sh 0.10.0`. Migrationen bleiben eingespielt; sie sind mit dem alten API-Code verträglich.
 
-Der Code steht danach auf dem Tag (detached HEAD). Ein `git pull` auf `main` ist nicht mehr nötig und würde unveröffentlichten Stand holen; zurück auf `main` mit `git checkout main`.
+Der Code steht danach auf dem Tag (detached HEAD). Ein bloßes `git pull` geht dort nicht und würde auch nur das PHP-Frontend aktualisieren, nicht API und Datenbank.
+
+**Zwischenstand ausrollen** (neuester `main`, noch nicht veröffentlicht – etwa um Ergebnisse vor dem nächsten Release auf dem eigenen Server zu sehen):
+
+```bash
+sudo infra/ausrollen.sh main
+```
+
+Gleiche Reihenfolge wie oben: zeigt die neuen Commits, die Hinweise unter `[Unreleased]`, neue Migrationen und geänderte Beispiel-Konfiguration, stellt den Code auf `main`, **baut** das API-Image aus dem Code (`FUELSTAT_VERSION=main`), spielt die Migrationen vor dem Neustart ein, startet die API und lädt PHP-FPM neu. Nachgefragt wird nur, wenn Migrationen oder Konfigurationsänderungen anstehen; ist `main` schon ausgerollt, tut das Skript nichts. Zurück auf ein Release: `sudo infra/ausrollen.sh X.Y.Z`. Ein Zwischenstand ist nicht durch ein Release geprüft – Datensicherung vorher wie oben.
 
 **Das Image ist öffentlich?** Beim ersten Release legt GitHub das Paket `fuelstat-api` an. Unter GitHub → Organisation → Packages → `fuelstat-api` → Package settings die Sichtbarkeit auf „Public“ stellen. Bleibt es privat, braucht der Server einmalig `sudo docker login ghcr.io` mit einem Token (Recht `read:packages`).
 

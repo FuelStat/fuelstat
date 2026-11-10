@@ -72,7 +72,12 @@ alt="$(tr -d '[:space:]' < "$projekt/VERSION")"
 ausgerollt="$(grep -E '^FUELSTAT_COMMIT=' "$infra/.env" | cut -d= -f2 || true)"
 if [ -n "$ausgerollt" ] && ! git_ cat-file -e "$ausgerollt^{commit}" 2> /dev/null; then ausgerollt=""; fi
 if [ "$zwischenstand" = 1 ]; then
-  stand="${ausgerollt:-HEAD}"
+  # Ohne FUELSTAT_COMMIT (erster Zwischenstand): ab dem Release, das laut VERSION läuft
+  stand="$ausgerollt"
+  if [ -z "$stand" ]; then
+    stand="HEAD"
+    if git_ rev-parse --quiet --verify "refs/tags/v$alt" > /dev/null; then stand="v$alt"; fi
+  fi
   echo "Bisher: $alt ($(git_ log -1 --format='%h %cs' "$stand"))  →  neu: main ($(git_ log -1 --format='%h %cs, %s' "$ziel"))"
   if [ "$(git_ rev-parse "$stand")" = "$(git_ rev-parse "$ziel")" ] && [ "$(git_ rev-parse HEAD)" = "$(git_ rev-parse "$ziel")" ]; then
     echo "Schon auf dem neuesten Stand von main – nichts zu tun."

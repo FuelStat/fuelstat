@@ -70,6 +70,14 @@ Verbrennern **und** E-Autos. Reines Grün bleibt frei für Status und Strom.
 Eine Markenfarbe, ein dunkler Anker, sonst neutral. Jede Farbe ist ein **Token mit Hell- und Dunkelwert**;
 in Views, Templates und Komponenten stehen nie Hex-Werte, sondern Token-Namen.
 
+**Token-, Rollen- und Bausteinnamen** (`EnergyPetrol`, `TextSecondary`, `sectionTitle`, `StatTile` …) sind
+Namen für den Code. Sie erscheinen **nie als Text in der Oberfläche** – auch nicht in Mockups; dort
+höchstens als Anmerkung außerhalb des Bildschirms.
+
+**Flächen hinter Text** sind nur `Brand` (mit `OnBrand`), `Card`, `CardTint` und `Background`. Status-,
+Energie-, Zweck- und Kategoriefarben färben Symbole, Punkte, Balken, Linien und Symbolkreise (getönt),
+aber nie eine Fläche, auf der Text steht – also keine gelbe Kachel „Tanken“ mit weißer Schrift.
+
 ### 3.1 Grundfarben
 
 | Token | Hell | Dunkel | Verwendung |
@@ -109,10 +117,25 @@ Aus der Tacho-Skala des Icons. Immer zusammen mit Symbol oder Text, nie nur Farb
 
 `StatusOverdue` ist zugleich die Fehlerfarbe (Formularfehler, destruktive Aktionen).
 
+**Den Status von Terminen bestimmt die API**, nicht die Oberfläche: `GET /vehicles/:vehicleId/reminders`
+liefert je Termin `status`. Die Clients übersetzen nur in Farbe, Symbol und Text:
+
+| `status` der API | Token | Badge-Text (Beispiel) | Bedeutung |
+|---|---|---|---|
+| `ok` | `StatusOK` | „in 4 Monaten“ | Fälligkeit liegt außerhalb der Vorlaufzeit |
+| `bald` | `StatusSoon` | „in 12 Tagen“, „in 800 km“ | innerhalb der Vorlaufzeit (Standard 30 Tage) oder unter 1.000 km |
+| `ueberfaellig` | `StatusOverdue` | „seit 5 Tagen überfällig“ | Datum oder Kilometerstand überschritten |
+| `unbekannt` | `TextSecondary` (neutral) | „Datum fehlt“ | Keine Grundlage für eine Fälligkeit |
+
+Ein Termin in zwölf Tagen ist also gelb („bald“), nicht rot. Rot heißt ausschließlich „überschritten“
+oder Fehler.
+
 ### 3.3 Energie (je Kraftstoffart)
 
 Fest je Kraftstoffart, für Symbole, Fahrzeug-Platzhalter und Diagrammreihen. Alle erreichen mindestens 3:1
-auf `Card` in beiden Modi (Symbole und große Schrift).
+auf `Card` in beiden Modi (Symbole und große Schrift). Nicht als Fläche hinter Text (siehe oben): Die
+Typauswahl beim Erfassen sind Chips in `CardTint` mit Symbol in der Energiefarbe; der gewählte Chip ist
+`Brand`/`OnBrand`.
 
 | Token | Hell | Dunkel | Kraftstoffarten |
 |---|---|---|---|
@@ -143,7 +166,8 @@ Kategorien, ihre Symbole und Farben kommen aus der API (`GET /api/v1/categories`
 Clients **übernehmen diese Farben unverändert** und legen keine eigenen fest. Weil Kategoriefarben Daten sind
 und nicht für beide Modi geprüft, gilt:
 
-- Kategoriefarbe nur als Fläche oder Punkt (Symbolkreis, Balken, Tortenstück), nie als Textfarbe.
+- Kategoriefarbe nur als Punkt oder Grafik (Symbolkreis, Balken, Tortenstück), nie als Textfarbe und
+  nie als Fläche hinter Text.
 - Daneben steht immer der Name der Kategorie.
 - Symbol im Kreis: Kreis in der Kategoriefarbe mit 15 % Deckkraft, Symbol in `Text`.
 
@@ -296,8 +320,38 @@ Gleiche Bereiche und Begriffe auf allen Plattformen:
 
 - **Fahrzeugwechsler** oben auf Start, Einträge und Statistik: Name mit Pfeil („VW Golf ▾“), öffnet eine
   Liste mit Foto, Name, Kennzeichen; die Wahl bleibt gespeichert.
-- **„+“** ist ein gefüllter Kreis in `Brand`, Bezeichnung für Screenreader „Eintrag erfassen“.
+- **„+“** ist ein gefüllter Kreis in `Brand`, Bezeichnung für Screenreader „Eintrag erfassen“. Es gibt
+  **genau ein „+“ je Bildschirm**: auf iOS und in der PWA (mobil) in der Mitte der Tab-Leiste, auf Android
+  als FAB über der Navigationsleiste – nie beides.
 - Wie die Navigation dargestellt wird, entscheidet die Plattform (siehe [Leitplanken](#9-plattform-leitplanken)).
+
+### 7.1 Start – Beispielinhalt
+
+Damit Entwürfe, Mockups (auch KI-generierte) und Vorschauen den richtigen Inhalt zeigen: so sieht Start mit
+echten Daten aus, von oben nach unten. Alle Texte deutsch, Zahlen im deutschen Format (Dezimalkomma,
+Tausenderpunkt, `€` nachgestellt mit Leerzeichen, Datum `TT.MM.JJJJ`).
+
+1. **Kopf:** links Fahrzeugwechsler „VW Golf ▾“, rechts das Profilbild (kleiner Kreis).
+2. **Hero:** Fahrzeugfoto, „VW Golf“, „B-FS 1234“, „84.312 km“, Badge „Benzin“.
+3. **Drei Kennzahl-Kacheln in einer Reihe:**
+   „6,4 l/100 km“ – Ø Verbrauch · „0,14 €/km“ – Kosten je km · „182,40 €“ – Diesen Monat.
+   Termine gehören nicht in die Kacheln.
+4. **Nächste Termine** (höchstens drei, „Alle anzeigen“):
+   - TÜV – 23.11.2026 – Badge „in 12 Tagen“ (`StatusSoon`)
+   - Inspektion – 06.11.2026 – Badge „seit 5 Tagen überfällig“ (`StatusOverdue`)
+   - Versicherung – 01.03.2027 – Badge „in 4 Monaten“ (`StatusOK`)
+5. **In der Nähe:** kleine Karte, „Aral Hauptstraße“, „Super E10 1,689 € · 350 m“.
+6. **Letzte Einträge** (drei bis fünf, „Alle anzeigen“):
+   - Tanken · Aral Hauptstraße · 08.11.2026 · 84.312 km · 62,30 €
+   - Werkstatt · Ölwechsel · 02.11.2026 · 149,00 €
+   - Fahrt · dienstlich · 31.10.2026 · 124 km
+
+Bei einem E-Auto heißt die erste Kachel „16,8 kWh/100 km“ und der Eintrag „Laden · … · 18,40 €“.
+
+**Häufige Fehler in Entwürfen:** englische Texte oder Zahlenformate (`6.4`, `$10.00`), Token-Namen als
+Beschriftung, rote Badges für „bald fällig“, farbige Flächen mit weißer Schrift, Ziffernkästchen
+(`CodeField`) für Kilometerstand oder Beträge, zwei „+“ auf einem Bildschirm, Farbe ohne Text (z. B.
+farbige Pillen in Tabellen), sehr kleiner grauer Text.
 
 ## 8. Gemeinsame Bausteine
 
@@ -314,7 +368,8 @@ Jede Plattform hat diese Bausteine genau einmal und verwendet sie überall. Name
 | `VehicleSwitcher` | Kopf-Knopf und Auswahlliste |
 | `EntryRow` | Symbol im getönten Kreis (36), Titel, Datum und km, Betrag rechtsbündig |
 | `PrimaryButton` | Volle Breite, `Brand`, Ladezustand, Mindesthöhe 44 pt / 48 dp / 44 px |
-| `CodeField` | Sechs Ziffernfelder für 2FA, Einfügen und Autofill |
+| `NumberField` | Großes Zahlenfeld mit sichtbarer Beschriftung und Einheit („Kilometerstand“, „km“), Zahlentastatur mit Komma; für Kilometerstand, Menge, Preis, Betrag |
+| `CodeField` | Sechs Ziffernfelder **nur für den 2FA-Code**, mit Einfügen und Autofill |
 | `EmptyState` | Symbol, ein Satz, eine Aktion |
 
 Fahrzeug ohne Foto: getönter Platzhalter mit Auto-Symbol in der Energiefarbe des Fahrzeugs.
@@ -328,7 +383,7 @@ Bereiche, Reihenfolge der Inhalte auf Start, Statusfarben mit Symbol, „+“ in
 
 | Thema | iOS | Android | Web/PWA |
 |---|---|---|---|
-| Navigation | Tab-Leiste unten, „+“ in der Mitte | Navigation Bar + FAB „+“; Navigation Rail auf großen Bildschirmen | Unter 992 px Tab-Leiste unten wie in einer App; ab 992 px Kopfleiste mit Menü |
+| Navigation | Tab-Leiste unten, „+“ in der Mitte, kein FAB | Navigation Bar mit genau vier Zielen (ohne „+“) und FAB „+“; Navigation Rail auf großen Bildschirmen | Unter 992 px Tab-Leiste unten mit „+“ in der Mitte; ab 992 px Kopfleiste mit Menü und Button „Eintrag erfassen“ (Ziel für #145) |
 | Systemflächen | Liquid Glass/Materials der Systemleisten (iOS 26) nicht überdecken | Edge-to-edge, Systemleisten transparent | Safe Areas (`env(safe-area-inset-*)`), `theme-color` = `Background` |
 | Symbole | SF Symbols | Material Symbols (Rounded) | Font Awesome (vorhanden) |
 | Blätter/Dialoge | Sheets mit Detents | Modal Bottom Sheet, Vollbild-Dialog für Formulare | Offcanvas von unten (mobil), Modal (Desktop) |
@@ -396,6 +451,7 @@ Stand November 2026, Quellen: `docs/design.md` in fuelstat-ios und fuelstat-andr
 | 9 | Textfarben nur implizit (Systemfarben, Bootstrap `#212529`) | `Text`, `TextSecondary`, `Separator` als Tokens; iOS nutzt weiter Systemfarben. |
 | 10 | Schrift: iOS-Stile ohne Entsprechung im Web, Android nur „Material-Skala“ | Rollen in Abschnitt 4 mit Zuordnung je Plattform. |
 | 11 | `theme-color` im Web hell `#F8F9FA` / dunkel `#2B3035` | Wird `Background` (`#F2F6F8` / `#0E1624`) mit der Neugestaltung. |
+| 12 | Bezeichnung des „+“: Web „Neuer Eintrag“, iOS „Eintrag erfassen“ | „Eintrag erfassen“ überall; Web stellt mit #145 um. |
 
 **Ausblick:** Sobald die Tokens stabil sind, kann eine maschinenlesbare Token-Datei (Design-Tokens-Format)
 CSS, iOS-Asset-Katalog und Compose-Theme erzeugen (in #153 bewusst nicht enthalten).

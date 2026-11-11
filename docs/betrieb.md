@@ -100,48 +100,17 @@ Wer einen eigenen Stand betreibt (Fork, Entwicklung) oder kein Image laden kann,
 
 Hinweis: Das PHP-Frontend liegt im Repository und nutzt den neuen Code schon ab Schritt 2. Zwischen Schritt 2 und 6 also zügig arbeiten oder bei größeren Updates kurz in Kauf nehmen, dass Frontend und API nicht zusammenpassen.
 
-**Einmalig beim Umstieg auf den `prod`-Container (November 2026):** Bis dahin lief die API im Entwicklungs-Container mit eingebundenem Code und eigenem `node_modules`-Volume. Dadurch kamen Paket-Updates nicht an. Umstellen:
-
-```bash
-cd infra
-sudo chown -R 1000:1000 ../uploads          # Uploads gehören jetzt dem Benutzer "node"
-sudo docker compose up -d --build api
-sudo docker volume rm infra_api_node_modules # altes Paket-Volume wird nicht mehr gebraucht
-```
-
-**Einmalig nach dem Update auf geschützte Bilder (#103):** vorhandene Bilder verkleinern, als WebP ohne Metadaten speichern und `/uploads/` in nginx sperren (`infra/nginx-sicherheit.conf.example`):
-
-```bash
-cd infra
-sudo docker compose exec api node scripts/bilder-optimieren.js --probe   # zeigt nur an
-sudo docker compose exec api node scripts/bilder-optimieren.js           # umstellen
-```
-
 ## Datenbank-Migrationen
 
-Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält bereits alles bis einschließlich 021. Bestehende Installationen spielen alle noch fehlenden Migrationen der Reihe nach ein:
+Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält bereits alles bis einschließlich 021. Bestehende Installationen spielen alle noch fehlenden Migrationen der Reihe nach ein.
+
+Migrationen werden entfernt, sobald alle bekannten Installationen sie eingespielt haben (während der Beta: tanken.1emc.de). Zuletzt entfernt: 002 bis 020, enthalten in `postgres_init.sql`. Eine Installation vor Version 0.11.0 lässt sich deshalb nicht mehr direkt aktualisieren; sie spielt zuerst Version 0.11.0 ein (`sudo infra/ausrollen.sh 0.11.0`, die Migrationen stehen im Tag).
 
 | Datei | Inhalt |
 |---|---|
-| `postgres_002` bis `postgres_005` | Ausgaben, Einheiten, Token-Sperrlisten, Fahrzeug- und Profildetails, Bilder (nur für Installationen vor Dezember 2025) |
-| `postgres_006_fix_fillup_units.sql` | Einheit bestehender Tank- und Ladevorgänge aus der Antriebsart korrigieren |
-| `postgres_007_mail_settings.sql` | SMTP-Einstellungen je Benutzer und Versandprotokoll |
-| `postgres_008_beta_feedback.sql` | Beta-Tester-Kennzeichen und Feedback |
-| `postgres_009_user_activity.sql` | Letzter Login und zuletzt aktiv |
-| `postgres_010_plugin_hybrid.sql` | Antriebsart Plug-in-Hybrid (`phev`) und Akkugröße |
-| `postgres_011_plans.sql` | Tarif je Konto (`plan`, `plan_until`), siehe `PLAN_LIMITS_ENABLED` |
-| `postgres_012_missing_odometer.sql` | Tank-/Ladevorgänge ohne Tachostand, Markierung „geschätzt“, Erinnerung „Kilometerstand nachtragen“ |
-| `postgres_013_vehicle_details.sql` | Fahrzeugangaben: Kennzeichen, FIN, Erstzulassung, Kauf/Verkauf, Intervalle, Versicherung, Steuer, Reifen |
-| `postgres_014_expense_categories.sql` | Eigene Kategorien für Ausgaben (Plus) |
-| `postgres_015_plan_changes.sql` | Protokoll der Tarifänderungen (#102) |
-| `postgres_016_mfa_last_counter.sql` | Zuletzt akzeptierter 2FA-Code je Konto, damit jeder Code nur einmal gilt |
-| `postgres_017_email_verification.sql` | E-Mail-Bestätigung (bestehende Konten gelten als bestätigt), ausstehende neue Adresse, Zustimmung zu den Nutzungsbedingungen (#135) |
-| `postgres_018_vehicle_sharing.sql` | Fahrzeuge teilen: Mitglieder und Einladungen (#53) |
-| `postgres_019_trips.sql` | Fahrtenbuch; übernimmt bisherige „Fahrt“-Einträge (#52) |
-| `postgres_020_password_resets.sql` | Passwort vergessen: Links zum Zurücksetzen (#141) |
 | `postgres_021_fuels.sql` | Mehrere Kraftstoffe je Fahrzeug: Sorten am Fahrzeug und je Tank-/Ladevorgang, Bestandsdaten aus Antriebsart und Einheit (#140) |
 
-Alle Migrationen laufen in einer Transaktion und lassen sich gefahrlos ein zweites Mal ausführen. Mit `infra/ausrollen.sh` passiert das automatisch; von Hand wie unter [Aktualisieren](#von-hand-oder-ohne-registry), Schritt 4, z. B. `< ../backend/database/postgres_014_expense_categories.sql`.
+Alle Migrationen laufen in einer Transaktion und lassen sich gefahrlos ein zweites Mal ausführen. Mit `infra/ausrollen.sh` passiert das automatisch; von Hand wie unter [Aktualisieren](#von-hand-oder-ohne-registry), Schritt 4, z. B. `< ../backend/database/postgres_021_fuels.sql`.
 
 ## Tarife verwalten
 

@@ -146,6 +146,9 @@ test('Tankvorgang: Sorte, Einheit aus der Sorte, Standard ohne Sorte', async () 
   let f = await fillup(token, v.id, { amount: 40, totalCostEur: 40 });
   assert.equal(f.fuel, 'lpg');
   assert.equal(f.unit, 'l');
+  // Alte Feldnamen gibt es nicht mehr (Beta-Aufräumen)
+  assert.equal(f.liters, undefined);
+  assert.equal(f.price_per_liter, undefined);
   // Mit Sorte
   f = await fillup(token, v.id, { amount: 10, totalCostEur: 18, fuel: 'super_e5' });
   assert.equal(f.fuel, 'super_e5');

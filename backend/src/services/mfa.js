@@ -1,7 +1,6 @@
 // Zwei-Faktor-Anmeldung: TOTP (RFC 6238), Base32, verschlüsselte Secrets.
 // Aus backend/src/server.js ausgelagert (#110), Inhalt unverändert.
 const { createHmac, timingSafeEqual } = require('crypto');
-const { pool } = require('../db');
 const { decryptSecret, encryptSecret } = require('./mail');
 
 // --- TOTP (RFC 6238) für 2FA: 30 s, 6 Stellen, SHA1 – kompatibel mit gängigen Authenticator-Apps ---
@@ -50,14 +49,12 @@ function totpCode(secretBase32, counter) {
 
 // Erlaubt ±1 Zeitfenster (je 30 s) für leicht abweichende Uhren
 // 2FA-Secrets liegen verschlüsselt in der Datenbank (AES-256-GCM, eigener Schlüssel 'mfa').
-// Ältere, noch unverschlüsselte Werte werden beim Start umgewandelt (encryptLegacyMfaSecrets).
 function storeMfaSecret(secretBase32) {
   return encryptSecret(secretBase32, 'mfa');
 }
 
 function readMfaSecret(stored) {
-  if (!stored) return null;
-  if (!String(stored).startsWith('v1:')) return String(stored);
+  if (!stored || !String(stored).startsWith('v1:')) return null;
   try {
     return decryptSecret(stored, 'mfa');
   } catch (e) {
@@ -65,14 +62,6 @@ function readMfaSecret(stored) {
     console.error('[mfa] Secret nicht entschlüsselbar:', e.message);
     return null;
   }
-}
-
-async function encryptLegacyMfaSecrets() {
-  const r = await pool.query("SELECT id, mfa_secret FROM users WHERE mfa_secret IS NOT NULL AND mfa_secret NOT LIKE 'v1:%'");
-  for (const row of r.rows) {
-    await pool.query('UPDATE users SET mfa_secret = $1 WHERE id = $2 AND mfa_secret = $3', [storeMfaSecret(row.mfa_secret), row.id, row.mfa_secret]);
-  }
-  if (r.rowCount) console.log(`[mfa] ${r.rowCount} 2FA-Secret(s) verschlüsselt`);
 }
 
 // Zeitzähler des passenden Codes (aktuelles Fenster ±1, je 30 s) oder null
@@ -107,4 +96,4 @@ async function consumeTotp(db, userId, secretBase32, code) {
 // Kurzlebiges Token für den 2FA-Schritt (eigener Schlüssel, kann nicht als Zugangstoken benutzt werden)
 const MFA_TOKEN_SECRET = `${process.env.JWT_SECRET}:mfa-step`;
 
-module.exports = { consumeTotp, matchTotpCounter, BASE32_ALPHABET, MFA_TOKEN_SECRET, base32Decode, base32Encode, encryptLegacyMfaSecrets, readMfaSecret, storeMfaSecret, totpCode, verifyTotp };
+module.exports = { consumeTotp, matchTotpCounter, BASE32_ALPHABET, MFA_TOKEN_SECRET, base32Decode, base32Encode, readMfaSecret, storeMfaSecret, totpCode, verifyTotp };

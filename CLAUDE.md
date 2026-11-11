@@ -69,7 +69,7 @@ Vor dem PR prüfen und am Ende einer Aufgabe daran erinnern, was davon fehlt:
   (`changelog.yml`) prüft den Eintrag; ohne sichtbare Änderung das Label `kein changelog` setzen.
 - **Neue oder geänderte API-Endpunkte:** `docs/api.md` (Übersichtstabelle und eigener Abschnitt)
   und `docs/openapi.1.0.0.yaml` angepasst (neue Felder auch in den Schemas, die `additionalProperties: false`
-  haben); nur abwärtskompatibel unter `/api/v1`. Die CI prüft mit `tests/openapi_abgleich.py`, dass jede Route
+  haben); unter `/api/v1` abwärtskompatibel (Ausnahme während der Beta siehe Regeln). Die CI prüft mit `tests/openapi_abgleich.py`, dass jede Route
   in der OpenAPI steht.
 - **Datenbankschema:** neue Migration `backend/database/postgres_0NN_name.sql` (in einer
   Transaktion, mehrfach ausführbar: `IF NOT EXISTS` u. Ä.), dieselbe Änderung in
@@ -102,8 +102,13 @@ Vor dem PR prüfen und am Ende einer Aufgabe daran erinnern, was davon fehlt:
   stellen nur dar.
 - **Externe Dienste nur über die API** (Tankerkönig, Open Charge Map, später weitere): kein
   direkter Aufruf aus PHP oder den Apps; API-Keys nur in der Server-Konfiguration (#123).
-- Änderungen an der API nur abwärtskompatibel unter `/api/v1`; Brüche nur über `/api/v2`.
-  Doku in `docs/api.md` und `docs/openapi.1.0.0.yaml` mit anpassen.
+- Änderungen an der API abwärtskompatibel unter `/api/v1`; Brüche nur über `/api/v2`.
+  **Während der Beta (bis 1.0.0)** dürfen veraltete Felder und Endpunkte entfallen, wenn Web-App und
+  iOS-App sie nicht (mehr) nutzen oder im selben Zug angepasst werden – Clients außer diesen beiden gibt es
+  nicht. Ab 1.0.0 gilt die Regel ohne Ausnahme (#118). Doku in `docs/api.md` und `docs/openapi.1.0.0.yaml`
+  mit anpassen.
+- Alte Migrationen und Umstellungen für ältere Installationen dürfen entfallen, sobald alle bekannten
+  Installationen sie hinter sich haben (während der Beta nur tanken.1emc.de); Stand in `docs/betrieb.md`.
 - Tarifregeln setzt ausschließlich die API durch (#102).
 - Keine Secrets committen (`.env`, Keys, Tokens).
 - Oberfläche, Doku und Commit-Texte auf Deutsch; PRs folgen `.github/pull_request_template.md`.

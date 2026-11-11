@@ -392,14 +392,8 @@ router.post('/auth/tokens/revoke', auth, async (req, res) => {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-
-    if (!payload.jti) {
-      return res.status(400).json({
-        error: 'cannot_revoke_legacy_token',
-        message:
-          'Dieses Token besitzt keine jti und kann daher serverseitig nicht widerrufen werden. Bitte den Benutzer neu einloggen lassen.'
-      });
-    }
+    // Alle Tokens haben eine jti (middleware/auth.js); ohne ist es kein Token dieser API
+    if (!payload.jti) return res.status(400).json({ error: 'invalid_token' });
 
     const jti = String(payload.jti);
     const userId = String(payload.sub);

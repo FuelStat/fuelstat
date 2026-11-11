@@ -75,7 +75,7 @@ try {
     $vehicle = $api->getVehicle($fahrzeug_id);
     $einheiten = einheitenFuerKraftstoff($vehicle['fuel_type'] ?? null);
     $einheit = in_array($_POST['einheit'] ?? '', $einheiten, true) ? $_POST['einheit'] : $einheiten[0];
-    // Sorte (#140): bestimmt die Einheit; ohne Sorte (älterer Server) wie bisher die Einheit
+    // Sorte (#140): bestimmt die Einheit; ohne Sorte (Katalog nicht erreichbar) wie bisher die Einheit
     $sorte = preg_match('/^[a-z0-9_]{1,30}$/', (string)($_POST['sorte'] ?? '')) ? $_POST['sorte'] : null;
     if ($sorte !== null) {
         $einheit = sortenKatalog()['sorten'][$sorte]['unit'] ?? $einheit;

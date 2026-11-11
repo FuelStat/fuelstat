@@ -3,14 +3,6 @@
 require_once __DIR__ . '/kategorien.php';
 
 // --------------------------------------------------
-// 0. System-Checks
-// --------------------------------------------------
-function isGdExtensionAvailable(): bool
-{
-    return extension_loaded('gd') && function_exists('imagecreatefromjpeg');
-}
-
-// --------------------------------------------------
 // 1. Icons
 // --------------------------------------------------
 function getCategoryIcon(string $kategorie, ?string $fuelType = null, ?string $einheit = null): string

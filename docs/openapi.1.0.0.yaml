@@ -3383,7 +3383,8 @@ components:
         liters:
           type: number
           minimum: 0
-          description: Alias für amount (Backward-Kompatibilität)
+          description: Alias für amount (Backward-Kompatibilität) – veraltet, nur für alte Clients; entfällt mit /api/v2
+          deprecated: true
         totalCostEur:
           type: number
           minimum: 0
@@ -3391,7 +3392,8 @@ components:
         priceTotalEur:
           type: number
           minimum: 0
-          description: Alias für totalCostEur (Backward-Kompatibilität)
+          description: Alias für totalCostEur (Backward-Kompatibilität) – veraltet, nur für alte Clients; entfällt mit /api/v2
+          deprecated: true
         station:
           type: string
           nullable: true
@@ -3433,7 +3435,8 @@ components:
         liters:
           type: number
           minimum: 0
-          description: Alias für amount (Backward-Kompatibilität)
+          description: Alias für amount (Backward-Kompatibilität) – veraltet, nur für alte Clients; entfällt mit /api/v2
+          deprecated: true
         totalCostEur:
           type: number
           minimum: 0
@@ -3441,7 +3444,8 @@ components:
         priceTotalEur:
           type: number
           minimum: 0
-          description: Alias für totalCostEur (Backward-Kompatibilität)
+          description: Alias für totalCostEur (Backward-Kompatibilität) – veraltet, nur für alte Clients; entfällt mit /api/v2
+          deprecated: true
         station:
           type: string
           nullable: true
@@ -3529,15 +3533,18 @@ components:
         liters:
           type: number
           nullable: true
-          description: Alias für amount, nur gesetzt wenn unit='l'
+          description: Alias für amount, nur gesetzt wenn unit='l' – veraltet, nur für alte Clients; entfällt mit /api/v2
+          deprecated: true
         price_total_eur:
           type: number
           nullable: true
-          description: Alias für total_cost_eur
+          description: Alias für total_cost_eur – veraltet, nur für alte Clients; entfällt mit /api/v2
+          deprecated: true
         price_per_liter:
           type: number
           nullable: true
-          description: Alias für price_per_unit, nur gesetzt wenn unit='l'
+          description: Alias für price_per_unit, nur gesetzt wenn unit='l' – veraltet, nur für alte Clients; entfällt mit /api/v2
+          deprecated: true
       required: [id, vehicle_id, odometer_km, unit, amount, total_cost_eur, filled_at, created_at, is_full, skip_previous]
 
     FillupListResponse:

@@ -19,7 +19,6 @@ try {
     $vehicle = $api->getVehicle($fahrzeug_id);
     $fahrzeugKraftstoff = $vehicle['fuel_type'] ?? 'diesel';
     $einheit = getEinheitFuerKraftstoff($fahrzeugKraftstoff);
-    if ($fahrzeugKraftstoff === 'petrol') $fahrzeugKraftstoff = 'e10';
     $stats = $api->getVehicleStats($fahrzeug_id);
     $aktuellerTacho = $stats['currentOdo'] ?? null;
     // Für die Schätzung des Tachostands (#41): Ø Verbrauch, beim Plug-in-Hybrid zu ungenau

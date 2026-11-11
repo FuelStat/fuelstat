@@ -249,7 +249,6 @@ class FuelstatApi
     public function postCategory(array $data): array { return $this->request('POST', '/categories', $data); }
     public function patchCategory(string $id, array $data): array { return $this->request('PATCH', '/categories/' . rawurlencode($id), $data); }
     public function deleteCategory(string $id, ?string $moveTo = null): array { return $this->request('DELETE', '/categories/' . rawurlencode($id) . ($moveTo !== null ? '?moveTo=' . rawurlencode($moveTo) : '')); }
-    public function getUser(string $userId): array { return $this->request('GET', '/auth/users/' . rawurlencode($userId)); }
     public function patchUser(string $userId, array $data): array { return $this->request('PATCH', '/auth/users/' . rawurlencode($userId), $data); }
     public function getWhoAmI(): array { return $this->request('GET', '/whoami'); }
     public function postAuthRefresh(): array { return $this->request('POST', '/auth/refresh', []); }

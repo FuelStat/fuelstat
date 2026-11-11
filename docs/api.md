@@ -380,7 +380,7 @@ Authorization: Bearer <jwt>
 **Notes**
 
 * `unit` optional: Ohne Angabe gilt die Einheit des Fahrzeugs (`electric` → `kwh`, `cng`/`hydrogen` → `kg`, sonst `l`). Plug-in-Hybride (`phev`) erlauben `l` (getankt) und `kwh` (geladen), Standard `l`.
-* `liters` und `priceTotalEur` werden als alte Namen für `amount` und `totalCostEur` weiter angenommen.
+* `liters` und `priceTotalEur` werden als alte Namen für `amount` und `totalCostEur` weiter angenommen, ebenso liefern Antworten `liters`, `price_total_eur` und `price_per_liter`. **Veraltet:** Web-App und iOS-App nutzen sie nicht mehr; sie entfallen mit `/api/v2`, neue Clients verwenden sie nicht.
 * `station` optional, `filledAt` optional (Standard `now()`).
 * `odometerKm` optional: Wer den Tachostand an der Tankstelle vergessen hat, lässt ihn weg und trägt ihn später per `PATCH` nach. `odometerEstimated: true` markiert einen nur geschätzten Wert.
 * Einträge ohne echten Tachostand (fehlt oder geschätzt) zählen bei Kosten und Menge, schließen aber keinen Verbrauchsabschnitt ab: Ihre Menge fließt wie bei einer Teilbetankung in den nächsten vollen Abschnitt mit Tachostand. Bei gleichem Zeitpunkt stehen sie hinter den Einträgen mit Tachostand.

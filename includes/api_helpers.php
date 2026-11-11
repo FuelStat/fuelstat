@@ -141,8 +141,8 @@ function ladeMergedEintraegeFromApi($api, string $vehicleId): array
             'type' => 'fillup',
             'datum' => $datum,
             'kategorie' => 'Tankfuellung',
-            'menge' => $f['amount'] ?? $f['liters'] ?? 0,
-            'kosten' => $f['total_cost_eur'] ?? $f['price_total_eur'] ?? 0,
+            'menge' => $f['amount'] ?? 0,
+            'kosten' => $f['total_cost_eur'] ?? 0,
             // null = Tachostand fehlt (#41), kann nachgetragen werden
             'tachostand' => isset($f['odometer_km']) ? (int)$f['odometer_km'] : null,
             'tachostand_geschaetzt' => !empty($f['odometer_estimated']),
@@ -298,11 +298,9 @@ function getStatistikDatenFromApi($api, string $vehicleId, ?int $jahr = null): a
 
     $jahre = $kosten['years'] ?? [];
     $einheiten = [];
-    // Je Energieart (#140: Benzin und Autogas getrennt, E5/E10 zusammen); ältere Server liefern nur je Einheit
-    $quelle = !empty($verbrauch['energies']) && !empty($verbrauch['byEnergy'])
-        ? array_map(fn($e) => [$e, $verbrauch['byEnergy'][$e]], $verbrauch['energies'])
-        : array_map(fn($u) => [$u, $verbrauch['byUnit'][$u]], $verbrauch['units'] ?? []);
-    foreach ($quelle as [$u, $ud]) {
+    // Je Energieart (#140: Benzin und Autogas getrennt, E5/E10 zusammen)
+    foreach ($verbrauch['energies'] ?? [] as $u) {
+        $ud = $verbrauch['byEnergy'][$u];
         // Verbrauch je Abschnitt: Datum der abschließenden vollen Füllung; weitere am selben Tag mit " #2", " #3" …
         $werte = [];
         foreach ($ud['segments'] as $seg) {
@@ -405,7 +403,7 @@ function sortenKatalog(): array
     ];
 }
 
-/** Sorten eines Fahrzeugs (Standard zuerst); ältere Server ohne Sorten: aus der Antriebsart */
+/** Sorten eines Fahrzeugs (Standard zuerst); ohne Sortenliste (Katalog nicht erreichbar): aus der Antriebsart */
 function sortenDesFahrzeugs(array $fahrzeug): array
 {
     $sorten = array_values(array_filter((array)($fahrzeug['fuels'] ?? []), 'is_string'));

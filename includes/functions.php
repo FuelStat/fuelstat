@@ -192,3 +192,84 @@ function getKategorieName($kategorie, ?string $fuelType = null, ?string $einheit
     // Anzeigenamen kommen mit den Kategorien vom API (#95); unbekannte (alte Importe) heißen wie gespeichert
     return kategorieInfo((string)$kategorie)['name'] ?? (string)$kategorie;
 }
+
+// --------------------------------------------------
+// Design-Bausteine (docs/design.md): Farben als Tokens, Symbolkreis, Status-Badge
+// --------------------------------------------------
+
+/**
+ * Energie-Token einer Antriebsart, Sorte oder Einheit: electric, petrol, diesel, gas oder hydrogen
+ * (docs/design.md 3.3). Die Einheit kWh bzw. eine Sorte des Eintrags geht vor der Antriebsart des Fahrzeugs.
+ */
+function energieToken(?string $fuelType, ?string $einheit = null, ?string $sorte = null): string
+{
+    $sorte = strtolower((string)$sorte);
+    $nachSorte = [
+        'electricity' => 'electric', 'diesel' => 'diesel', 'premium_diesel' => 'diesel', 'hvo100' => 'diesel',
+        'lpg' => 'gas', 'cng' => 'gas', 'bio_cng' => 'gas', 'hydrogen' => 'hydrogen',
+        'super_e5' => 'petrol', 'super_e10' => 'petrol', 'super_plus' => 'petrol', 'premium_petrol' => 'petrol',
+    ];
+    if (isset($nachSorte[$sorte])) {
+        return $nachSorte[$sorte];
+    }
+    if (strtolower((string)$einheit) === 'kwh') {
+        return 'electric';
+    }
+    $fuelType = strtolower((string)$fuelType);
+    // Plug-in-Hybrid ohne Einheit und alles Unbekannte: Benzin
+    return ['electric' => 'electric', 'diesel' => 'diesel', 'lpg' => 'gas', 'cng' => 'gas', 'hydrogen' => 'hydrogen'][$fuelType] ?? 'petrol';
+}
+
+/** CSS-Farbe (Token) für Tank- und Ladevorgänge */
+function energieFarbe(?string $fuelType, ?string $einheit = null, ?string $sorte = null): string
+{
+    return 'var(--fs-energy-' . energieToken($fuelType, $einheit, $sorte) . ')';
+}
+
+/** CSS-Farbe (Token) für den Zweck einer Fahrt (docs/design.md 3.4) */
+function fahrtFarbe(?string $zweck): string
+{
+    return 'var(--fs-trip-' . (['business' => 'business', 'commute' => 'commute'][(string)$zweck] ?? 'private') . ')';
+}
+
+/**
+ * Symbol im getönten Kreis (EntryRow, Kostengruppen). $farbe ist ein Token (var(--fs-…)) oder die Farbe einer
+ * Kategorie aus der API. Bei Tokens trägt das Symbol die Farbe; Kategoriefarben sind nicht für beide Modi geprüft,
+ * dort bleibt das Symbol in der Textfarbe (docs/design.md 3.5).
+ */
+function symbolKreis(string $icon, string $farbe, string $klassen = ''): string
+{
+    $token = str_starts_with($farbe, 'var(');
+    return '<span class="symbol-kreis' . ($token ? ' symbol-kreis-token' : '') . ($klassen !== '' ? ' ' . htmlspecialchars($klassen) : '')
+        . '" style="--farbe: ' . htmlspecialchars($farbe) . '" aria-hidden="true"><i class="fas ' . htmlspecialchars($icon) . '"></i></span>';
+}
+
+/**
+ * Status eines Termins als Badge: Symbol und Text in der Statusfarbe (StatusBadge). Den Status liefert die API
+ * (ok, bald, ueberfaellig, unbekannt); hier wird er nur dargestellt.
+ */
+function statusBadge(string $status, string $text, string $klassen = ''): string
+{
+    [$farbe, $icon] = [
+        'ok' => ['success', 'fa-circle-check'],
+        'bald' => ['warning', 'fa-clock'],
+        'ueberfaellig' => ['danger', 'fa-triangle-exclamation'],
+    ][$status] ?? ['secondary', 'fa-circle-question'];
+    return '<span class="badge text-bg-' . $farbe . ($klassen !== '' ? ' ' . htmlspecialchars($klassen) : '') . '"><i class="fas ' . $icon
+        . '" aria-hidden="true"></i>' . htmlspecialchars($text) . '</span>';
+}
+
+/** Abstand zu einem Termin in Worten: „in 12 Tagen“, „heute“, „seit 5 Tagen überfällig“ */
+function terminAbstand(int $tage): string
+{
+    if ($tage < 0) {
+        return 'seit ' . (abs($tage) === 1 ? '1 Tag' : abs($tage) . ' Tagen') . ' überfällig';
+    }
+    if ($tage === 0) {
+        return 'heute fällig';
+    }
+    if ($tage > 60) {
+        return 'in ' . (int)round($tage / 30) . ' Monaten';
+    }
+    return $tage === 1 ? 'morgen' : 'in ' . $tage . ' Tagen';
+}

@@ -227,11 +227,11 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
     <div class="row g-2 g-md-3 mb-3">
         <?php foreach ($highlights as [$icon, $farbe, $titel, $monat, $wert]): ?>
         <div class="col-md-4">
-            <div class="kennzahl d-flex align-items-center gap-3">
-                <span class="statistik-icon text-<?= $farbe ?> bg-<?= $farbe ?>-subtle"><i class="fas <?= $icon ?>"></i></span>
+            <div class="hoehepunkt">
+                <?= symbolKreis($icon, ['success' => 'var(--fs-status-ok)', 'danger' => 'var(--fs-status-overdue)', 'warning' => 'var(--fs-status-soon)'][$farbe] ?? 'var(--fs-brand)') ?>
                 <div class="min-w-0">
-                    <div class="small text-body-secondary"><?= $titel ?> · <?= htmlspecialchars($monat) ?></div>
-                    <div class="fw-semibold"><?= $wert ?></div>
+                    <div class="fs-label"><?= $titel ?> · <?= htmlspecialchars($monat) ?></div>
+                    <div class="fs-headline zahl"><?= $wert ?></div>
                 </div>
             </div>
         </div>
@@ -391,7 +391,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
     // Eine Energieart in der Hauptfarbe; mehrere je in ihrer Energie-Farbe aus docs/design.md (3.3)
     var hexRgb = function (hex) { var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex.trim()); return m ? [1, 2, 3].map(function (i) { return parseInt(m[i], 16); }).join(',') : null; };
     var energieToken = { petrol: 'petrol', diesel: 'diesel', lpg: 'gas', cng: 'gas', electricity: 'electric', kwh: 'electric', hydrogen: 'hydrogen', other: 'petrol' };
-    var hauptRgb = css.getPropertyValue('--bs-primary-rgb').trim();
+    var hauptRgb = css.getPropertyValue('--fs-brand-rgb').trim();
     var mehrere = <?= json_encode(count($proEinheitDiagramm) > 1) ?>;
     var farbeFuer = function (schluessel) {
         var token = energieToken[schluessel];

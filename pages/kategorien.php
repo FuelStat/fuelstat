@@ -201,7 +201,7 @@ $felder = function (string $praefix, array $werte = []) use ($custom, $gruppen) 
             <?php foreach (kategorienFuerAuswahl() as $gruppe => $liste):
                 $liste = array_filter($liste, fn($k) => empty($k['custom']));
                 if (!$liste) { continue; } ?>
-                <h3 class="small text-uppercase text-body-secondary fw-semibold mt-2"><?= htmlspecialchars($gruppe) ?></h3>
+                <h3 class="fs-label fw-semibold mt-3 mb-2"><?= htmlspecialchars($gruppe) ?></h3>
                 <div class="d-flex flex-wrap gap-2 mb-3">
                     <?php foreach ($liste as $k): ?>
                         <span class="badge rounded-pill kategorie-chip <?= empty($k['available']) ? 'gesperrt' : '' ?>">

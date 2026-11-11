@@ -20,50 +20,41 @@ $funktionen = [
     ['fa-file-import', 'Import & Export', 'Daten aus Excel oder anderen Apps übernehmen und jederzeit als CSV oder PDF-Bericht mitnehmen.'],
 ];
 ?>
-<style>
-    .willkommen-hero { background: linear-gradient(135deg, rgba(var(--bs-primary-rgb), .12), rgba(var(--bs-success-rgb), .10)); }
-    .willkommen-logo { width: 96px; height: 96px; border-radius: 22px; box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .15); }
-    .willkommen-icon { width: 3rem; height: 3rem; border-radius: .75rem; background: rgba(var(--bs-primary-rgb), .12); }
-    .willkommen-icon .fas { color: var(--bs-primary); }
-    .willkommen-schritt { width: 2.5rem; height: 2.5rem; flex-shrink: 0; }
-    [data-bs-theme="dark"] .willkommen-karte { background: var(--bs-tertiary-bg); }
-</style>
 
-<section class="willkommen-hero rounded-4 px-4 py-5 mb-5 text-center">
-    <img src="<?= htmlspecialchars($baseUrl) ?>images/new-icon-512x512.png" alt="" class="willkommen-logo mb-4">
+<!-- Willkommensfläche: Navy wie das App-Icon in beiden Modi, weiße Schrift, Teal-Akzente (docs/design.md 2) -->
+<section class="willkommen-hero mb-5 text-center">
+    <img src="<?= htmlspecialchars($baseUrl) ?>images/new-icon-512x512.png" alt="" class="willkommen-logo mb-4" width="96" height="96">
     <?php if ($beta): ?>
-        <div class="mb-3"><span class="badge rounded-pill text-bg-warning px-3 py-2"><i class="fas fa-flask me-1"></i>Offene Beta · kostenlos</span></div>
+        <div class="mb-3"><span class="willkommen-beta"><i class="fas fa-flask" aria-hidden="true"></i>Offene Beta · kostenlos</span></div>
     <?php endif; ?>
-    <h1 class="display-5 fw-bold mb-3">Willkommen bei Fuelstat</h1>
-    <p class="lead text-body-secondary mx-auto mb-4" style="max-width: 40rem;">
+    <h1 class="mb-3">Willkommen bei Fuelstat</h1>
+    <p class="willkommen-text mx-auto mb-4">
         Behalte Verbrauch, Kosten und Termine deiner Fahrzeuge im Blick – für Benzin, Diesel, Gas und Elektro.
     </p>
     <div class="d-flex flex-column flex-sm-row justify-content-center gap-2">
         <?php if ($registrierungOffen): ?>
-            <a href="<?= htmlspecialchars($baseUrl) ?>pages/register.php" class="btn btn-primary btn-lg px-4">
-                <i class="fas fa-user-plus me-2"></i><?= $beta ? 'Beta-Tester werden' : 'Kostenlos registrieren' ?>
+            <a href="<?= htmlspecialchars($baseUrl) ?>pages/register.php" class="btn btn-lg px-4 willkommen-knopf">
+                <i class="fas fa-user-plus" aria-hidden="true"></i><?= $beta ? 'Beta-Tester werden' : 'Kostenlos registrieren' ?>
             </a>
         <?php endif; ?>
-        <a href="<?= htmlspecialchars($baseUrl) ?>pages/login.php" class="btn btn-<?= $registrierungOffen ? 'outline-primary' : 'primary' ?> btn-lg px-4">
-            <i class="fas fa-sign-in-alt me-2"></i>Anmelden
+        <a href="<?= htmlspecialchars($baseUrl) ?>pages/login.php" class="btn btn-lg px-4 <?= $registrierungOffen ? 'willkommen-knopf-rahmen' : 'willkommen-knopf' ?>">
+            <i class="fas fa-sign-in-alt" aria-hidden="true"></i>Anmelden
         </a>
     </div>
     <?php if (!$registrierungOffen): ?>
-        <p class="small text-body-secondary mt-3 mb-0">Neue Konten werden auf dieser Installation vom Betreiber angelegt.</p>
+        <p class="willkommen-text small mt-3 mb-0">Neue Konten werden auf dieser Installation vom Betreiber angelegt.</p>
     <?php endif; ?>
 </section>
 
 <section class="mb-5">
-    <h2 class="h3 text-center mb-4">Was Fuelstat für dich erledigt</h2>
-    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    <h2 class="text-center mb-3">Was Fuelstat für dich erledigt</h2>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
         <?php foreach ($funktionen as [$icon, $titel, $text]): ?>
         <div class="col">
-            <div class="card willkommen-karte h-100 border-0 shadow-sm">
-                <div class="card-body p-4">
-                    <div class="willkommen-icon d-flex align-items-center justify-content-center mb-3">
-                        <i class="fas <?= $icon ?> fa-lg"></i>
-                    </div>
-                    <h3 class="h5"><?= htmlspecialchars($titel) ?></h3>
+            <div class="card h-100">
+                <div class="card-body">
+                    <span class="symbol-kreis symbol-kreis-token mb-3" style="--farbe: var(--fs-brand)" aria-hidden="true"><i class="fas <?= $icon ?>"></i></span>
+                    <h3><?= htmlspecialchars($titel) ?></h3>
                     <p class="text-body-secondary mb-0"><?= htmlspecialchars($text) ?></p>
                 </div>
             </div>
@@ -73,7 +64,7 @@ $funktionen = [
 </section>
 
 <section class="mb-5">
-    <h2 class="h3 text-center mb-4">In drei Schritten startklar</h2>
+    <h2 class="text-center mb-3">In drei Schritten startklar</h2>
     <div class="row g-4 justify-content-center">
         <?php foreach ([
             $registrierungOffen
@@ -84,7 +75,7 @@ $funktionen = [
         ] as $nr => [$titel, $text]): ?>
         <div class="col-md-4">
             <div class="d-flex gap-3">
-                <div class="willkommen-schritt rounded-circle bg-primary text-white fw-bold d-flex align-items-center justify-content-center"><?= $nr + 1 ?></div>
+                <div class="willkommen-schritt"><?= $nr + 1 ?></div>
                 <div>
                     <h3 class="h6 mb-1"><?= htmlspecialchars($titel) ?></h3>
                     <p class="text-body-secondary small mb-0"><?= htmlspecialchars($text) ?></p>
@@ -97,12 +88,10 @@ $funktionen = [
 
 <?php if ($beta): ?>
 <section class="mb-5">
-    <div class="card border-0 shadow-sm willkommen-karte">
-        <div class="card-body p-4 p-md-5">
-            <div class="d-flex flex-column flex-md-row gap-4 align-items-md-center">
-                <div class="willkommen-icon d-flex align-items-center justify-content-center flex-shrink-0">
-                    <i class="fas fa-flask fa-lg"></i>
-                </div>
+    <div class="card">
+        <div class="card-body p-4">
+            <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center">
+                <span class="symbol-kreis symbol-kreis-token symbol-kreis-gross" style="--farbe: var(--fs-brand)" aria-hidden="true"><i class="fas fa-flask"></i></span>
                 <div>
                     <h2 class="h4 mb-2">Fuelstat ist in der Beta-Phase</h2>
                     <p class="text-body-secondary mb-3">Alle Funktionen sind schon nutzbar, und du kannst mitbestimmen, wie es weitergeht. Als Beta-Tester hilfst du, Fuelstat besser zu machen.</p>

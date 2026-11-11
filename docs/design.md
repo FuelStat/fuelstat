@@ -289,8 +289,8 @@ Gleicher Name, gleicher Wert, plattformübliche Schreibweise.
 | `TripCommute` | `--fs-trip-commute` | `TripCommute` / `Theme.Trip.commute` | `FuelstatColors.tripCommute` |
 
 - **Web:** Die `--fs-*`-Variablen stehen in `css/style.css` unter `:root` (hell) und
-  `[data-bs-theme="dark"]` (dunkel). Mit der Neugestaltung (#145, #144, #49) werden die Bootstrap-Variablen
-  in der Spalte (→ …) auf sie umgestellt; neue Regeln verwenden direkt `var(--fs-…)`.
+  `[data-bs-theme="dark"]` (dunkel). Die Bootstrap-Variablen in der Spalte (→ …) sind im Abschnitt „Thema“
+  derselben Datei auf sie gelegt; neue Regeln verwenden direkt `var(--fs-…)`.
 - **Noch nicht angelegt** sind `Text`, `TextSecondary`, `Separator` (Android, Web-Verwendung) sowie die
   Zweck- und Fahrt-Tokens auf iOS: Sie entstehen mit dem ersten Bildschirm, der sie braucht, mit genau den
   Namen und Werten hier.
@@ -388,7 +388,7 @@ Bereiche, Reihenfolge der Inhalte auf Start, Statusfarben mit Symbol, „+“ in
 
 | Thema | iOS | Android | Web/PWA |
 |---|---|---|---|
-| Navigation | Tab-Leiste unten, „+“ in der Mitte, kein FAB | Navigation Bar mit genau vier Zielen (ohne „+“) und FAB „+“; Navigation Rail auf großen Bildschirmen | Unter 992 px Tab-Leiste unten mit „+“ in der Mitte; ab 992 px Kopfleiste mit Menü und Button „Eintrag erfassen“ (Ziel für #145) |
+| Navigation | Tab-Leiste unten, „+“ in der Mitte, kein FAB | Navigation Bar mit genau vier Zielen (ohne „+“) und FAB „+“; Navigation Rail auf großen Bildschirmen | Unter 992 px Tab-Leiste unten mit „+“ in der Mitte; ab 992 px Kopfleiste mit Symbolen und Button „Eintrag erfassen“ |
 | Systemflächen | Liquid Glass/Materials der Systemleisten (iOS 26) nicht überdecken | Edge-to-edge, Systemleisten transparent | Safe Areas (`env(safe-area-inset-*)`), `theme-color` = `Background` |
 | Symbole | SF Symbols | Material Symbols (Rounded) | Font Awesome (vorhanden) |
 | Blätter/Dialoge | Sheets mit Detents | Modal Bottom Sheet, Vollbild-Dialog für Formulare | Offcanvas von unten (mobil), Modal (Desktop) |
@@ -427,8 +427,19 @@ Gilt für jede neue Seite und jeden Baustein auf allen Plattformen:
 
 Plattform-Besonderheiten der Web-App (PHP mit Bootstrap 5.3):
 
-- **Tokens:** `--fs-*` in `css/style.css`. Bootstrap bleibt die Grundlage; seine Variablen werden auf die
-  Tokens gelegt, statt eigene Komponenten nachzubauen. Dunkelmodus über `data-bs-theme="dark"`.
+- **Tokens:** `--fs-*` in `css/style.css`. Bootstrap bleibt die Grundlage; seine Variablen sind dort im
+  Abschnitt „Thema“ auf die Tokens gelegt, statt eigene Komponenten nachzubauen. Dunkelmodus über
+  `data-bs-theme="dark"`. Templates verwenden die Bootstrap-Klassen weiter (`btn-primary`, `card`, `badge`,
+  `alert` …) und bekommen das Fuelstat-Aussehen von selbst.
+- **Status-Klassen:** `btn-danger`, `text-bg-warning`, `alert-success` usw. sind getönte Flächen mit Text bzw.
+  Symbol in der Statusfarbe – nie eine volle Statusfläche hinter Text.
+- **Bausteine in PHP** (`includes/functions.php`): `symbolKreis()` (Symbol im getönten Kreis), `statusBadge()`
+  (Status aus der API als Badge mit Symbol und Text), `energieFarbe()` und `fahrtFarbe()` (Token je
+  Kraftstoffart bzw. Zweck), `terminAbstand()` („in 12 Tagen“). Dazu die CSS-Klassen `.kennzahl` (StatTile),
+  `.chip`/`.chip-leiste` (FilterChip), `.fahrzeug-hero` (VehicleHero), `.eintrag-zeile` (EntryRow),
+  `.leer-zustand` (EmptyState) und die Schriftrollen `.fs-<rolle>`.
+- **Kopfleiste (PC):** Fahrzeugwechsler links, rechts der Button „Eintrag erfassen“ und die Bereiche als
+  Symbole mit Tooltip und `aria-label` (#145); der aktive Bereich ist in `Brand` auf `CardTint` markiert.
 - **Abstände:** Bootstrap-Abstände 1–3 (4, 8, 16 px) passen ins Raster; 4 (24) ebenfalls; 5 (48) nur für
   große Leerflächen. Für 12 und 32 die Tokens `--fs-space-s`/`--fs-space-xl`.
 - **Navigation:** unter 992 px Tab-Leiste unten mit „+“-Kreis, darüber Kopfleiste mit Titel; ab 992 px
@@ -436,6 +447,10 @@ Plattform-Besonderheiten der Web-App (PHP mit Bootstrap 5.3):
 - **PWA:** `manifest.json` (`theme_color`, `background_color`) und `<meta name="theme-color">` verwenden
   `Background` des aktiven Modus. Pull-to-refresh nur in der installierten App und nicht in Formularen.
 - **Diagramme (Chart.js):** Farben aus den CSS-Variablen lesen (`getComputedStyle`), nicht im Skript festlegen.
+  Beim Wechsel der Darstellung lädt eine Seite mit Diagrammen neu, damit die Reihen die Farben des neuen Modus bekommen.
+- **Bereiche:** Die Web-App zeigt auf „Start“ alle Fahrzeuge als Karten und die Bereiche Einträge, Statistiken,
+  Ausgaben und Fahrten als Reiter der Fahrzeugseite. Die Aufteilung aus Abschnitt 7 (Start mit einem gewählten
+  Fahrzeug) ist das Ziel für einen späteren Schritt.
 - **Seitenbreite:** Inhalt in `container-xl` (max. 1200 px); Formulare in einer Spalte bis 640 px.
 
 ## 12. Bestandsaufnahme und Entscheidungen
@@ -445,9 +460,9 @@ Stand November 2026, Quellen: `docs/design.md` in fuelstat-ios und fuelstat-andr
 
 | # | Widerspruch | Entscheidung |
 |---|---|---|
-| 1 | Markenfarbe: Web Bootstrap-Blau `#0D6EFD`, iOS Petrol `#0A717A` | Petrol/Teal (`Brand`). Web stellt mit der Neugestaltung um. |
+| 1 | Markenfarbe: Web Bootstrap-Blau `#0D6EFD`, iOS Petrol `#0A717A` | Petrol/Teal (`Brand`). Im Web umgestellt. |
 | 2 | Dunkler Hintergrund: iOS Systemschwarz, Web Bootstrap `#212529`, Android offen | `#0E1624` (Navy) überall; iOS-Asset angepasst. |
-| 3 | Tanken: Web blau, iOS je Kraftstoffart | Energiefarbe der Kraftstoffart; Laden immer `EnergyElectric`. |
+| 3 | Tanken: Web blau, iOS je Kraftstoffart | Energiefarbe der Kraftstoffart; Laden immer `EnergyElectric`. Im Web umgestellt. |
 | 4 | Fahrt-Zwecke: Web Bootstrap `secondary`/`primary`/`info`, sonst nicht festgelegt | `TripPrivate` neutral, `TripBusiness` = `Brand`, `TripCommute` Cyan – gleiche Logik wie bisher im Web. |
 | 5 | Kategoriefarben (Bootstrap-Palette aus der API) nicht für Dunkelmodus geprüft | Bleiben Daten der API; nur als Fläche mit Namen daneben (3.5). Prüfung der Palette ist ein eigenes Thema für die API. |
 | 6 | Radien: Web `.75rem` (12) für Kacheln, `1.25rem` für Blätter; iOS 20/14 | 20 (Karten, Blätter) und 14 (Kacheln, Felder, Buttons). |
@@ -455,8 +470,8 @@ Stand November 2026, Quellen: `docs/design.md` in fuelstat-ios und fuelstat-andr
 | 8 | Android: Dynamic Color offen | Aus, damit die Marke erkennbar bleibt. |
 | 9 | Textfarben nur implizit (Systemfarben, Bootstrap `#212529`) | `Text`, `TextSecondary`, `Separator` als Tokens; iOS nutzt weiter Systemfarben. |
 | 10 | Schrift: iOS-Stile ohne Entsprechung im Web, Android nur „Material-Skala“ | Rollen in Abschnitt 4 mit Zuordnung je Plattform. |
-| 11 | `theme-color` im Web hell `#F8F9FA` / dunkel `#2B3035` | Wird `Background` (`#F2F6F8` / `#0E1624`) mit der Neugestaltung. |
-| 12 | Bezeichnung des „+“: Web „Neuer Eintrag“, iOS „Eintrag erfassen“ | „Eintrag erfassen“ überall; Web stellt mit #145 um. |
+| 11 | `theme-color` im Web hell `#F8F9FA` / dunkel `#2B3035` | Ist jetzt `Background` (`#F2F6F8` / `#0E1624`). |
+| 12 | Bezeichnung des „+“: Web „Neuer Eintrag“, iOS „Eintrag erfassen“ | „Eintrag erfassen“ überall; im Web umgestellt. |
 
 **Ausblick:** Sobald die Tokens stabil sind, kann eine maschinenlesbare Token-Datei (Design-Tokens-Format)
 CSS, iOS-Asset-Katalog und Compose-Theme erzeugen (in #153 bewusst nicht enthalten).

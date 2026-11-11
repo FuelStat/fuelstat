@@ -239,13 +239,17 @@ $abschnittEnde = fn() => $istNeu ? '</section>' : '</div></div></div>';
 <!-- Live-Vorschau der Fahrzeugkarte (wie auf der Startseite) -->
 <div class="col-lg-4 d-none d-lg-block">
     <div class="sticky-top" style="top: 5rem;">
-        <div class="small text-body-secondary mb-2">Vorschau</div>
-        <div class="card fahrzeug-karte border-0 shadow-sm">
-            <div class="fahrzeug-bild"><img id="vorschauBild" src="<?= htmlspecialchars(fahrzeugBildUrl([], $baseUrl)) ?>" alt=""></div>
+        <div class="fs-label mb-2">Vorschau</div>
+        <div class="card fahrzeug-karte">
+            <div class="fahrzeug-hero">
+                <img id="vorschauBild" src="<?= htmlspecialchars(fahrzeugBildUrl([], $baseUrl)) ?>" alt="">
+                <div class="fahrzeug-hero-text">
+                    <div class="fahrzeug-hero-name text-truncate" id="vorschauName">Neues Fahrzeug</div>
+                    <div><span class="kennzeichen" id="vorschauKennzeichen" hidden></span></div>
+                </div>
+            </div>
             <div class="card-body">
-                <h3 class="h5 card-title fw-semibold mb-1 text-truncate" id="vorschauName">Neues Fahrzeug</h3>
-                <div class="small text-body-secondary text-truncate" id="vorschauZeile"></div>
-                <span class="badge text-bg-light border mt-2 kennzeichen" id="vorschauKennzeichen" hidden></span>
+                <div class="fs-label text-truncate" id="vorschauZeile"></div>
             </div>
         </div>
     </div>

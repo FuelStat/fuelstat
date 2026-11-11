@@ -7,7 +7,6 @@
 //   viewer – Nur ansehen
 // Mitglieder stehen in vehicle_members; der Besitzer steht dort nicht, er ergibt sich aus vehicles.user_id.
 
-const ROLES = ['owner', 'editor', 'viewer'];
 const MEMBER_ROLES = ['editor', 'viewer'];
 const RECHTE = {
   read: new Set(['owner', 'editor', 'viewer']),
@@ -47,4 +46,4 @@ function accessibleVehicles(alias, param) {
   return `(${alias}.user_id = $${param} OR EXISTS (SELECT 1 FROM vehicle_members vm WHERE vm.vehicle_id = ${alias}.id AND vm.user_id = $${param}))`;
 }
 
-module.exports = { ROLES, MEMBER_ROLES, RECHTE, vehicleRole, canAccessVehicle, canEditEntry, accessibleVehicles };
+module.exports = { MEMBER_ROLES, RECHTE, vehicleRole, canAccessVehicle, canEditEntry, accessibleVehicles };

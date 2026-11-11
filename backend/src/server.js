@@ -4,7 +4,6 @@
 const { app } = require('./app');
 const { pool } = require('./db');
 const { PORT } = require('./config');
-const { encryptLegacyMfaSecrets } = require('./services/mfa');
 const notifier = require('./services/notifier');
 
 // Direkt gestartet (node src/server.js, nodemon, Docker): Port öffnen und Hintergrundaufgaben starten.
@@ -12,7 +11,6 @@ const notifier = require('./services/notifier');
 if (require.main === module) {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Backend V2 läuft auf Port ${PORT}`);
-    encryptLegacyMfaSecrets().catch((e) => console.error('[mfa] Verschlüsseln fehlgeschlagen:', e.message));
     notifier.startNotifier(pool);
   });
 }

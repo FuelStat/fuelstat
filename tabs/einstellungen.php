@@ -1,7 +1,7 @@
 <?php
 // Reiter "Einstellungen" (#48): Fahrzeugangaben als Karten, gruppiert wie das Bearbeiten-Formular.
 // "Bearbeiten" springt direkt in den passenden Abschnitt; Löschen steht abgesetzt in der Gefahrenzone.
-$kraftstoffTexte = getKraftstoffOptionen() + ['petrol' => 'Benzin'];
+$kraftstoffTexte = getKraftstoffOptionen();
 $fuelTypeWert = $fahrzeug['fuel_type'] ?? '';
 $datum = fn($d) => !empty($d) ? date('d.m.Y', strtotime($d)) : '';
 $euro = fn($v) => $v !== null && $v !== '' ? number_format((float)$v, 2, ',', '.') . ' €' : '';

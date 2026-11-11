@@ -29,7 +29,6 @@ $RECYCLE.BIN/
 
 # Falls du aktuell direkt /images/ für Uploads benutzt:
 /images/
-!/images/.gitkeep
 !/images/new-icon-*x*.png
 !/images/icon-*x*.png
 

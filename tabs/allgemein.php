@@ -14,7 +14,7 @@ $letzteWartung = getLetzterEintragApi($api, $fahrzeug_id, 'Wartung');
 $letzterTUV = getLetzterEintragApi($api, $fahrzeug_id, 'TUV');
 
 $fuel_type = $fahrzeug['fuel_type'] ?? $fahrzeug['kraftstoff'] ?? '';
-$kraftstoffTexte = getKraftstoffOptionen() + ['petrol' => 'Benzin'];
+$kraftstoffTexte = getKraftstoffOptionen();
 
 // Marke, Modell, Baujahr, Kraftstoff und Tank- bzw. Akkugröße als eine Zeile
 $fahrzeugDetails = array_filter([

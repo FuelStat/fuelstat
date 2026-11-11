@@ -12,9 +12,19 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 ### Technik
 - Gemeinsames Design-Dokument `docs/design.md` (#153) für Web, PWA, iOS und Android: Farben für hell und dunkel, Schriftrollen, Abstände, Radien, Zuordnung zu CSS, SwiftUI und Compose, Plattform-Leitplanken und Barrierefreiheit. Die Farb- und Abstandswerte stehen als `--fs-*`-Variablen in `css/style.css` bereit; sichtbar ändert sich noch nichts, die Umstellung folgt mit der Neugestaltung.
 - Ausrollen: `sudo infra/ausrollen.sh main` rollt den neuesten Stand von `main` zwischen zwei Releases aus – in derselben Reihenfolge wie ein Release (Migrationen vor dem Neustart), die API wird dabei aus dem Code gebaut. Zurück auf ein Release mit `sudo infra/ausrollen.sh X.Y.Z`.
+- Aufgeräumt: 16 nicht genutzte Font-Awesome-Stylesheets (≈ 490 KB, genutzt wird nur `css/all.min.css`), ungenutzte Funktionen in PHP und API, Reste der nie gültigen Antriebsart `petrol`. Altlasten für ältere Installationen entfernt: Migrationen 002–020 (in `postgres_init.sql` enthalten), die Umwandlung unverschlüsselter 2FA-Schlüssel beim Start, `scripts/bilder-optimieren.js` (#103) und die einmaligen Umstiegsanleitungen in `docs/betrieb.md`.
+- API: Die alten Feldnamen `liters` und `priceTotalEur` (Anfrage) sowie `liters`, `price_total_eur` und `price_per_liter` (Antwort der Tank-/Ladevorgänge) entfallen; es gelten `amount`, `totalCostEur`, `total_cost_eur` und `price_per_unit`. Web-App und iOS-App nutzen sie nicht. Während der Beta dürfen solche Felder entfallen, ab 1.0.0 nicht mehr (`CLAUDE.md`).
 - API (#140, abwärtskompatibel): `GET /fuels`, `fuels`/`defaultFuel` an Fahrzeugen, `fuel` an Tank-/Ladevorgängen und im Import, `energies`/`byEnergy`/`byFuel`/`costPer100km` in `/consumption`, `energies` in `/stats` und `/costs`. Bisherige Felder je Einheit bleiben.
 
 ### Hinweise zum Update
+- **Nur von 0.11.0 aus:** Die Migrationen bis 020 sind entfernt. Ältere Installationen spielen zuerst 0.11.0 ein.
+- Vor dem Update prüfen, dass alle 2FA-Schlüssel verschlüsselt sind (die Umwandlung beim Start entfällt); das Ergebnis muss `0` sein:
+
+  ```bash
+  cd infra
+  echo "SELECT COUNT(*) FROM users WHERE mfa_secret IS NOT NULL AND mfa_secret NOT LIKE 'v1:%';" | sudo docker compose exec -T db sh -c 'psql -tA -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+  ```
+
 - Migration `021_fuels` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst). Sie ist mit dem alten API-Code verträglich: Trigger setzen die Sorte für Einträge, die der alte Code bis zum Neustart noch anlegt. Von Hand:
 
   ```bash

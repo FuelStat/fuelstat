@@ -380,7 +380,6 @@ Authorization: Bearer <jwt>
 **Notes**
 
 * `unit` optional: Ohne Angabe gilt die Einheit des Fahrzeugs (`electric` → `kwh`, `cng`/`hydrogen` → `kg`, sonst `l`). Plug-in-Hybride (`phev`) erlauben `l` (getankt) und `kwh` (geladen), Standard `l`.
-* `liters` und `priceTotalEur` werden als alte Namen für `amount` und `totalCostEur` weiter angenommen.
 * `station` optional, `filledAt` optional (Standard `now()`).
 * `odometerKm` optional: Wer den Tachostand an der Tankstelle vergessen hat, lässt ihn weg und trägt ihn später per `PATCH` nach. `odometerEstimated: true` markiert einen nur geschätzten Wert.
 * Einträge ohne echten Tachostand (fehlt oder geschätzt) zählen bei Kosten und Menge, schließen aber keinen Verbrauchsabschnitt ab: Ihre Menge fließt wie bei einer Teilbetankung in den nächsten vollen Abschnitt mit Tachostand. Bei gleichem Zeitpunkt stehen sie hinter den Einträgen mit Tachostand.
@@ -422,10 +421,7 @@ Authorization: Bearer <jwt>
     "created_at": "2025-12-23T09:16:08.998Z",
     "is_full": true,
     "skip_previous": false,
-    "odometer_estimated": false,
-    "liters": "47.200",
-    "price_total_eur": "86.30",
-    "price_per_liter": "1.8284"
+    "odometer_estimated": false
   }
 ]
 ```
@@ -702,8 +698,6 @@ Upload als `multipart/form-data` mit dem Feld `file`, höchstens 20 MB. Erlaubt 
 Verarbeitung (#103): Das Bild wird nach EXIF gedreht, verkleinert (Fahrzeugbild höchstens 1600 px, Profilbild 800 px lange Kante, nie vergrößert) und als **WebP ohne Metadaten** (kein GPS) unter zufälligem Namen in `UPLOAD_DIR` gespeichert. Das Original wird nicht aufbewahrt. Animierte GIFs werden zum ersten Bild.
 
 Abruf nur signiert: In allen Antworten (`url`, `image_url`, `profile_image_url`) stehen Adressen der Form `/api/v1/files/<datei>.webp?exp=<Unix-Zeit>&sig=<Signatur>`. Sie gelten bis zum Ende des nächsten Tages (UTC) und bleiben einen Tag lang gleich, damit Browser und Apps sie zwischenspeichern können (`Cache-Control: private`). Ohne gültige Signatur oder nach Ablauf: 404. Öffentlich unter `/uploads/` liegt nichts mehr. Signierte Adressen, die ein Client als `imageUrl`/`profileImageUrl` zurückschickt, speichert die API wieder als interne Adresse `/uploads/<datei>`. Schlüssel: `MEDIA_SIGNING_KEY` (optional, sonst aus `JWT_SECRET` abgeleitet).
-
-Bestehende Bilder umstellen (einmalig, wiederholbar): `docker compose exec api node scripts/bilder-optimieren.js --probe` (zeigt nur an), danach ohne `--probe`.
 
 * `POST /media/upload` → Profilbild; danach `PATCH /auth/users/:userId { "profileImageUrl": url }`
 * `POST /vehicles/:vehicleId/media/upload` → Fahrzeugbild; danach `PATCH /vehicles/:vehicleId { "imageUrl": url }`

@@ -5,9 +5,6 @@
 $f = $fahrzeug ?? [];
 $istNeu = empty($f['id']);
 $aktuellerKraftstoff = $f['fuel_type'] ?? 'e5';
-if ($aktuellerKraftstoff === 'petrol') {
-    $aktuellerKraftstoff = 'e5';
-}
 $hatBild = !empty($f['image_url']);
 // Kraftstoffsorten (#140): beim Anlegen der Vorschlag zur Antriebsart, beim Bearbeiten die des Fahrzeugs
 $katalog = sortenKatalog();

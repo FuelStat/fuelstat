@@ -25,9 +25,8 @@ router.post('/fillups', auth, async (req, res) => {
   const odometerKm = optionalNumber(req.body?.odometerKm) ?? null;
   const odometerEstimated = odometerKm !== null && req.body?.odometerEstimated === true;
 
-  // Backward-compatible: akzeptiere liters ODER amount
-  const amount = Number(req.body?.amount ?? req.body?.liters);
-  const totalCostEur = Number(req.body?.totalCostEur ?? req.body?.priceTotalEur);
+  const amount = Number(req.body?.amount);
+  const totalCostEur = Number(req.body?.totalCostEur);
 
   const station = req.body?.station ? String(req.body.station).trim() : null;
   const filledAt = req.body?.filledAt ? new Date(req.body.filledAt) : null;
@@ -151,14 +150,7 @@ router.get('/fillups/:fillupId', auth, async (req, res) => {
 
     const row = r.rows[0];
 
-    // Für ältere Clients zusätzlich kompatible Felder anbieten
-    const legacy = {
-      liters: row.unit === 'l' ? row.amount : null,
-      price_total_eur: row.total_cost_eur,
-      price_per_liter: row.unit === 'l' ? row.price_per_unit : null
-    };
-
-    res.json({ ...row, ...legacy });
+    res.json(row);
   } catch (e) {
     serverError(res, e);
   }
@@ -229,21 +221,10 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
     const patchOdometerEstimated =
       body.odometerEstimated !== undefined ? body.odometerEstimated === true : undefined;
 
-    // Backward-kompatibel: amount oder liters
-    const rawAmount =
-      body.amount !== undefined ? body.amount : body.liters !== undefined ? body.liters : undefined;
     const patchAmount =
-      rawAmount !== undefined ? Number(rawAmount) : undefined;
-
-    // Backward-kompatibel: totalCostEur oder priceTotalEur
-    const rawTotal =
-      body.totalCostEur !== undefined
-        ? body.totalCostEur
-        : body.priceTotalEur !== undefined
-        ? body.priceTotalEur
-        : undefined;
+      body.amount !== undefined ? Number(body.amount) : undefined;
     const patchTotalCostEur =
-      rawTotal !== undefined ? Number(rawTotal) : undefined;
+      body.totalCostEur !== undefined ? Number(body.totalCostEur) : undefined;
 
     const patchUnit =
       body.unit !== undefined ? String(body.unit).trim().toLowerCase() : undefined;
@@ -391,13 +372,7 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
 
     const updated = updateRes.rows[0];
 
-    const legacy = {
-      liters: updated.unit === 'l' ? updated.amount : null,
-      price_total_eur: updated.total_cost_eur,
-      price_per_liter: updated.unit === 'l' ? updated.price_per_unit : null
-    };
-
-    res.json({ ...updated, ...legacy, warnings: await checkOdometer(pool, req.user.sub, updated.vehicle_id, updated) });
+    res.json({ ...updated, warnings: await checkOdometer(pool, req.user.sub, updated.vehicle_id, updated) });
   } catch (e) {
     serverError(res, e);
   }
@@ -524,12 +499,7 @@ router.get('/vehicles/:vehicleId/fillups', auth, async (req, res) => {
     );
 
     // Für ältere Clients zusätzlich kompatible Felder anbieten
-    res.json(r.rows.map((row) => ({
-      ...row,
-      liters: row.unit === 'l' ? row.amount : null,
-      price_total_eur: row.total_cost_eur,
-      price_per_liter: row.unit === 'l' ? row.price_per_unit : null
-    })));
+    res.json(r.rows);
   } catch (e) {
     serverError(res, e);
   }

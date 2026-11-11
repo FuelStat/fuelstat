@@ -167,12 +167,6 @@ footer {
     color: inherit;
 }
 
-/* Responsives Bild innerhalb der Karte */
-.card-img-top {
-    height: 200px;
-    object-fit: cover;
-}
-
 /* Kopfleiste: Abstand für Notch/Dynamic Island nur hier (nicht zusätzlich am Body) */
 .navbar.sticky-top {
     padding-top: env(safe-area-inset-top);

@@ -133,12 +133,7 @@ async function verify(pool, token) {
   }
 }
 
-async function isVerified(pool, userId) {
-  const r = await pool.query('SELECT email_verified_at FROM users WHERE id = $1', [userId]);
-  return Boolean(r.rows[0]?.email_verified_at);
-}
-
 module.exports = {
   TOKEN_HOURS, RESEND_SECONDS, MAX_MAILS_PER_DAY,
-  enabled, required, verificationMail, resendBlocked, sendVerification, verify, isVerified, hashToken
+  enabled, required, verificationMail, resendBlocked, sendVerification, verify, hashToken
 };

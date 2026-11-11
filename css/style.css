@@ -695,6 +695,27 @@ body.mit-tabbar {
     }
 }
 
+/* Kraftstoffsorten im Fahrzeugformular (#140): je Energieart eine Gruppe, rechts „Standard“ */
+.sorten-gruppe {
+    height: 100%;
+    padding: var(--fs-space-s);
+    border: 1px solid var(--fs-separator);
+    border-radius: var(--fs-radius-tile);
+}
+.sorten-gruppe-titel {
+    font: var(--fs-font-label);
+    font-weight: 600;
+    color: var(--fs-text-secondary);
+    margin-bottom: var(--fs-space-xxs);
+}
+.sorte-zeile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--fs-space-xs);
+    min-height: 2.75rem; /* 44 px Tippfläche */
+}
+
 /* Kennzeichen wie ein kleines Schild */
 .kennzeichen {
     display: inline-block;

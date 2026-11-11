@@ -9,6 +9,7 @@ const { auth } = require('../middleware/auth');
 const { importLimiter } = require('../middleware/rateLimits');
 const { loadOdometerPoints, odometerWarnings } = require('../services/odometer');
 const { unitsForFuelType } = require('../services/stats');
+const { fuelInfo, unitOf: unitOfFuel, vehicleFuels, fuelForUnit } = require('../services/fuels');
 const { requireVerified } = require('../middleware/verified');
 const { vehicleRole } = require('../services/vehicleAccess');
 
@@ -72,13 +73,19 @@ router.post('/vehicles/:vehicleId/import', auth, requireVerified('import'), impo
 
   const client = await pool.connect();
   try {
-    const v = await client.query('SELECT fuel_type FROM vehicles WHERE id = $1 AND user_id = $2', [vehicleId, req.user.sub]);
+    const v = await client.query('SELECT fuel_type, fuels, default_fuel FROM vehicles WHERE id = $1 AND user_id = $2', [vehicleId, req.user.sub]);
     if (v.rowCount === 0) return res.status(404).json({ error: 'vehicle_not_found' });
-    // Einheit je Zeile nur, wo das Fahrzeug mehrere kennt (Plug-in-Hybrid: l und kWh), sonst immer die des Fahrzeugs
-    const units = unitsForFuelType(v.rows[0].fuel_type);
-    const unitOf = (f) => {
+    const vehicle = v.rows[0];
+    const { fuels: vehicleFuelList } = vehicleFuels(vehicle);
+    // Sorte je Zeile (#140), wenn sie zum Fahrzeug gehört; sonst Einheit wie bisher: je Zeile nur, wo das Fahrzeug
+    // mehrere kennt (Plug-in-Hybrid: l und kWh), sonst immer die des Fahrzeugs, und dazu der Standard der Einheit
+    const units = [...new Set([...unitsForFuelType(vehicle.fuel_type), ...vehicleFuelList.map(unitOfFuel)])];
+    const fuelAndUnitOf = (f) => {
+      const fuel = f.fuel ? String(f.fuel).trim().toLowerCase() : '';
+      if (fuelInfo(fuel) && vehicleFuelList.includes(fuel)) return { fuel, unit: unitOfFuel(fuel) };
       const u = f.unit ? String(f.unit).trim().toLowerCase() : '';
-      return units.includes(u) ? u : units[0];
+      const unit = units.includes(u) ? u : unitOfFuel(vehicleFuels(vehicle).defaultFuel);
+      return { fuel: fuelForUnit(vehicle, unit), unit };
     };
 
     // dryRun: alles prüfen und in der Transaktion anlegen, dann zurückrollen (Vorschau mit Duplikaten und Warnungen)
@@ -89,7 +96,7 @@ router.post('/vehicles/:vehicleId/import', auth, requireVerified('import'), impo
 
     for (const [index, f] of fillups.entries()) {
       const filledAt = new Date(f.filledAt);
-      const unit = unitOf(f);
+      const { fuel, unit } = fuelAndUnitOf(f);
       const odo = f.odometerKm === undefined || f.odometerKm === null || f.odometerKm === '' ? null : Math.round(Number(f.odometerKm));
       // Duplikat: gleicher Tag, gleicher Tachostand und gleiche Einheit (Tanken und Laden am selben Abend sind zwei Einträge);
       // ohne Tachostand zusätzlich gleiche Menge
@@ -101,16 +108,17 @@ router.post('/vehicles/:vehicleId/import', auth, requireVerified('import'), impo
       );
       if (dup.rowCount > 0) { result.skipped.fillups++; result.duplicates.push({ type: 'fillup', index }); continue; }
       const ins = await client.query(
-        `INSERT INTO fillups (user_id, vehicle_id, odometer_km, amount, unit, total_cost_eur, price_per_unit, station, filled_at, is_full, skip_previous)
+        `INSERT INTO fillups (user_id, vehicle_id, odometer_km, amount, unit, total_cost_eur, price_per_unit, station, filled_at, is_full, skip_previous, fuel)
          VALUES ($1, $2, $3, $4::numeric, $5, $6::numeric,
                  CASE WHEN $4::numeric > 0 THEN ROUND($6::numeric / $4::numeric, 4) ELSE NULL END,
-                 $7, $8, $9, $10)
+                 $7, $8, $9, $10, $11)
          RETURNING id`,
         [
           req.user.sub, vehicleId, odo, Number(f.amount), unit, Number(f.totalCostEur),
           f.station ? String(f.station).trim() : null, filledAt,
           f.isFull !== undefined ? Boolean(f.isFull) : true,
-          f.skipPrevious !== undefined ? Boolean(f.skipPrevious) : false
+          f.skipPrevious !== undefined ? Boolean(f.skipPrevious) : false,
+          fuel
         ]
       );
       result.imported.fillups++;

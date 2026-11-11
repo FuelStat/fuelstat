@@ -21,7 +21,10 @@ $fahrzeugDetails = array_filter([
     $fahrzeug['license_plate'] ?? '',
     trim(($fahrzeug['brand'] ?? '') . ' ' . ($fahrzeug['model'] ?? '')),
     !empty($fahrzeug['year']) ? 'Baujahr ' . (int)$fahrzeug['year'] : '',
-    $kraftstoffTexte[$fuel_type] ?? ucfirst((string)$fuel_type),
+    // Mehrere Sorten (#140): statt der Antriebsart die Sorten, z. B. „Autogas (LPG), Super E5“
+    count(sortenDesFahrzeugs($fahrzeug)) > 1
+        ? implode(', ', array_map('sortenName', sortenDesFahrzeugs($fahrzeug)))
+        : ($kraftstoffTexte[$fuel_type] ?? ucfirst((string)$fuel_type)),
     !empty($fahrzeug['tank_capacity']) ? ($fuel_type === 'phev' ? 'Tank' : $begriffe['speicher']) . ' ' . number_format((float)$fahrzeug['tank_capacity'], fmod((float)$fahrzeug['tank_capacity'], 1) ? 1 : 0, ',', '.') . ' ' . $einheitKurz : '',
     // Plug-in-Hybrid: Akku zusätzlich zum Tank
     !empty($fahrzeug['battery_capacity']) && $fuel_type === 'phev' ? 'Akku ' . number_format((float)$fahrzeug['battery_capacity'], fmod((float)$fahrzeug['battery_capacity'], 1) ? 1 : 0, ',', '.') . ' kWh' : '',

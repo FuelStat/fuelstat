@@ -86,6 +86,12 @@ function fahrzeugBildUrl(array $fahrzeug, string $baseUrl): string
     return $baseUrl . ltrim($url, '/');
 }
 
+/** Begriffe für eine Energieart aus der API (#140): petrol, diesel, lpg, cng, electricity, hydrogen, other */
+function begriffeFuerEnergie(string $energie): array
+{
+    return verbrauchsBegriffe(['petrol' => 'e5', 'electricity' => 'electric'][$energie] ?? $energie);
+}
+
 /**
  * Mengeneinheit passend zum Kraftstoff (wie im Backend abgeleitet): 'l', 'kwh' oder 'kg'.
  */

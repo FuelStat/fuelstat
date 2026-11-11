@@ -7,6 +7,7 @@ const { pool } = require('../db');
 const { optionalNumber, optionalText, serverError } = require('../lib/http');
 const { auth } = require('../middleware/auth');
 const { FUEL_TYPES } = require('../services/stats');
+const { parseFuelList, defaultFuelsFor, fuelTypeFor, catalog } = require('../services/fuels');
 const { VEHICLE_EXTRA_COLUMNS, parseVehicleExtras } = require('../services/vehicleFields');
 const { checkUnverifiedLimit } = require('../middleware/verified');
 const { accessibleVehicles, vehicleRole } = require('../services/vehicleAccess');
@@ -16,7 +17,7 @@ const router = express.Router();
 // Spalten eines Fahrzeugs für Liste und Einzelabruf (Alias v = vehicles, o = Besitzer, $1 = angemeldetes Konto).
 // role: owner | editor | viewer (#53); owner_name nur bei geteilten Fahrzeugen (Benutzername oder E-Mail des Besitzers).
 const VEHICLE_SELECT = `
-  v.id, v.name, v.fuel_type, v.brand, v.model, v.year, v.image_url,
+  v.id, v.name, v.fuel_type, v.fuels, v.default_fuel, v.brand, v.model, v.year, v.image_url,
   v.odometer_km, v.mileage_km, v.tank_capacity, v.battery_capacity, v.sort_order,
   ${VEHICLE_EXTRA_COLUMNS.split(',').map((c) => 'v.' + c.trim()).join(', ')},
   v.created_at, v.updated_at,
@@ -24,6 +25,13 @@ const VEHICLE_SELECT = `
        ELSE (SELECT m.role FROM vehicle_members m WHERE m.vehicle_id = v.id AND m.user_id = $1) END AS role,
   v.user_id AS owner_id,
   CASE WHEN v.user_id = $1 THEN NULL ELSE COALESCE(o.username, o.email) END AS owner_name`;
+
+// Kraftstoffsorten und Energiearten (#140): eine Liste für Web-App und Apps; ohne Anmeldung, ändert sich nur mit
+// neuen Versionen
+router.get('/fuels', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.json(catalog());
+});
 
 // Create vehicle
 router.post('/vehicles', auth, async (req, res) => {
@@ -34,10 +42,23 @@ router.post('/vehicles', auth, async (req, res) => {
     return serverError(res, e);
   }
   const name = String(req.body?.name || '').trim();
-  const fuelType = String(req.body?.fuelType || '').trim().toLowerCase();
+  let fuelType = String(req.body?.fuelType || '').trim().toLowerCase();
 
   if (!name) return res.status(400).json({ error: 'missing_name' });
+
+  // Kraftstoffsorten (#140): fuels optional; ohne fuels aus der Antriebsart, ohne fuelType aus den Sorten
+  let fuels = null;
+  if (req.body?.fuels !== undefined && req.body.fuels !== null) {
+    const parsed = parseFuelList(req.body.fuels);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+    fuels = parsed.fuels;
+  }
+  const defaultFuelRaw = req.body?.defaultFuel ? String(req.body.defaultFuel).trim().toLowerCase() : null;
+  if (!fuelType && fuels) fuelType = fuelTypeFor(fuels, defaultFuelRaw && fuels.includes(defaultFuelRaw) ? defaultFuelRaw : fuels[0]);
   if (!FUEL_TYPES.has(fuelType)) return res.status(400).json({ error: 'invalid_fuelType' });
+  if (!fuels) fuels = defaultFuelsFor(fuelType);
+  if (defaultFuelRaw && !fuels.includes(defaultFuelRaw)) return res.status(400).json({ error: 'invalid_defaultFuel' });
+  const defaultFuel = defaultFuelRaw ?? fuels[0];
 
   const brand = req.body?.brand ? String(req.body.brand).trim() : null;
   const model = req.body?.model ? String(req.body.model).trim() : null;
@@ -87,19 +108,19 @@ router.post('/vehicles', auth, async (req, res) => {
     const r = await pool.query(
       `INSERT INTO vehicles (
          user_id, name, fuel_type, brand, model, year, image_url,
-         odometer_km, mileage_km, tank_capacity, battery_capacity, sort_order
+         odometer_km, mileage_km, tank_capacity, battery_capacity, sort_order, fuels, default_fuel
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-       RETURNING id, name, fuel_type, brand, model, year, image_url,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       RETURNING id, name, fuel_type, fuels, default_fuel, brand, model, year, image_url,
                  odometer_km, mileage_km, tank_capacity, battery_capacity, sort_order, ${VEHICLE_EXTRA_COLUMNS},
                  created_at, updated_at`,
-      [req.user.sub, name, fuelType, brand, model, year, imageUrl, odometerKm, mileageKm, tankCapacity, batteryCapacity, sortOrder]
+      [req.user.sub, name, fuelType, brand, model, year, imageUrl, odometerKm, mileageKm, tankCapacity, batteryCapacity, sortOrder, fuels, defaultFuel]
     );
     const cols = Object.keys(extras.values);
     if (cols.length) {
       const u2 = await pool.query(
         `UPDATE vehicles SET ${cols.map((c, i) => `${c} = $${i + 3}`).join(', ')} WHERE id = $1 AND user_id = $2
-         RETURNING id, name, fuel_type, brand, model, year, image_url,
+         RETURNING id, name, fuel_type, fuels, default_fuel, brand, model, year, image_url,
                    odometer_km, mileage_km, tank_capacity, battery_capacity, sort_order, ${VEHICLE_EXTRA_COLUMNS},
                    created_at, updated_at`,
         [r.rows[0].id, req.user.sub, ...cols.map((c) => extras.values[c])]
@@ -174,6 +195,14 @@ router.patch('/vehicles/:vehicleId', auth, async (req, res) => {
   const batteryCapacity = optionalNumber(req.body?.batteryCapacity);
   const sortOrder =
     req.body?.sortOrder !== undefined ? Number(req.body.sortOrder) : undefined;
+  // Kraftstoffsorten (#140)
+  let fuelsPatch;
+  if (req.body?.fuels !== undefined && req.body.fuels !== null) {
+    const parsed = parseFuelList(req.body.fuels);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+    fuelsPatch = parsed.fuels;
+  }
+  const defaultFuelPatch = req.body?.defaultFuel ? String(req.body.defaultFuel).trim().toLowerCase() : undefined;
 
   if (name !== undefined && !name) {
     return res.status(400).json({ error: 'invalid_name' });
@@ -206,6 +235,8 @@ router.patch('/vehicles/:vehicleId', auth, async (req, res) => {
     Object.keys(extras.values).length === 0 &&
     name === undefined &&
     fuelType === undefined &&
+    fuelsPatch === undefined &&
+    defaultFuelPatch === undefined &&
     brand === undefined &&
     model === undefined &&
     year === undefined &&
@@ -225,6 +256,17 @@ router.patch('/vehicles/:vehicleId', auth, async (req, res) => {
     if (!role) return res.status(404).json({ error: 'vehicle_not_found' });
     if (role !== 'owner') return res.status(403).json({ error: 'owner_only' });
 
+    // Sorten (#140): geänderte Antriebsart ohne Sortenliste setzt die Sorten der neuen Antriebsart; der Standard
+    // bleibt, solange er in der Liste ist
+    const cur = (await pool.query('SELECT fuel_type, fuels, default_fuel FROM vehicles WHERE id = $1', [vehicleId])).rows[0];
+    let newFuels = fuelsPatch;
+    if (newFuels === undefined && fuelType !== undefined && fuelType !== cur.fuel_type) newFuels = defaultFuelsFor(fuelType);
+    const finalFuels = newFuels ?? (cur.fuels?.length ? cur.fuels : defaultFuelsFor(cur.fuel_type));
+    if (defaultFuelPatch !== undefined && !finalFuels.includes(defaultFuelPatch)) {
+      return res.status(400).json({ error: 'invalid_defaultFuel' });
+    }
+    const newDefault = defaultFuelPatch ?? (finalFuels.includes(cur.default_fuel) ? cur.default_fuel : finalFuels[0]);
+
     // Dynamisches Update je nach gesendeten Feldern
     const fields = [];
     const values = [];
@@ -237,6 +279,14 @@ router.patch('/vehicles/:vehicleId', auth, async (req, res) => {
     if (fuelType !== undefined) {
       fields.push(`fuel_type = $${idx++}`);
       values.push(fuelType);
+    }
+    if (newFuels !== undefined) {
+      fields.push(`fuels = $${idx++}`);
+      values.push(newFuels);
+    }
+    if (newFuels !== undefined || defaultFuelPatch !== undefined) {
+      fields.push(`default_fuel = $${idx++}`);
+      values.push(newDefault);
     }
     if (brand !== undefined) {
       fields.push(`brand = $${idx++}`);
@@ -287,7 +337,7 @@ router.patch('/vehicles/:vehicleId', auth, async (req, res) => {
       `UPDATE vehicles
        SET ${fields.join(', ')}
        WHERE id = $${idx++} AND user_id = $${idx}
-       RETURNING id, name, fuel_type, brand, model, year, image_url,
+       RETURNING id, name, fuel_type, fuels, default_fuel, brand, model, year, image_url,
                  odometer_km, mileage_km, tank_capacity, battery_capacity, sort_order, ${VEHICLE_EXTRA_COLUMNS},
                  created_at, updated_at`,
       values

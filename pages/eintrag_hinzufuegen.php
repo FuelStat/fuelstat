@@ -57,8 +57,16 @@ $letzteOrte = array_map('array_keys', $letzteOrte);
 // Begriffe passend zum Fahrzeug (Tankfüllung/Ladevorgang, Tankstelle/Ladestation …)
 $begriffe = verbrauchsBegriffe($vehicle['fuel_type'] ?? 'other');
 $istPhev = $fahrzeugKraftstoff === 'phev';
+// Kraftstoffsorten des Fahrzeugs (#140): Einheiten und Kacheln ergeben sich aus den Sorten (Standard zuerst)
+$katalogSorten = sortenKatalog()['sorten'];
+$fahrzeugSorten = array_values(array_filter(sortenDesFahrzeugs($vehicle ?? []), fn($k) => isset($katalogSorten[$k])));
+$standardSorteFahrzeug = standardSorte($vehicle ?? [], $fahrzeugSorten);
+$einheitenDesFahrzeugs = array_values(array_unique(array_map(fn($k) => $katalogSorten[$k]['unit'], $fahrzeugSorten)));
+if (!$einheitenDesFahrzeugs) {
+    $einheitenDesFahrzeugs = einheitenFuerKraftstoff($fahrzeugKraftstoff);
+}
 $texteJeEinheit = [];
-foreach (einheitenFuerKraftstoff($fahrzeugKraftstoff) as $u) {
+foreach ($einheitenDesFahrzeugs as $u) {
     $b = begriffeFuerEinheit($fahrzeugKraftstoff, $u);
     $texteJeEinheit[$u] = [
         'menge' => einheitLang($u),
@@ -76,7 +84,11 @@ foreach (einheitenFuerKraftstoff($fahrzeugKraftstoff) as $u) {
 // Eintragsarten als Kacheln (#46). Plug-in-Hybrid: Tanken und Laden getrennt, sonst eine Kachel passend zum Antrieb.
 // Wert => [Beschriftung, Icon, Eintragstyp fürs Speichern, Einheit (nur Tanken/Laden)]
 $arten = [];
-foreach (einheitenFuerKraftstoff($fahrzeugKraftstoff) as $u) {
+foreach ($einheitenDesFahrzeugs as $u) {
+    // Eine Kachel „Tanken“ auch bei mehreren Einheiten (z. B. Autogas in l und Erdgas in kg): die Sorte wählt die Einheit
+    if ($u !== 'kwh' && isset($arten['tanken'])) {
+        continue;
+    }
     $b = begriffeFuerEinheit($fahrzeugKraftstoff, $u);
     $arten[$u === 'kwh' ? 'laden' : 'tanken'] = [$u === 'kwh' ? 'Laden' : 'Tanken', $b['icon'], 'Tankfuellung', $u];
 }
@@ -147,22 +159,14 @@ $heute = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->form
 
         <!-- Tanken / Laden -->
         <div id="fields_tank" class="eintrag-abschnitt">
-            <?php if ($istPhev): ?>
-            <div class="mb-3" id="kraftstoffSorte" <?= $startEinheit === 'kwh' ? 'hidden' : '' ?>>
-                <label class="form-label" for="kraftstoffAuswahl">Kraftstoff</label>
-                <select name="kraftstoff" id="kraftstoffAuswahl" class="form-select">
-                    <option value="e5">Benzin (E5)</option>
-                    <option value="e10">Benzin (E10)</option>
-                </select>
-            </div>
-            <?php elseif ($begriffe['art'] !== 'fluessig'): ?>
-            <input type="hidden" name="kraftstoff" value="<?= htmlspecialchars($fahrzeugKraftstoff) ?>">
-            <?php else: ?>
-            <div class="mb-3">
-                <label class="form-label" for="kraftstoffAuswahl"><?= $begriffe['energie'] ?></label>
-                <select name="kraftstoff" id="kraftstoffAuswahl" class="form-select">
-                    <?php foreach (['diesel' => 'Diesel', 'e5' => 'Benzin (E5)', 'e10' => 'Benzin (E10)', 'lpg' => 'Autogas (LPG)', 'cng' => 'Erdgas (CNG)', 'hybrid' => 'Hybrid', 'hydrogen' => 'Wasserstoff', 'other' => 'Andere'] as $wert => $name): ?>
-                        <option value="<?= $wert ?>" <?= $fahrzeugKraftstoff === $wert ? 'selected' : '' ?>><?= $name ?></option>
+            <?php if ($fahrzeugSorten): ?>
+            <!-- Sorte (#140): nur die Sorten des Fahrzeugs, die zur Kachel passen (Tanken bzw. Laden); bei nur einer
+                 Sorte unsichtbar. Bestimmt auch den Preis in der Tankstellensuche. -->
+            <div class="mb-3" id="sorteFeld" hidden>
+                <label class="form-label" for="sorteAuswahl">Sorte</label>
+                <select name="sorte" id="sorteAuswahl" class="form-select">
+                    <?php foreach ($fahrzeugSorten as $key): $s = $katalogSorten[$key]; ?>
+                        <option value="<?= htmlspecialchars($key) ?>" data-einheit="<?= htmlspecialchars($s['unit']) ?>" data-tk="<?= htmlspecialchars((string)($s['tankerkoenig'] ?? '')) ?>" <?= $key === $standardSorteFahrzeug ? 'selected' : '' ?>><?= htmlspecialchars($s['name']) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -331,8 +335,7 @@ function setzeEinheit(u) {
     const suche = document.getElementById('btnTankstellenSuche');
     suche.title = t.stationen;
     suche.setAttribute('aria-label', t.stationen);
-    const sorte = document.getElementById('kraftstoffSorte');
-    if (sorte) sorte.hidden = u === 'kwh';
+    sortenFuerArt(u);
     zeigeOrtChips(u);
     document.getElementById('tankstellenVorschlaege').replaceChildren();
 }
@@ -427,10 +430,42 @@ window.addEventListener('DOMContentLoaded', () => {
     waehleArt(document.querySelector('input[name="art"]:checked'), false);
 });
 
-// Hilfsfunktion: aktuellen Kraftstofftyp auslesen
+// Sorte (#140): beim Tanken nur Kraftstoffe, beim Laden nur Strom; Auswahl erst ab zwei passenden Sorten sichtbar
+const sorteAuswahl = document.getElementById('sorteAuswahl');
+function sortenFuerArt(u) {
+    if (!sorteAuswahl) return;
+    const laden = u === 'kwh';
+    let sichtbar = 0;
+    let gewaehltPasst = false;
+    for (const o of sorteAuswahl.options) {
+        const passt = (o.dataset.einheit === 'kwh') === laden;
+        o.hidden = !passt;
+        o.disabled = !passt;
+        if (passt) {
+            sichtbar++;
+            if (o.selected) gewaehltPasst = true;
+        }
+    }
+    if (!gewaehltPasst) {
+        const erste = [...sorteAuswahl.options].find(o => !o.disabled);
+        if (erste) erste.selected = true;
+    }
+    document.getElementById('sorteFeld').hidden = sichtbar < 2;
+}
+if (sorteAuswahl) {
+    sorteAuswahl.addEventListener('change', () => {
+        // Andere Einheit (z. B. Erdgas in kg statt Autogas in l): Texte umstellen
+        const u = sorteAuswahl.selectedOptions[0]?.dataset.einheit;
+        if (u && u !== einheitFeld.value) setzeEinheit(u);
+        document.getElementById('tankstellenVorschlaege').replaceChildren();
+    });
+}
+
+// Tankerkönig-Sorte für die Preise in der Tankstellensuche: aus der gewählten Sorte, ohne Sortenliste aus dem Antrieb
 function getSelectedKraftstoff() {
-    const select = document.querySelector('select[name="kraftstoff"]');
-    return select ? select.value : fahrzeugKraftstoff;
+    const o = sorteAuswahl ? sorteAuswahl.selectedOptions[0] : null;
+    if (o) return o.dataset.tk || 'all';
+    return fahrzeugKraftstoff;
 }
 
 // Hilfsfunktion: Erlaubte Typen für Preisabfrage

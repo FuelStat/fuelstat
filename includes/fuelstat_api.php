@@ -125,6 +125,8 @@ class FuelstatApi
         return $this->request('POST', '/auth/register', $daten);
     }
 
+    /** Kraftstoffsorten und Energiearten (#140), ohne Anmeldung */
+    public function getFuels(): array { return $this->request('GET', '/fuels'); }
     public function getVehicles(): array { return $this->request('GET', '/vehicles'); }
     public function getVehicle(string $vehicleId): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId)); }
     public function postVehicle(array $data): array { return $this->request('POST', '/vehicles', $data); }

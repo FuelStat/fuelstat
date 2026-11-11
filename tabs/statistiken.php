@@ -28,9 +28,15 @@ foreach ($einheitenDaten as $u => $ud) {
     $a = $ud['api'] ?? [];
     $monate = array_filter($ud['verbrauchProMonat'], fn($v) => $v > 0);
     ksort($monate);
+    $einheitDerReihe = $ud['einheit'] ?? $u;
+    $begriffeDerReihe = !empty($ud['energie']) ? begriffeFuerEnergie($ud['energie']) : begriffeFuerEinheit($fuelTypeStat, $u);
     $proEinheit[$u] = [
-        'kurz' => einheitKurz($u),
-        'begriffe' => begriffeFuerEinheit($fuelTypeStat, $u),
+        'kurz' => einheitKurz($einheitDerReihe),
+        'einheit' => $einheitDerReihe,
+        'begriffe' => $begriffeDerReihe,
+        // Name der Energieart (Benzin, Autogas, Strom …), sonst wie bisher nach Antrieb
+        'name' => $ud['name'] ?? $begriffeDerReihe['energie'],
+        'nebenbei' => !empty($ud['nebenbei']),
         'werte' => $ud['verbrauchswerte'],
         'monate' => $monate,
         'jahre' => $ud['jahresdaten'],
@@ -45,8 +51,18 @@ foreach ($einheitenDaten as $u => $ud) {
         'co2' => $a['co2']['totalKg'] ?? null,
     ];
 }
-$haupt = reset($proEinheit);
-$hauptEinheit = array_key_first($proEinheit);
+// Hauptwerte: die erste Energieart, die nicht nur nebenbei getankt wird
+$hauptEinheit = array_key_first(array_filter($proEinheit, fn($p) => !$p['nebenbei'])) ?? array_key_first($proEinheit);
+$haupt = $proEinheit[$hauptEinheit];
+// Diagramme ohne nebenbei getankte Energiearten (deren Verbrauch über die Gesamtstrecke sagt wenig)
+$proEinheitDiagramm = array_filter($proEinheit, fn($p) => !$p['nebenbei']);
+// Preise je Sorte (#140): nur wo eine Energieart mehrere Sorten hat (E5/E10, Diesel/Premium-Diesel) oder eine
+// Premium-Sorte; bei Benzin + Autogas zeigen die Kennzahlen je Energieart schon alles
+$sortenPreise = array_values($d['verbrauch']['byFuel'] ?? []);
+$sortenJeEnergie = array_count_values(array_column($sortenPreise, 'energy'));
+if (!array_filter($sortenJeEnergie, fn($n) => $n > 1) && !array_filter($sortenPreise, fn($s) => !empty($s['premium']))) {
+    $sortenPreise = [];
+}
 
 // Summen über alle Einheiten (Plug-in-Hybrid: Kraftstoff und Strom) aus der API
 $co2Faktor = $haupt['co2_faktor'];
@@ -68,7 +84,7 @@ $kostenProMonatFormatted = formatLabels($kostenProMonat);
 
 // Bester, schlechtester und teuerster Monat (beim Plug-in-Hybrid nach dem Kraftstoff)
 $highlights = [];
-$hauptZusatz = $mehrereEinheiten ? ' (' . $haupt['begriffe']['energie'] . ')' : '';
+$hauptZusatz = $mehrereEinheiten ? ' (' . $haupt['name'] . ')' : '';
 if ($verbrauchProMonatFormatted) {
     $wert = min($verbrauchProMonatFormatted);
     $highlights[] = ['fa-arrow-trend-down', 'success', 'Sparsamster Monat' . $hauptZusatz, array_search($wert, $verbrauchProMonatFormatted), number_format($wert, 2, ',', '.') . ' ' . $haupt['kurz'] . '/100 km'];
@@ -82,7 +98,7 @@ if ($kostenProMonatFormatted) {
 
 // Monatsverbrauch aller Einheiten auf gemeinsamer Zeitachse (Plug-in-Hybrid: zwei Balken je Monat)
 $alleMonate = [];
-foreach ($proEinheit as $p) {
+foreach ($proEinheitDiagramm as $p) {
     $alleMonate += $p['monate'];
 }
 ksort($alleMonate);
@@ -94,7 +110,7 @@ $kurzDatum = fn(array $werte) => array_map(fn($datum) => date('d.m.y', strtotime
 $co2Hinweise = [];
 foreach ($proEinheit as $u => $p) {
     if ($p['co2_faktor'] === null) continue;
-    $co2Hinweise[] = $u === 'kwh'
+    $co2Hinweise[] = $p['einheit'] === 'kwh'
         ? 'Strom mit dem deutschen Strommix (' . $zahl($p['co2_faktor'], 3) . ' kg CO₂/kWh)'
         : 'Direkte Emission bei der Verbrennung (' . $zahl($p['co2_faktor']) . ' kg CO₂/' . $p['kurz'] . ')';
 }
@@ -132,9 +148,14 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
         <?php foreach ($proEinheit as $u => $p): ?>
         <div class="col-6 col-lg-3">
             <div class="kennzahl">
-                <div class="small text-body-secondary">Ø <?= $p['begriffe']['energie'] ?></div>
+                <div class="small text-body-secondary">Ø <?= htmlspecialchars($p['name']) ?></div>
+                <?php if ($p['nebenbei']): ?>
+                <div class="kennzahl-wert">—</div>
+                <div class="small text-body-secondary">nur gelegentlich · <?= $zahl($p['gekauft'], 0) ?> <?= $p['kurz'] ?></div>
+                <?php else: ?>
                 <div class="kennzahl-wert"><?= $p['schnitt'] !== null ? $zahl($p['schnitt']) . ' <small class="fw-normal">' . $p['kurz'] . '/100 km</small>' : '—' ?></div>
                 <div class="small text-body-secondary"><?= $zahl($p['gekauft'], 0) ?> <?= $p['kurz'] ?><?php if ($p['preis'] !== null): ?> · Ø <?= $zahl($p['preis'], 3) ?> €/<?= $p['kurz'] ?><?php endif; ?></div>
+                <?php endif; ?>
             </div>
         </div>
         <?php endforeach; ?>
@@ -177,6 +198,31 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
         </div>
     </div>
 
+    <?php if ($sortenPreise): ?>
+    <!-- Preise je Sorte (#140): Anteil an der Energieart, Ø Preis, Mehrpreis der Premium-Sorten -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <h3 class="h6 mb-3">Preise je Sorte</h3>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th scope="col">Sorte</th><th scope="col" class="text-end">Anteil</th><th scope="col" class="text-end">Ø Preis</th><th scope="col" class="text-end">Mehrpreis</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($sortenPreise as $s): $kurzS = einheitKurz($s['unit'] ?? 'l'); ?>
+                        <tr>
+                            <th scope="row" class="fw-normal"><?= htmlspecialchars($s['name']) ?> <span class="text-body-secondary small">· <?= (int)$s['fillCount'] ?>×</span></th>
+                            <td class="text-end text-nowrap"><?= $s['shareOfEnergy'] !== null ? $zahl($s['shareOfEnergy'], 0) . ' %' : '—' ?></td>
+                            <td class="text-end text-nowrap"><?= $s['avgPrice'] !== null ? $zahl($s['avgPrice'], 3) . ' €/' . $kurzS : '—' ?></td>
+                            <td class="text-end text-nowrap"><?php if (!empty($s['markup'])): ?>+<?= $zahl($s['markup']['perUnit'], 3) ?> €/<?= $kurzS ?><?php if ($s['markup']['percent'] !== null): ?> <span class="text-body-secondary small">(<?= $zahl($s['markup']['percent'], 1) ?> %)</span><?php endif; ?><?php else: ?>—<?php endif; ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <p class="small text-body-secondary mb-0 mt-2">Anteil: an der getankten Menge derselben Energieart. Mehrpreis: gegenüber dem Ø Preis der übrigen Sorten dieser Energieart.</p>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <?php if ($highlights): ?>
     <div class="row g-2 g-md-3 mb-3">
         <?php foreach ($highlights as [$icon, $farbe, $titel, $monat, $wert]): ?>
@@ -195,7 +241,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
 
     <!-- Diagramme: Verbrauch je Tank- bzw. Ladevorgang (Plug-in-Hybrid: je Einheit ein Diagramm) -->
     <div class="row g-3 mb-3">
-        <?php foreach ($proEinheit as $u => $p): ?>
+        <?php foreach ($proEinheitDiagramm as $u => $p): ?>
         <div class="col-lg-6">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
@@ -212,7 +258,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
         <div class="<?= $mehrereEinheiten ? 'col-12' : 'col-lg-6' ?>">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
-                    <h3 class="h6 mb-3">Verbrauch pro Monat <small class="text-body-secondary fw-normal"><?= implode(' bzw. ', array_map(fn($p) => $p['kurz'] . '/100 km', $proEinheit)) ?></small></h3>
+                    <h3 class="h6 mb-3">Verbrauch pro Monat <small class="text-body-secondary fw-normal"><?= implode(' bzw. ', array_unique(array_map(fn($p) => $p['kurz'] . '/100 km', $proEinheitDiagramm))) ?></small></h3>
                     <?php if ($alleMonate): ?>
                         <div class="diagramm"><canvas id="verbrauchMonatChart"></canvas></div>
                     <?php else: ?>
@@ -255,7 +301,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                         <th class="text-end">Strecke</th>
                         <?php endif; ?>
                         <?php foreach ($proEinheit as $p): ?>
-                        <th class="text-end"><?= $mehrereEinheiten ? 'Ø ' . $p['begriffe']['energie'] : 'Verbrauch' ?></th>
+                        <th class="text-end"><?= $mehrereEinheiten ? 'Ø ' . htmlspecialchars($p['name']) : 'Verbrauch' ?></th>
                         <?php endforeach; ?>
                         <?php if ($co2Gesamt !== null): ?><th class="text-end">CO₂</th><?php endif; ?>
                     </tr>
@@ -282,7 +328,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                         <td class="text-end"><?= $daten['verbrauch_km'] > 0 ? $zahl($daten['verbrauch_km'], 0) . ' km' : '—' ?></td>
                         <?php endif; ?>
                         <?php foreach ($proEinheit as $p): $j = $p['jahre'][$jahr]; ?>
-                        <td class="text-end fw-semibold text-nowrap"><?= $j['verbrauch_l100km'] > 0 ? $zahl($j['verbrauch_l100km']) . ' ' . $p['kurz'] . '/100 km' : '—' ?></td>
+                        <td class="text-end fw-semibold text-nowrap"><?= $j['verbrauch_l100km'] > 0 && !$p['nebenbei'] ? $zahl($j['verbrauch_l100km']) . ' ' . $p['kurz'] . '/100 km' : '—' ?></td>
                         <?php endforeach; ?>
                         <?php if ($co2Gesamt !== null): ?><td class="text-end"><?= $summe['co2'] !== null ? $zahl($summe['co2'], 0) . ' kg' : '—' ?></td><?php endif; ?>
                     </tr>
@@ -301,7 +347,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
             <div class="list-group-item py-3">
                 <div class="d-flex justify-content-between align-items-baseline mb-2">
                     <span class="fw-semibold fs-5"><?= $jahr ?></span>
-                    <span class="fw-semibold text-end"><?= implode(' · ', array_map(fn($p) => $p['jahre'][$jahr]['verbrauch_l100km'] > 0 ? $zahl($p['jahre'][$jahr]['verbrauch_l100km']) . ' ' . $p['kurz'] . '/100 km' : '—', $proEinheit)) ?></span>
+                    <span class="fw-semibold text-end"><?= implode(' · ', array_map(fn($p) => $p['jahre'][$jahr]['verbrauch_l100km'] > 0 ? $zahl($p['jahre'][$jahr]['verbrauch_l100km']) . ' ' . $p['kurz'] . '/100 km' : '—', $proEinheitDiagramm ?: $proEinheit)) ?></span>
                 </div>
                 <div class="row row-cols-3 g-2 small">
                     <?php foreach ($proEinheit as $p): $j = $p['jahre'][$jahr]; ?>
@@ -342,10 +388,16 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
 (function () {
     if (!window.Chart) return;
     var css = getComputedStyle(document.documentElement);
-    // Kraftstoff in der Hauptfarbe, Strom (beim Plug-in-Hybrid) in Grün
-    var rgbWerte = { haupt: css.getPropertyValue('--bs-primary-rgb').trim(), kwh: css.getPropertyValue('--bs-success-rgb').trim() };
-    var mehrere = <?= json_encode($mehrereEinheiten) ?>;
-    var farbeFuer = function (einheit) { var rgb = mehrere && einheit === 'kwh' ? rgbWerte.kwh : rgbWerte.haupt; return function (alpha) { return 'rgba(' + rgb + ',' + alpha + ')'; }; };
+    // Eine Energieart in der Hauptfarbe; mehrere je in ihrer Energie-Farbe aus docs/design.md (3.3)
+    var hexRgb = function (hex) { var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex.trim()); return m ? [1, 2, 3].map(function (i) { return parseInt(m[i], 16); }).join(',') : null; };
+    var energieToken = { petrol: 'petrol', diesel: 'diesel', lpg: 'gas', cng: 'gas', electricity: 'electric', kwh: 'electric', hydrogen: 'hydrogen', other: 'petrol' };
+    var hauptRgb = css.getPropertyValue('--bs-primary-rgb').trim();
+    var mehrere = <?= json_encode(count($proEinheitDiagramm) > 1) ?>;
+    var farbeFuer = function (schluessel) {
+        var token = energieToken[schluessel];
+        var rgb = (mehrere && token && hexRgb(css.getPropertyValue('--fs-energy-' + token))) || hauptRgb;
+        return function (alpha) { return 'rgba(' + rgb + ',' + alpha + ')'; };
+    };
     var farbe = farbeFuer('');
     var zahl = function (wert, stellen) { return Number(wert).toLocaleString('de-DE', { minimumFractionDigits: stellen, maximumFractionDigits: stellen }); };
     // Achsenbeschriftung: ganze Zahlen ohne, Zwischenschritte (0,5) mit einer Nachkommastelle
@@ -371,13 +423,13 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
 
     var einheiten = <?= json_encode(array_map(fn($p) => [
         'label' => $p['begriffe']['vorgang'],
-        'energie' => $p['begriffe']['energie'],
+        'energie' => $p['name'],
         'einheit' => ' ' . $p['kurz'] . '/100 km',
         'labels' => $kurzDatum($p['werte']),
         'werte' => array_values(array_map(fn($v) => round($v, 2), $p['werte'])),
         'schnitt' => $p['schnitt'] !== null ? round($p['schnitt'], 2) : null,
         'monate' => array_map(fn($m) => isset($p['monate'][$m]) ? round($p['monate'][$m], 2) : null, array_keys($alleMonate)),
-    ], $proEinheit), JSON_UNESCAPED_UNICODE) ?>;
+    ], $proEinheitDiagramm), JSON_UNESCAPED_UNICODE) ?>;
 
     Object.keys(einheiten).forEach(function (u) {
         var e = einheiten[u];
@@ -397,17 +449,22 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
     var el = document.getElementById('verbrauchMonatChart');
     if (el) {
         // Plug-in-Hybrid: Kraftstoff links, Strom rechts auf eigener Achse
-        var datasets = Object.keys(einheiten).map(function (u, i) {
+        // Gleiche Einheit (z. B. Benzin und Autogas in l) auf derselben Achse
+        var ersteEinheit = einheiten[Object.keys(einheiten)[0]].einheit;
+        var zweiteAchse = Object.keys(einheiten).find(function (u) { return einheiten[u].einheit !== ersteEinheit; });
+        var datasets = Object.keys(einheiten).map(function (u) {
             var e = einheiten[u];
-            return { label: mehrere ? e.energie : 'Verbrauch', einheit: e.einheit, data: e.monate, backgroundColor: farbeFuer(u)(.75), borderRadius: 4, yAxisID: i === 0 ? 'y' : 'y1' };
+            return { label: mehrere ? e.energie : 'Verbrauch', einheit: e.einheit, data: e.monate, backgroundColor: farbeFuer(u)(.75), borderRadius: 4, yAxisID: e.einheit === ersteEinheit ? 'y' : 'y1' };
         });
         var extra = {};
-        if (mehrere) {
+        if (mehrere && zweiteAchse) {
             extra.scales = {
                 x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkipPadding: 16 } },
                 y: { position: 'left', title: { display: true, text: einheiten[Object.keys(einheiten)[0]].einheit.trim() }, ticks: { callback: achse } },
-                y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: einheiten[Object.keys(einheiten)[1]].einheit.trim() }, ticks: { callback: achse } }
+                y1: { position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: einheiten[zweiteAchse].einheit.trim() }, ticks: { callback: achse } }
             };
+        }
+        if (mehrere) {
             extra.plugins = { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: function (c) { return c.dataset.label + ': ' + (c.parsed.y === null ? '—' : zahl(c.parsed.y, 2) + c.dataset.einheit); } } } };
         }
         new Chart(el, { type: 'bar', data: { labels: <?= json_encode($monatsLabels, JSON_UNESCAPED_UNICODE) ?>, datasets: datasets }, options: optionen(einheiten[Object.keys(einheiten)[0]].einheit, 2, extra) });

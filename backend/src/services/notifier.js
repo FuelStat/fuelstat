@@ -2,6 +2,7 @@
 // Erinnerungs-Mails und Monatsberichte. Läuft stündlich (startNotifier) und lässt sich manuell auslösen.
 const { getVehicleReminders } = require('./reminders');
 const { getVehicleStats } = require('./stats');
+const { energySql, ENERGIES, ENERGY_ORDER } = require('./fuels');
 const { sendUserMail, loadDefaultSmtp, withDefaultSmtp } = require('./mail');
 const categories = require('./categories');
 const { accessibleVehicles } = require('./vehicleAccess');
@@ -115,11 +116,12 @@ async function buildMonthlyReport(pool, settings, year, month) {
   for (const v of await loadVehicles(pool, settings.user_id)) {
     // Summen des ganzen Fahrzeugs, auch was Mitglieder erfasst haben (#53)
     const f = await pool.query(
-      `SELECT unit, COUNT(*)::int AS n, COALESCE(SUM(amount), 0) AS amount, COALESCE(SUM(total_cost_eur), 0) AS cost
+      `SELECT ${energySql('fuel')} AS energy, unit, COUNT(*)::int AS n, COALESCE(SUM(amount), 0) AS amount, COALESCE(SUM(total_cost_eur), 0) AS cost
        FROM fillups WHERE vehicle_id = $1 AND filled_at >= $2 AND filled_at < $3
-       GROUP BY unit ORDER BY unit = 'kwh', unit`,
+       GROUP BY 1, 2`,
       [v.id, start, end]
     );
+    f.rows.sort((a, b) => ENERGY_ORDER.indexOf(a.energy) - ENERGY_ORDER.indexOf(b.energy));
     const e = await pool.query(
       `SELECT category, SUM(amount_eur) AS cost
        FROM expenses WHERE vehicle_id = $1 AND occurred_at >= $2 AND occurred_at < $3 AND category <> ALL($4)
@@ -136,13 +138,14 @@ async function buildMonthlyReport(pool, settings, year, month) {
     const reminders = (await getVehicleReminders(pool, settings.user_id, v.id, settings.reminder_days))
       .filter((r) => r.status === 'bald' || r.status === 'ueberfaellig');
 
-    // Je Einheit eine Zeile (Plug-in-Hybrid: Tankfüllungen in Litern und Ladevorgänge in kWh)
+    // Je Energieart eine Zeile (#140; Plug-in-Hybrid: Tankfüllungen und Ladevorgänge, Autogas-Auto: Autogas und Benzin)
+    const mehrere = new Set(f.rows.filter((r) => r.unit !== 'kwh').map((r) => r.energy)).size > 1;
     const energy = f.rows.map((r) => {
-      const us = segs.filter((s) => s.unit === r.unit);
+      const us = segs.filter((s) => s.energy === r.energy);
       const km = us.reduce((a, s) => a + Number(s.km), 0);
       const amount = us.reduce((a, s) => a + Number(s.liters_segment), 0);
       return {
-        label: vorgaengeName(v.fuel_type, r.unit),
+        label: vorgaengeName(v.fuel_type, r.unit) + (mehrere && r.unit !== 'kwh' ? ` ${ENERGIES[r.energy]?.name ?? ''}`.trimEnd() : ''),
         unit: UNITS[r.unit] || 'l',
         fillups: r.n,
         amount: Number(r.amount),

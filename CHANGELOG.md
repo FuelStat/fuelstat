@@ -6,9 +6,21 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+### Neu
+- **Mehrere Kraftstoffe je Fahrzeug** (#140): Unter „Antriebsart“ → „Erweitert“ wählst du, was ein Fahrzeug tankt bzw. lädt, z. B. Benzin und Autogas, Diesel und Premium-Diesel oder E5 und E10; einer davon ist der Standard. Beim Tanken wählst du die Sorte (bei nur einer Sorte bleibt alles wie bisher), die Tankstellensuche zeigt den Preis dieser Sorte. Verbrauch wird je Energieart gerechnet – E5, E10 und Super Plus zusammen als Benzin, Benzin und Autogas getrennt –, nur nebenbei getanktes Benzin beim Autogas-Auto zählt nicht als eigener Verbrauch. Die Statistik zeigt Preise je Sorte und den Mehrpreis von Premium-Sorten. Bestehende Fahrzeuge und Einträge bekommen ihre Sorte automatisch. CSV-Export und -Import mit Spalte „Sorte“.
+
 ### Technik
 - Gemeinsames Design-Dokument `docs/design.md` (#153) für Web, PWA, iOS und Android: Farben für hell und dunkel, Schriftrollen, Abstände, Radien, Zuordnung zu CSS, SwiftUI und Compose, Plattform-Leitplanken und Barrierefreiheit. Die Farb- und Abstandswerte stehen als `--fs-*`-Variablen in `css/style.css` bereit; sichtbar ändert sich noch nichts, die Umstellung folgt mit der Neugestaltung.
 - Ausrollen: `sudo infra/ausrollen.sh main` rollt den neuesten Stand von `main` zwischen zwei Releases aus – in derselben Reihenfolge wie ein Release (Migrationen vor dem Neustart), die API wird dabei aus dem Code gebaut. Zurück auf ein Release mit `sudo infra/ausrollen.sh X.Y.Z`.
+- API (#140, abwärtskompatibel): `GET /fuels`, `fuels`/`defaultFuel` an Fahrzeugen, `fuel` an Tank-/Ladevorgängen und im Import, `energies`/`byEnergy`/`byFuel`/`costPer100km` in `/consumption`, `energies` in `/stats` und `/costs`. Bisherige Felder je Einheit bleiben.
+
+### Hinweise zum Update
+- Migration `021_fuels` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst). Sie ist mit dem alten API-Code verträglich: Trigger setzen die Sorte für Einträge, die der alte Code bis zum Neustart noch anlegt. Von Hand:
+
+  ```bash
+  cd infra
+  sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_021_fuels.sql
+  ```
 
 ## [0.11.0] - 2026-11-09
 

@@ -28,9 +28,14 @@ foreach ($eintraege as $entries) {
         $vorhandeneArten[$artVon($e)] = true;
     }
 }
+// Einheiten aus den Sorten des Fahrzeugs (#140), sonst aus dem Antrieb; Sorte nur zeigen, wo es mehrere je Einheit gibt
+$katalogSortenListe = sortenKatalog()['sorten'];
+$einheitenJeSorte = array_map(fn($k) => $katalogSortenListe[$k]['unit'] ?? '', sortenDesFahrzeugs($fahrzeug ?? []));
+$sortenJeEinheit = array_count_values(array_filter($einheitenJeSorte));
+$einheitenFz = $sortenJeEinheit ? array_keys($sortenJeEinheit) : einheitenFuerKraftstoff($fuelType);
 $filterArten = array_filter([
-    'tanken' => in_array('l', einheitenFuerKraftstoff($fuelType), true) || in_array('kg', einheitenFuerKraftstoff($fuelType), true) || isset($vorhandeneArten['tanken']) ? 'Tanken' : null,
-    'laden' => in_array('kwh', einheitenFuerKraftstoff($fuelType), true) || isset($vorhandeneArten['laden']) ? 'Laden' : null,
+    'tanken' => in_array('l', $einheitenFz, true) || in_array('kg', $einheitenFz, true) || isset($vorhandeneArten['tanken']) ? 'Tanken' : null,
+    'laden' => in_array('kwh', $einheitenFz, true) || isset($vorhandeneArten['laden']) ? 'Laden' : null,
     'ausgabe' => 'Ausgaben',
     'fahrt' => isset($vorhandeneArten['fahrt']) ? 'Fahrten' : null,
     'km' => isset($vorhandeneArten['km']) ? 'km-Notizen' : null,
@@ -110,6 +115,7 @@ $zeilenNr = 0;
               date('d.m.', strtotime($e['datum'])),
               !empty($e['tachostand']) ? (!empty($e['tachostand_geschaetzt']) ? 'ca. ' : '') . number_format((int)$e['tachostand'], 0, ',', '.') . ' km' : '',
               $type === 'fillup' ? number_format((float)($e['menge'] ?? 0), 2, ',', '.') . ' ' . $kurz : '',
+              $type === 'fillup' && !empty($e['sorte']) && ($sortenJeEinheit[$eEinheit] ?? 0) > 1 ? sortenName($e['sorte']) : '',
               $v !== null ? number_format($v, 2, ',', '.') . ' ' . $kurz . '/100 km' : '',
           ]);
           $editUrl = $type === 'trip'

@@ -122,6 +122,10 @@ function ladeMergedEintraegeFromApi($api, string $vehicleId): array
     $lPer100ByFillupId = [];
     if ($stats && !empty($stats['segments'])) {
         foreach ($stats['segments'] as $seg) {
+            // Nebenbei getankte Energieart (#140, z. B. Benzin beim Autogas-Auto): kein Verbrauch je Eintrag
+            if (!empty($stats['energies'][$seg['energy'] ?? '']['minor'])) {
+                continue;
+            }
             if (isset($seg['full_id'], $seg['l_per_100km'])) {
                 $lPer100ByFillupId[$seg['full_id']] = $seg['l_per_100km'];
             }
@@ -146,6 +150,7 @@ function ladeMergedEintraegeFromApi($api, string $vehicleId): array
             'skip_previous' => $f['skip_previous'] ?? false,
             'standort' => $f['station'] ?? '',
             'einheit' => $f['unit'] ?? 'l',
+            'sorte' => $f['fuel'] ?? null,
             'l_per_100km' => $lPer100ByFillupId[$f['id']] ?? null,
             // Geteilte Fahrzeuge (#53): wer den Eintrag erfasst hat
             'erfasst_von' => $f['created_by'] ?? null,
@@ -293,8 +298,11 @@ function getStatistikDatenFromApi($api, string $vehicleId, ?int $jahr = null): a
 
     $jahre = $kosten['years'] ?? [];
     $einheiten = [];
-    foreach ($verbrauch['units'] ?? [] as $u) {
-        $ud = $verbrauch['byUnit'][$u];
+    // Je Energieart (#140: Benzin und Autogas getrennt, E5/E10 zusammen); ältere Server liefern nur je Einheit
+    $quelle = !empty($verbrauch['energies']) && !empty($verbrauch['byEnergy'])
+        ? array_map(fn($e) => [$e, $verbrauch['byEnergy'][$e]], $verbrauch['energies'])
+        : array_map(fn($u) => [$u, $verbrauch['byUnit'][$u]], $verbrauch['units'] ?? []);
+    foreach ($quelle as [$u, $ud]) {
         // Verbrauch je Abschnitt: Datum der abschließenden vollen Füllung; weitere am selben Tag mit " #2", " #3" …
         $werte = [];
         foreach ($ud['segments'] as $seg) {
@@ -327,7 +335,10 @@ function getStatistikDatenFromApi($api, string $vehicleId, ?int $jahr = null): a
             ];
         }
         krsort($jahresdaten);
-        $einheiten[$u] = ['verbrauchswerte' => $werte, 'verbrauchProMonat' => $monate, 'jahresdaten' => $jahresdaten, 'api' => $ud];
+        $einheiten[$u] = ['verbrauchswerte' => $werte, 'verbrauchProMonat' => $monate, 'jahresdaten' => $jahresdaten, 'api' => $ud,
+            'einheit' => $ud['unit'] ?? $u, 'energie' => $ud['energy'] ?? null, 'name' => $ud['name'] ?? null,
+            // Nebenbei getankt (z. B. Benzin beim Autogas-Auto): kein aussagekräftiger Verbrauch
+            'nebenbei' => !empty($ud['minor'])];
     }
 
     // Kosten je Kategorie; Tank- und Ladevorgänge zusammen als "Tankfuellung" (Plug-in-Hybrid getrennt siehe 'kosten')
@@ -367,6 +378,60 @@ function getStatistikDatenFromApi($api, string $vehicleId, ?int $jahr = null): a
  * Fahrzeugdaten aus dem Formular (includes/form_fahrzeug.php) für die API aufbereiten.
  * Leere optionale Felder werden als null gesendet, damit sie beim Bearbeiten gelöscht werden.
  */
+/**
+ * Kraftstoffsorten und Energiearten aus der API (#140), je Sitzung eine Stunde zwischengespeichert.
+ * @return array{sorten: array<string, array>, energien: array<string, array>, standards: array<string, string[]>}
+ */
+function sortenKatalog(): array
+{
+    static $katalog = null;
+    if ($katalog !== null) {
+        return $katalog;
+    }
+    $cache = $_SESSION['sorten_katalog'] ?? null;
+    if (!is_array($cache) || ($cache['zeit'] ?? 0) < time() - 3600 || empty($cache['daten']['fuels'])) {
+        try {
+            $cache = ['zeit' => time(), 'daten' => getApiClient()->getFuels()];
+            $_SESSION['sorten_katalog'] = $cache;
+        } catch (Throwable $e) {
+            $cache = ['zeit' => 0, 'daten' => []];
+        }
+    }
+    $d = $cache['daten'];
+    return $katalog = [
+        'sorten' => array_column($d['fuels'] ?? [], null, 'key'),
+        'energien' => array_column($d['energies'] ?? [], null, 'key'),
+        'standards' => $d['fuelTypeDefaults'] ?? [],
+    ];
+}
+
+/** Sorten eines Fahrzeugs (Standard zuerst); ältere Server ohne Sorten: aus der Antriebsart */
+function sortenDesFahrzeugs(array $fahrzeug): array
+{
+    $sorten = array_values(array_filter((array)($fahrzeug['fuels'] ?? []), 'is_string'));
+    if (!$sorten) {
+        $sorten = sortenKatalog()['standards'][$fahrzeug['fuel_type'] ?? ''] ?? [];
+    }
+    $standard = standardSorte($fahrzeug, $sorten);
+    if ($standard !== null) {
+        $sorten = array_values(array_unique(array_merge([$standard], $sorten)));
+    }
+    return $sorten;
+}
+
+function standardSorte(array $fahrzeug, ?array $sorten = null): ?string
+{
+    $sorten ??= array_values((array)($fahrzeug['fuels'] ?? []));
+    $standard = $fahrzeug['default_fuel'] ?? null;
+    return in_array($standard, $sorten, true) ? $standard : ($sorten[0] ?? null);
+}
+
+/** Anzeigename einer Sorte, z. B. „Super E10“ */
+function sortenName(?string $sorte): string
+{
+    return (string)(sortenKatalog()['sorten'][$sorte]['name'] ?? $sorte ?? '');
+}
+
 function fahrzeugDatenAusPost(array $post): array
 {
     $optionalInt = function (string $key) use ($post) {
@@ -380,6 +445,9 @@ function fahrzeugDatenAusPost(array $post): array
     $tank = trim(str_replace(',', '.', (string)($post['tankCapacity'] ?? '')));
     // Akku nur beim Plug-in-Hybrid (Elektroautos tragen ihren Akku im Feld für den Tank ein)
     $akku = ($post['fuelType'] ?? '') === 'phev' ? trim(str_replace(',', '.', (string)($post['batteryCapacity'] ?? ''))) : '';
+    // Kraftstoffsorten (#140): Mehrfachauswahl, einer davon Standard
+    $sorten = array_values(array_unique(array_filter(array_map('strval', (array)($post['fuels'] ?? [])), fn($s) => $s !== '')));
+    $standard = (string)($post['defaultFuel'] ?? '');
 
     return [
         'name' => trim((string)($post['name'] ?? '')),
@@ -390,7 +458,8 @@ function fahrzeugDatenAusPost(array $post): array
         'odometerKm' => $optionalInt('odometerKm'),
         'tankCapacity' => $tank === '' ? null : (float)$tank,
         'batteryCapacity' => $akku === '' ? null : (float)$akku,
-    ] + fahrzeugZusatzAusPost($post);
+    ] + ($sorten ? ['fuels' => $sorten, 'defaultFuel' => in_array($standard, $sorten, true) ? $standard : $sorten[0]] : [])
+      + fahrzeugZusatzAusPost($post);
 }
 
 /** Zusatzangaben zum Fahrzeug (#45): Formularfeld => [API-Name, Typ, Beschriftung für Fehlermeldungen] */

@@ -75,10 +75,14 @@ try {
     $vehicle = $api->getVehicle($fahrzeug_id);
     $einheiten = einheitenFuerKraftstoff($vehicle['fuel_type'] ?? null);
     $einheit = in_array($_POST['einheit'] ?? '', $einheiten, true) ? $_POST['einheit'] : $einheiten[0];
-    $api->patchFillup($eintrag_id, [
+    // Sorte (#140): bestimmt die Einheit; ohne Sorte (älterer Server) wie bisher die Einheit
+    $sorte = preg_match('/^[a-z0-9_]{1,30}$/', (string)($_POST['sorte'] ?? '')) ? $_POST['sorte'] : null;
+    if ($sorte !== null) {
+        $einheit = sortenKatalog()['sorten'][$sorte]['unit'] ?? $einheit;
+    }
+    $api->patchFillup($eintrag_id, ($sorte !== null ? ['fuel' => $sorte] : ['unit' => $einheit]) + [
         'odometerKm' => $tachostand,
         'odometerEstimated' => $tachoGeschaetzt,
-        'unit' => $einheit,
         'amount' => $menge,
         'totalCostEur' => $kosten,
         'station' => $standort !== '' ? $standort : null,

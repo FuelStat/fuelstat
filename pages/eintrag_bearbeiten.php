@@ -117,11 +117,19 @@ try {
 }
 
 $datum = isset($eintrag['filled_at']) ? date('Y-m-d', strtotime($eintrag['filled_at'])) : '';
+$fahrzeugFuerSorten = [];
 try {
-    $fuelType = $api->getVehicle($fahrzeug_id)['fuel_type'] ?? 'other';
+    $fahrzeugFuerSorten = $api->getVehicle($fahrzeug_id);
+    $fuelType = $fahrzeugFuerSorten['fuel_type'] ?? 'other';
 } catch (Throwable $e) {
     $fuelType = null;
 }
+// Sorten zur Auswahl (#140): die des Fahrzeugs und die bisherige Sorte des Eintrags
+$katalogSorten = sortenKatalog()['sorten'];
+$sortenAuswahl = array_values(array_filter(
+    array_unique(array_merge($fahrzeugFuerSorten ? sortenDesFahrzeugs($fahrzeugFuerSorten) : [], array_filter([$eintrag['fuel'] ?? null]))),
+    fn($k) => isset($katalogSorten[$k])
+));
 // Plug-in-Hybrid: Begriffe nach der Einheit dieses Eintrags (Tankfüllung oder Ladevorgang)
 $begriffe = begriffeFuerEinheit($fuelType, $eintrag['unit'] ?? null);
 $istPhev = $fuelType === 'phev';
@@ -179,6 +187,18 @@ $bearbeitbar = isset($eintrag['filled_at']) && strtotime($eintrag['filled_at']) 
                 <input type="date" class="form-control form-control-lg" id="datum" name="datum" value="<?= htmlspecialchars($datum) ?>" required>
             </div>
         </div>
+
+        <?php if ($sortenAuswahl): ?>
+        <!-- Sorte (#140): nur passend zu Tanken bzw. Laden, ab zwei Sorten sichtbar -->
+        <div class="mb-3" id="sorteFeld" hidden>
+            <label class="form-label" for="sorteAuswahl">Sorte</label>
+            <select name="sorte" id="sorteAuswahl" class="form-select">
+                <?php foreach ($sortenAuswahl as $key): ?>
+                    <option value="<?= htmlspecialchars($key) ?>" data-einheit="<?= htmlspecialchars($katalogSorten[$key]['unit']) ?>" <?= $key === ($eintrag['fuel'] ?? null) ? 'selected' : '' ?>><?= htmlspecialchars($katalogSorten[$key]['name']) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <?php endif; ?>
 
         <div class="row g-2 mb-3">
             <div class="col-6 col-md-4">
@@ -244,6 +264,23 @@ window.addEventListener('DOMContentLoaded', () => {
     })(begriffeFuerEinheit($fuelType, $u)), array_combine(einheitenFuerKraftstoff($fuelType), einheitenFuerKraftstoff($fuelType))), JSON_UNESCAPED_UNICODE) ?>;
     let kurz = <?= json_encode(einheitKurz($einheit)) ?>;
     const rechner = mengenRechner({ einheit: () => kurz, eingetragen: ['kosten', 'menge'], hinweis: 'rechenHinweis' });
+    // Sorte (#140): beim Tanken nur Kraftstoffe, beim Laden nur Strom
+    const sorteAuswahl = document.getElementById('sorteAuswahl');
+    const sortenFuerEinheit = (u) => {
+        if (!sorteAuswahl) return;
+        const laden = u === 'kwh';
+        let sichtbar = 0;
+        let passt = false;
+        for (const o of sorteAuswahl.options) {
+            const ok = (o.dataset.einheit === 'kwh') === laden;
+            o.hidden = !ok;
+            o.disabled = !ok;
+            if (ok) { sichtbar++; if (o.selected) passt = true; }
+        }
+        if (!passt) { const erste = [...sorteAuswahl.options].find(o => !o.disabled); if (erste) erste.selected = true; }
+        document.getElementById('sorteFeld').hidden = sichtbar < 2;
+    };
+    sortenFuerEinheit(<?= json_encode($einheit) ?>);
     document.querySelectorAll('input[name="einheit"]').forEach(radio => radio.addEventListener('change', () => {
         const t = texte[radio.value];
         if (!radio.checked || !t) return;
@@ -255,6 +292,7 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('lueckeLabel').textContent = t.luecke;
         document.getElementById('titel').textContent = t.vorgang + ' bearbeiten';
         document.getElementById('loeschenText').textContent = t.vorgang + ' löschen';
+        sortenFuerEinheit(radio.value);
         rechner.aktualisiere();
     }));
 });

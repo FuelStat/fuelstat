@@ -96,4 +96,16 @@ assert($ohne['entries'][3]['category'] === 'Sonstiges' && $ohne['kategorien']['n
 assert(array_column(importKategorienErsetzen($r['entries'], ['schlüsseldienst' => 'custom:2']), 'category')[3] === 'custom:2');
 assert(array_column(importKategorienErsetzen($r['entries'], []), 'category')[3] === 'Sonstiges', 'Probelauf ohne neue Kategorien');
 
+// Sorte (#140): Schlüssel, Name oder Kurzform
+$sorten = ['super_e10' => ['name' => 'Super E10'], 'premium_diesel' => ['name' => 'Premium-Diesel'], 'lpg' => ['name' => 'Autogas (LPG)']];
+assert(importSorte('Super E10', $sorten) === 'super_e10');
+assert(importSorte('premium_diesel', $sorten) === 'premium_diesel');
+assert(importSorte('Premium-Diesel', $sorten) === 'premium_diesel');
+assert(importSorte('Autogas (LPG)', $sorten) === 'lpg');
+assert(importSorte('E10', $sorten) === 'super_e10');
+assert(importSorte('Autogas', $sorten) === 'lpg');
+assert(importSorte('Kerosin', $sorten) === null);
+assert(importSorte('', $sorten) === null);
+assert(importErkenneZuordnung(['Datum', 'Sorte', 'Menge'])['sorte'] === 1);
+
 echo "All tests passed\n";

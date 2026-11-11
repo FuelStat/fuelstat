@@ -970,6 +970,50 @@ paths:
         "502":
           description: smtp_failed
 
+  /api/v1/fuels:
+    get:
+      tags: [Vehicles]
+      summary: Fuel grades and energy types (#140)
+      description: >
+        Liste der Kraftstoffsorten mit Energieart und Einheit, dazu die Energiearten (mit CO₂-Faktor) und der
+        Vorschlag je Antriebsart (fuelTypeDefaults, erste Sorte = Standard). Ohne Anmeldung; ändert sich nur mit
+        neuen Versionen (Cache-Control 1 Stunde). Clients pflegen keine eigene Liste.
+      operationId: getFuels
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  energies:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key: { $ref: "#/components/schemas/Energy" }
+                        name: { type: string, example: Benzin }
+                        unit: { $ref: "#/components/schemas/FillupUnit" }
+                        co2Factor: { type: number, nullable: true, description: "kg CO₂ je Einheit" }
+                  fuels:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key: { type: string, example: premium_diesel }
+                        name: { type: string, example: Premium-Diesel }
+                        energy: { $ref: "#/components/schemas/Energy" }
+                        unit: { $ref: "#/components/schemas/FillupUnit" }
+                        premium: { type: boolean, description: "Mehrpreis wird gegenüber den übrigen Sorten der Energieart gezeigt" }
+                        tankerkoenig: { type: string, nullable: true, enum: [e5, e10, diesel, null], description: "Sorte für Preise in /stations" }
+                        hint: { type: string, nullable: true, example: "z. B. Ultimate Diesel, V-Power Diesel" }
+                  fuelTypeDefaults:
+                    type: object
+                    description: "Sorten je Antriebsart, z. B. phev: [super_e5, electricity]"
+                    additionalProperties: { type: array, items: { type: string } }
+
   /api/v1/vehicles:
     post:
       tags: [Vehicles]
@@ -1580,7 +1624,7 @@ paths:
     post:
       tags: [Entries]
       summary: Import fillups and entries (e.g. from CSV)
-      description: "Max. 1000 Zeilen, alles in einer Transaktion. Duplikate (gleiches Datum + Tachostand + Einheit bzw. Datum + Kategorie + Betrag) werden übersprungen. `unit` je Zeile gilt nur bei Plug-in-Hybriden (l oder kwh); sonst immer die Einheit des Fahrzeugs."
+      description: "Max. 1000 Zeilen, alles in einer Transaktion. Duplikate (gleiches Datum + Tachostand + Einheit bzw. Datum + Kategorie + Betrag) werden übersprungen. `fuel` je Zeile gilt, wenn die Sorte zum Fahrzeug gehört (#140); sonst `unit` je Zeile nur bei Plug-in-Hybriden (l oder kwh), immer mit dem Standard des Fahrzeugs für diese Einheit."
       operationId: postVehicleImport
       parameters:
         - $ref: "#/components/parameters/VehicleId"
@@ -1922,7 +1966,7 @@ paths:
   /api/v1/vehicles/{vehicleId}/consumption:
     get:
       tags: [Stats]
-      summary: Consumption, amounts and CO₂ per unit (segments, months, years)
+      summary: Consumption, amounts and CO₂ per energy type, prices per fuel grade (segments, months, years)
       description: "Grundlage sind die Full-to-Full-Abschnitte von /stats; Regeln siehe docs/api.md (#82)."
       operationId: getVehicleConsumption
       parameters:
@@ -1936,13 +1980,46 @@ paths:
                 type: object
                 properties:
                   fuelType: { type: string, nullable: true }
+                  fuels: { type: array, items: { type: string }, description: "Sorten des Fahrzeugs (#140)" }
+                  defaultFuel: { type: string }
                   units: { type: array, items: { type: string, enum: [l, kwh, kg] } }
+                  energies: { type: array, items: { $ref: "#/components/schemas/Energy" }, description: "Energiearten mit Einträgen, die des Standards zuerst (#140)" }
+                  byEnergy:
+                    type: object
+                    description: "Je Energieart dieselben Felder wie byUnit, dazu name, costShare (% der Energiekosten) und minor (nebenbei getankt, < 10 %: Verbrauch nicht als Wert zeigen)"
+                    additionalProperties: { type: object }
+                  byFuel:
+                    type: object
+                    description: "Je Sorte (#140): Menge, Kosten, Ø Preis, Anteil an der Menge der Energieart, Mehrpreis von Premium-Sorten gegenüber den übrigen Sorten der Energieart"
+                    additionalProperties:
+                      type: object
+                      properties:
+                        fuel: { type: string }
+                        name: { type: string }
+                        energy: { $ref: "#/components/schemas/Energy" }
+                        unit: { type: string, enum: [l, kwh, kg] }
+                        premium: { type: boolean }
+                        fillCount: { type: integer }
+                        amount: { type: number }
+                        cost: { type: number }
+                        avgPrice: { type: number, nullable: true }
+                        shareOfEnergy: { type: number, nullable: true }
+                        markup:
+                          type: object
+                          nullable: true
+                          properties:
+                            perUnit: { type: number }
+                            percent: { type: number, nullable: true }
+                            basePrice: { type: number }
+                  costPer100km: { type: number, nullable: true, description: "Energiekosten pro 100 km über alle Energiearten" }
                   byUnit:
                     type: object
+                    description: "Bisheriges Format: je Einheit die Hauptenergieart der Einheit (die des Standards), siehe energy"
                     additionalProperties:
                       type: object
                       properties:
                         unit: { type: string, enum: [l, kwh, kg] }
+                        energy: { $ref: "#/components/schemas/Energy" }
                         avg: { type: number, nullable: true }
                         min: { type: number, nullable: true }
                         max: { type: number, nullable: true }
@@ -2076,6 +2153,17 @@ paths:
                         key: { type: string, example: "Tankfuellung:l" }
                         total: { type: number }
                         count: { type: integer }
+                  energies:
+                    type: array
+                    description: Energiekosten je Energieart im Zeitraum (#140)
+                    items:
+                      type: object
+                      properties:
+                        energy: { $ref: "#/components/schemas/Energy" }
+                        name: { type: string }
+                        total: { type: number }
+                        count: { type: integer }
+                        share: { type: number, nullable: true, description: "% der Energiekosten" }
                   years:
                     type: array
                     description: Jahre mit Kosten (gesamter Zeitraum), neueste zuerst
@@ -2934,6 +3022,18 @@ components:
       description: Kraftstoffart des Fahrzeugs. hybrid = Vollhybrid (tankt nur), phev = Plug-in-Hybrid (tankt und lädt).
       enum: [diesel, e5, e10, lpg, cng, electric, hybrid, phev, hydrogen, other]
 
+    Energy:
+      type: string
+      description: Energieart (#140); Verbrauch wird je Energieart gerechnet, Sorten derselben Energieart zusammen
+      enum: [petrol, diesel, lpg, cng, electricity, hydrogen, other]
+
+    VehicleFuels:
+      type: array
+      description: "Kraftstoffsorten des Fahrzeugs (#140), Schlüssel aus GET /fuels, 1 bis 8"
+      minItems: 1
+      maxItems: 8
+      items: { type: string, example: super_e5 }
+
     VehicleCreateRequest:
       type: object
       additionalProperties: false
@@ -2943,6 +3043,11 @@ components:
           minLength: 1
         fuelType:
           $ref: "#/components/schemas/VehicleFuelType"
+        fuels:
+          $ref: "#/components/schemas/VehicleFuels"
+        defaultFuel:
+          type: string
+          description: Standard für neue Einträge, muss in fuels stehen (sonst invalid_defaultFuel); ohne Angabe die erste Sorte
         tankCapacity:
           type: number
           nullable: true
@@ -3019,7 +3124,8 @@ components:
         tireSizeWinter:
           type: string
           nullable: true
-      required: [name, fuelType]
+      required: [name]
+      description: "fuelType oder fuels ist Pflicht. Ohne fuels: Sorten aus der Antriebsart (GET /fuels → fuelTypeDefaults); ohne fuelType: Antriebsart aus den Sorten."
 
     VehiclePatchRequest:
       type: object
@@ -3030,6 +3136,12 @@ components:
           minLength: 1
         fuelType:
           $ref: "#/components/schemas/VehicleFuelType"
+          description: Eine geänderte Antriebsart ohne fuels setzt die Sorten der neuen Antriebsart; dieselbe Antriebsart lässt die Sorten unverändert
+        fuels:
+          $ref: "#/components/schemas/VehicleFuels"
+        defaultFuel:
+          type: string
+          description: Muss in den (neuen) Sorten stehen; ohne Angabe bleibt der Standard, solange er in der Liste ist
         tankCapacity:
           type: number
           nullable: true
@@ -3152,6 +3264,13 @@ components:
         updated_at:
           type: string
           format: date-time
+        fuels:
+          type: array
+          items: { type: string }
+          description: Kraftstoffsorten (#140), Standard siehe default_fuel
+        default_fuel:
+          type: string
+          nullable: true
         fuel_type:
           $ref: "#/components/schemas/VehicleFuelType"
         tank_capacity:
@@ -3251,7 +3370,12 @@ components:
           description: Wert ist nur geschätzt (Platzhalter); zählt nicht für Verbrauch und Tachostand
         unit:
           $ref: "#/components/schemas/FillupUnit"
-          description: Optional, wird aus vehicle.fuel_type abgeleitet wenn nicht gesetzt (Plug-in-Hybrid ohne Angabe = l)
+          description: Optional, wird aus der Sorte bzw. dem Standard des Fahrzeugs abgeleitet (Plug-in-Hybrid ohne Angabe = l)
+        fuel:
+          type: string
+          description: >
+            Sorte (#140), muss zum Fahrzeug gehören (sonst invalid_fuel); die Einheit ergibt sich daraus (passt
+            unit nicht: invalid_unit). Ohne Angabe der Standard des Fahrzeugs bzw. dessen Sorte für die Einheit.
         amount:
           type: number
           minimum: 0
@@ -3299,6 +3423,9 @@ components:
           description: Ohne Angabe gilt ein neu gesetzter Tachostand als echt
         unit:
           $ref: "#/components/schemas/FillupUnit"
+        fuel:
+          type: string
+          description: Sorte (#140); bestimmt die Einheit. Eine geänderte Einheit ohne Sorte wählt die passende Sorte des Fahrzeugs
         amount:
           type: number
           minimum: 0
@@ -3375,6 +3502,9 @@ components:
             $ref: "#/components/schemas/OdometerWarning"
         unit:
           $ref: "#/components/schemas/FillupUnit"
+        fuel:
+          type: string
+          description: Sorte (#140), z. B. super_e10, lpg, electricity
         amount:
           type: number
         total_cost_eur:
@@ -3427,7 +3557,10 @@ components:
           format: date-time
         unit:
           $ref: "#/components/schemas/FillupUnit"
-          description: Abschnitte laufen je Einheit von voller Füllung zu voller Füllung (Plug-in-Hybrid getrennt für l und kWh)
+          description: Einheit der abschließenden Füllung
+        energy:
+          $ref: "#/components/schemas/Energy"
+          description: Abschnitte laufen je Energieart von voller Füllung zu voller Füllung (#140; Benzin und Autogas getrennt, E5/E10 zusammen)
         km:
           type: integer
           minimum: 0
@@ -3494,10 +3627,12 @@ components:
           nullable: true
         units:
           type: object
-          description: "Ø Preis, Ø Verbrauch und Trend je vorhandener Einheit, z. B. { l: {...}, kwh: {...} } beim Plug-in-Hybrid"
+          description: "Ø Preis, Ø Verbrauch und Trend je vorhandener Einheit, z. B. { l: {...}, kwh: {...} } beim Plug-in-Hybrid. Je Einheit die Hauptenergieart (#140: die des Standards), siehe energy"
           additionalProperties:
             type: object
             properties:
+              energy:
+                $ref: "#/components/schemas/Energy"
               avgPrice:
                 type: number
                 nullable: true
@@ -3508,6 +3643,19 @@ components:
               trend:
                 $ref: "#/components/schemas/VehicleStatsTrend"
                 nullable: true
+        energies:
+          type: object
+          description: "Je Energieart (#140): { petrol: {...}, lpg: {...} }"
+          additionalProperties:
+            type: object
+            properties:
+              unit: { $ref: "#/components/schemas/FillupUnit" }
+              avgPrice: { type: number, nullable: true }
+              avgConsumption: { type: number, nullable: true }
+              trend:
+                $ref: "#/components/schemas/VehicleStatsTrend"
+                nullable: true
+              minor: { type: boolean, description: "Nebenbei getankt (< 10 % der Energiekosten): Verbrauch nicht als Wert zeigen" }
       required: [segments]
 
     EntryCategory:

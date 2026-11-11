@@ -9,6 +9,15 @@ if ($aktuellerKraftstoff === 'petrol') {
     $aktuellerKraftstoff = 'e5';
 }
 $hatBild = !empty($f['image_url']);
+// Kraftstoffsorten (#140): beim Anlegen der Vorschlag zur Antriebsart, beim Bearbeiten die des Fahrzeugs
+$katalog = sortenKatalog();
+$fahrzeugSorten = $istNeu ? ($katalog['standards'][$aktuellerKraftstoff] ?? []) : sortenDesFahrzeugs($f);
+$fahrzeugStandard = $istNeu ? ($fahrzeugSorten[0] ?? null) : standardSorte($f, $fahrzeugSorten);
+// Die meisten Fahrzeuge haben eine Sorte: die Auswahl ist nur offen, wenn das Fahrzeug mehrere oder andere Sorten hat
+// als die Antriebsart vorschlägt
+$sortenVorschlag = $katalog['standards'][$aktuellerKraftstoff] ?? [];
+$gleicheSorten = fn(array $a, array $b) => count($a) === count($b) && !array_diff($a, $b);
+$sortenErweitert = !$istNeu && !$gleicheSorten($fahrzeugSorten, $sortenVorschlag);
 $wert = fn(string $spalte) => htmlspecialchars((string)($f[$spalte] ?? ''));
 $zahl = fn(string $spalte) => isset($f[$spalte]) && $f[$spalte] !== null ? htmlspecialchars((string)(float)$f[$spalte]) : '';
 $monate = [1 => 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
@@ -101,12 +110,53 @@ $abschnittEnde = fn() => $istNeu ? '</section>' : '</div></div></div>';
                         <option value="<?= $wertK ?>" <?= $wertK === $aktuellerKraftstoff ? 'selected' : '' ?>><?= $text ?></option>
                     <?php endforeach; ?>
                 </select>
+                <?php if ($katalog['sorten']): ?>
+                <button type="button" class="btn btn-link btn-sm px-0" id="sortenErweitert" aria-controls="sortenBereich" aria-expanded="<?= $sortenErweitert ? 'true' : 'false' ?>">
+                    <i class="fas fa-sliders me-1" aria-hidden="true"></i>Erweitert: mehrere Kraftstoffe oder Sorten
+                </button>
+                <?php endif; ?>
             </div>
             <div class="col-md-6">
                 <label for="odometerKm" class="form-label">Tachostand bei Anschaffung (km)</label>
                 <input type="number" id="odometerKm" name="odometerKm" class="form-control" min="0" inputmode="numeric" value="<?= $wert('odometer_km') ?>">
                 <div class="form-text">Wird für die Fahrleistung verwendet.</div>
             </div>
+            <?php if ($katalog['sorten']): ?>
+            <!-- Kraftstoffsorten (#140): alles, was das Fahrzeug tankt bzw. lädt; einer davon ist der Standard.
+                 Zugeklappt folgen die Sorten der Antriebsart (wie bei der API ohne Sortenliste). -->
+            <div class="col-12" id="sortenBereich" <?= $sortenErweitert ? '' : 'hidden' ?>>
+                <fieldset id="sortenAuswahl" aria-describedby="sortenHinweis">
+                    <legend class="form-label fs-6 mb-1">Kraftstoffe</legend>
+                    <div class="form-text mt-0 mb-2" id="sortenHinweis">Für Fahrzeuge mit mehreren Kraftstoffen (z. B. Benzin und Autogas) oder wechselnden Sorten (E5 und E10, Diesel und Premium-Diesel). Verbrauch rechnet Fuelstat je Energieart, Preise je Sorte. Der Standard ist bei neuen Einträgen vorausgewählt.</div>
+                    <div class="row g-2">
+                        <?php foreach ($katalog['energien'] as $energieKey => $energie):
+                            $sortenDerEnergie = array_filter($katalog['sorten'], fn($s) => ($s['energy'] ?? '') === $energieKey);
+                            if (!$sortenDerEnergie) continue; ?>
+                        <div class="col-12 col-md-6 col-xl-4 sorten-spalte">
+                            <div class="sorten-gruppe" data-energie="<?= htmlspecialchars($energieKey) ?>">
+                                <div class="sorten-gruppe-titel"><?= htmlspecialchars($energie['name']) ?></div>
+                                <?php foreach ($sortenDerEnergie as $key => $sorte):
+                                    $gewaehlt = in_array($key, $fahrzeugSorten, true); ?>
+                                <div class="sorte-zeile">
+                                    <div class="form-check mb-0">
+                                        <input class="form-check-input sorte-check" type="checkbox" name="fuels[]" value="<?= htmlspecialchars($key) ?>" id="sorte_<?= htmlspecialchars($key) ?>" <?= $gewaehlt ? 'checked' : '' ?>>
+                                        <label class="form-check-label" for="sorte_<?= htmlspecialchars($key) ?>"><?= htmlspecialchars($sorte['name']) ?><?php if (!empty($sorte['hint'])): ?> <span class="text-body-secondary small">(<?= htmlspecialchars($sorte['hint']) ?>)</span><?php endif; ?></label>
+                                    </div>
+                                    <div class="form-check mb-0 sorte-standard" <?= $gewaehlt ? '' : 'hidden' ?>>
+                                        <input class="form-check-input" type="radio" name="defaultFuel" value="<?= htmlspecialchars($key) ?>" id="standard_<?= htmlspecialchars($key) ?>" <?= $key === $fahrzeugStandard ? 'checked' : '' ?> <?= $gewaehlt ? '' : 'disabled' ?>>
+                                        <label class="form-check-label small" for="standard_<?= htmlspecialchars($key) ?>">Standard<span class="visually-hidden"> (<?= htmlspecialchars($sorte['name']) ?>)</span></label>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <button type="button" class="btn btn-link btn-sm px-0 mt-1" id="sortenAlle" aria-expanded="false">Weitere Kraftstoffe zeigen</button>
+                    <div class="invalid-feedback" id="sortenFehler">Bitte mindestens einen Kraftstoff wählen.</div>
+                </fieldset>
+            </div>
+            <?php endif; ?>
             <div class="col-md-6">
                 <label for="tankCapacity" class="form-label" id="tankCapacityLabel">Tank- bzw. Akkugröße</label>
                 <input type="number" id="tankCapacity" name="tankCapacity" class="form-control" min="0" step="0.1" inputmode="decimal" value="<?= $zahl('tank_capacity') ?>">
@@ -216,6 +266,51 @@ $abschnittEnde = fn() => $istNeu ? '</section>' : '</div></div></div>';
     cng: ['Tankgröße (kg)', 'Fassungsvermögen in Kilogramm.'],
     hydrogen: ['Tankgröße (kg)', 'Fassungsvermögen in Kilogramm.']
   };
+  // Kraftstoffsorten (#140): Vorschlag je Antriebsart, Standard nur für gewählte Sorten
+  var sortenStandards = <?= json_encode($katalog['standards'] ?? [], JSON_UNESCAPED_UNICODE) ?>;
+  var sortenChecks = Array.prototype.slice.call(document.querySelectorAll('.sorte-check'));
+  // Gruppen ohne gewählte Sorte erst auf Wunsch zeigen (die Liste wäre auf dem Handy sehr lang)
+  var sortenAlleZeigen = false;
+  var sortenKnopf = document.getElementById('sortenAlle');
+  function sortenGruppen() {
+    document.querySelectorAll('.sorten-spalte').forEach(function (spalte) {
+      spalte.hidden = !sortenAlleZeigen && !spalte.querySelector('.sorte-check:checked');
+    });
+    if (sortenKnopf) {
+      sortenKnopf.textContent = sortenAlleZeigen ? 'Nur gewählte Kraftstoffe zeigen' : 'Weitere Kraftstoffe zeigen';
+      sortenKnopf.setAttribute('aria-expanded', sortenAlleZeigen ? 'true' : 'false');
+    }
+  }
+  if (sortenKnopf) sortenKnopf.addEventListener('click', function () { sortenAlleZeigen = !sortenAlleZeigen; sortenGruppen(); });
+  // „Erweitert“: Sortenauswahl auf- und zuklappen
+  var erweitertKnopf = document.getElementById('sortenErweitert');
+  if (erweitertKnopf) erweitertKnopf.addEventListener('click', function () {
+    var bereich = document.getElementById('sortenBereich');
+    bereich.hidden = !bereich.hidden;
+    erweitertKnopf.setAttribute('aria-expanded', bereich.hidden ? 'false' : 'true');
+    if (!bereich.hidden) bereich.querySelector('.sorte-check').focus({ preventScroll: false });
+  });
+  function sortenAktualisieren() {
+    var gewaehlt = sortenChecks.filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
+    var standardGesetzt = false;
+    sortenChecks.forEach(function (c) {
+      var radio = document.getElementById('standard_' + c.value);
+      var an = gewaehlt.indexOf(c.value) >= 0;
+      radio.disabled = !an;
+      radio.closest('.sorte-standard').hidden = !an;
+      if (!an) radio.checked = false;
+      if (radio.checked) standardGesetzt = true;
+    });
+    if (!standardGesetzt && gewaehlt.length) document.getElementById('standard_' + gewaehlt[0]).checked = true;
+    // Mindestens eine Sorte: die Prüfung beim Weiter/Speichern greift über die erste Checkbox
+    if (sortenChecks.length) sortenChecks[0].setCustomValidity(gewaehlt.length ? '' : 'Bitte mindestens einen Kraftstoff wählen.');
+    var fehler = document.getElementById('sortenFehler');
+    if (fehler) fehler.classList.toggle('d-block', sortenChecks.length > 0 && gewaehlt.length === 0);
+    if (!gewaehlt.length) sortenAlleZeigen = true;
+    sortenGruppen();
+  }
+  sortenChecks.forEach(function (c) { c.addEventListener('change', sortenAktualisieren); });
+  sortenAktualisieren();
   function antrieb() {
     var t = texte[auswahl.value] || ['Tankgröße (Liter)', 'Fassungsvermögen in Litern.'];
     document.getElementById('tankCapacityLabel').textContent = t[0];
@@ -223,7 +318,16 @@ $abschnittEnde = fn() => $istNeu ? '</section>' : '</div></div></div>';
     document.getElementById('batteryCapacityFeld').hidden = auswahl.value !== 'phev';
     vorschau();
   }
-  auswahl.addEventListener('change', antrieb);
+  auswahl.addEventListener('change', function () {
+    // Andere Antriebsart: Sorten vorschlagen (wie die API, wenn nur die Antriebsart geändert wird)
+    var vorschlag = sortenStandards[auswahl.value];
+    if (vorschlag && sortenChecks.length) {
+      sortenChecks.forEach(function (c) { c.checked = vorschlag.indexOf(c.value) >= 0; });
+      sortenChecks.forEach(function (c) { document.getElementById('standard_' + c.value).checked = c.value === vorschlag[0]; });
+      sortenAktualisieren();
+    }
+    antrieb();
+  });
 
   // Live-Vorschau (nur beim Anlegen vorhanden)
   function vorschau() {

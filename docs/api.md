@@ -38,10 +38,11 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | GET · PUT | `/auth/mail-settings` | ✓ | E-Mail-Einstellungen |
 | POST | `/auth/mail-settings/test` · `/send-now` | ✓ | Test-Mail, Erinnerungen bzw. Bericht sofort |
 | GET · POST | `/vehicles` | ✓ | Fahrzeuge auflisten, anlegen |
+| GET | `/fuels` | – | Kraftstoffsorten und Energiearten, Vorschlag je Antriebsart (#140) |
 | GET · PATCH · DELETE | `/vehicles/:vehicleId` | ✓ | Fahrzeug lesen, ändern, löschen (samt Einträgen) |
-| GET | `/vehicles/:vehicleId/stats` | ✓ | Tachostand, Ø Preis, Verbrauchsabschnitte, Trend je Einheit |
+| GET | `/vehicles/:vehicleId/stats` | ✓ | Tachostand, Ø Preis, Verbrauchsabschnitte, Trend je Einheit und je Energieart |
 | GET | `/vehicles/:vehicleId/costs?year=` | ✓ | Kosten: Summen, Kosten pro km, laufender Monat, Monats- und Kategoriesummen |
-| GET | `/vehicles/:vehicleId/consumption` | ✓ | Verbrauch je Einheit: Abschnitte, Monate, Jahre, Ø/Min/Max, Mengen, CO₂, Stromanteil |
+| GET | `/vehicles/:vehicleId/consumption` | ✓ | Verbrauch je Energieart (und je Einheit): Abschnitte, Monate, Jahre, Ø/Min/Max, Mengen, CO₂, Stromanteil; Preise je Sorte |
 | GET | `/stations?lat=&lng=&radius=&type=` | ✓ | Tankstellen in der Nähe mit aktuellen Preisen (Tankerkönig) |
 | GET | `/charging-stations?lat=&lng=&radius=` | ✓ | Ladestationen in der Nähe (Open Charge Map) |
 | GET | `/vehicles/:vehicleId/reminders` | ✓ | Fälligkeiten TÜV, Wartung, Versicherung, Steuer |
@@ -217,6 +218,31 @@ POST /trips
 - `GET /vehicles/:vehicleId/trips/export?year=`: CSV (Semikolon, deutsches Zahlenformat, mit BOM), ab Plus (`tripExport`).
 - Fahrten liefern Tachostände für die Tachostand-Prüfung, den aktuellen Stand in `/stats` und die Fälligkeiten.
 - Alte Fahrten (Ausgaben der Kategorie `Fahrt`) übernimmt Migration 019 ins Fahrtenbuch; sie erscheinen nicht mehr in der Ausgabenliste. `POST /entries` mit `category: "Fahrt"` funktioniert für ältere Clients weiter, landet aber nicht im Fahrtenbuch – neue Clients nutzen `/trips`.
+
+## Kraftstoffsorten (#140)
+
+Ein Fahrzeug hat eine oder mehrere **Sorten** (`fuels`), eine davon ist der **Standard** (`default_fuel`, bei neuen Einträgen vorausgewählt). Jeder Tank- bzw. Ladevorgang hat eine Sorte (`fuel`); die Einheit ergibt sich daraus. So gehen bivalente Fahrzeuge (Benzin + Autogas/Erdgas), Plug-in-Hybride (Benzin + Strom) und wechselnde Sorten (E5/E10, Diesel/Premium-Diesel).
+
+`GET /fuels` (ohne Anmeldung) liefert die Liste, damit Web-App und Apps keine eigene pflegen:
+
+| Sorte (`key`) | Energieart | Einheit |
+|---|---|---|
+| `super_e5`, `super_e10`, `super_plus`, `premium_petrol` | `petrol` (Benzin) | l |
+| `diesel`, `premium_diesel`, `hvo100` | `diesel` | l |
+| `lpg` | `lpg` (Autogas) | l |
+| `cng`, `bio_cng` | `cng` (Erdgas) | kg |
+| `electricity` | `electricity` (Strom) | kWh |
+| `hydrogen` | `hydrogen` | kg |
+| `other` | `other` | l |
+
+Dazu je Sorte `premium` (Mehrpreis wird gezeigt) und `tankerkoenig` (`e5`, `e10`, `diesel` für die Preise aus `/stations`, sonst `null`), je Energieart der CO₂-Faktor und `fuelTypeDefaults` (Vorschlag je Antriebsart, z. B. `phev` → `["super_e5", "electricity"]`).
+
+**Abwärtskompatibel:**
+
+- Fahrzeuge: `fuels` und `defaultFuel` sind optional. Ohne `fuels` gelten die Sorten der Antriebsart (`fuelType`); ohne `fuelType` wird die Antriebsart aus den Sorten bestimmt. Ändert ein PATCH die Antriebsart ohne `fuels`, bekommt das Fahrzeug die Sorten der neuen Antriebsart; dieselbe Antriebsart lässt die Sorten in Ruhe. Fehler: 400 `invalid_fuels`, `invalid_defaultFuel`.
+- Tank-/Ladevorgänge: `fuel` ist optional. Ohne `fuel` gilt der Standard des Fahrzeugs für die gesendete (oder abgeleitete) Einheit – Clients, die nur `unit` schicken, funktionieren unverändert. Mit `fuel` muss die Sorte zum Fahrzeug gehören (400 `invalid_fuel`), eine abweichende `unit` ergibt 400 `invalid_unit`.
+- **Statistik:** Verbrauch wird **je Energieart** gerechnet (Abschnitte von voller zu voller Füllung derselben Energieart): E5, E10 und Super Plus zusammen als Benzin, Benzin und Autogas getrennt. Die bisherigen Felder je Einheit (`units`, `byUnit`) zeigen je Einheit die Hauptenergieart (die des Standards) – bei Fahrzeugen mit einer Sorte je Einheit genau wie bisher. Neu sind `energies`/`byEnergy` (je Energieart) und `byFuel` (Preise je Sorte).
+- Energiearten mit weniger als 10 % der Energiekosten (z. B. Benzin beim Autogas-Auto, das nur zum Starten getankt wird) haben `minor: true`: ihr Verbrauch über die Gesamtstrecke sagt wenig aus, Clients zeigen ihn nicht als Wert.
 
 ## Health & Diagnostics
 
@@ -528,6 +554,11 @@ Verbrauch, Mengen und CO₂ je Einheit (#82). Grundlage sind dieselben Full-to-F
 * `amountBought`, `cost`, `fillCount`: alle Tank-/Ladevorgänge, auch ohne Tachostand; `amountConsumed`, `kmConsumed`: nur abgeschlossene Abschnitte
 * CO₂: gekaufte Menge × Faktor (`factor` in kg je Einheit: Benzin 2,37, Diesel 2,65, Autogas 1,64, Erdgas 2,79, Strom 0,363 deutscher Strommix, Wasserstoff 0; Plug-in-Hybrid: Liter wie Benzin, kWh wie Strom); `gPerKm` aus dem Ø-Verbrauch. `null`, wenn kein Faktor bekannt ist
 * `electricShare`: Anteil der Ladekosten an den Energiekosten in %, nur bei mehreren Einheiten
+* **Je Energieart (#140):** `energies` (Energiearten mit Einträgen, die des Standards zuerst) und `byEnergy` mit denselben Feldern wie `byUnit`, dazu `name`, `costShare` (% der Energiekosten) und `minor` (unter 10 %: Verbrauch nicht als Wert zeigen). `byUnit[u].energy` sagt, welche Energieart dort steht. CO₂-Faktor je Energieart.
+* `byFuel` je Sorte: `fillCount`, `amount`, `cost`, `avgPrice`, `shareOfEnergy` (% der Menge der Energieart, z. B. 80 % Premium-Diesel) und bei Premium-Sorten `markup` (`perUnit`, `percent`, `basePrice`): Mehrpreis gegenüber dem mengengewichteten Ø Preis der übrigen Sorten derselben Energieart
+* `costPer100km`: Energiekosten pro 100 km über alle Energiearten (wie `costPerKm.energy` in `/costs`); `fuels`, `defaultFuel`: Sorten des Fahrzeugs
+
+`/stats` liefert zusätzlich `energies` (je Energieart `avgPrice`, `avgConsumption`, `trend`, `minor`), jeder Abschnitt in `segments` hat `energy`. `/costs` liefert `energies` (Energiekosten je Energieart im Zeitraum mit Anteil).
 
 Fehler: 404 `vehicle_not_found` (auch für fremde Fahrzeuge).
 

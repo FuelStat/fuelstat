@@ -34,8 +34,10 @@ try {
         $station = trim($_POST['standort'] ?? '');
         $vollgetankt = isset($_POST['vollgetankt']);
         $skipPrevious = isset($_POST['skip_previous']);
-        // Plug-in-Hybrid: getankt (l) oder geladen (kWh); sonst leitet die API die Einheit vom Fahrzeug ab
-        $einheit = in_array($_POST['einheit'] ?? '', ['l', 'kwh'], true) ? $_POST['einheit'] : null;
+        // Sorte (#140): die API leitet die Einheit daraus ab. Ohne Sorte wie bisher: Plug-in-Hybrid getankt (l) oder
+        // geladen (kWh), sonst leitet die API die Einheit vom Fahrzeug ab
+        $sorte = preg_match('/^[a-z0-9_]{1,30}$/', (string)($_POST['sorte'] ?? '')) ? $_POST['sorte'] : null;
+        $einheit = $sorte === null && in_array($_POST['einheit'] ?? '', ['l', 'kwh'], true) ? $_POST['einheit'] : null;
         $api->postFillup([
             'vehicleId' => $fahrzeug_id,
             'odometerKm' => $tachostand,
@@ -46,7 +48,7 @@ try {
             'filledAt' => $dateTime,
             'isFull' => $vollgetankt,
             'skipPrevious' => $skipPrevious,
-        ] + ($einheit !== null ? ['unit' => $einheit] : []));
+        ] + ($einheit !== null ? ['unit' => $einheit] : []) + ($sorte !== null ? ['fuel' => $sorte] : []));
     } elseif ($eintragstyp === 'Andere Ausgabe') {
         $kategorie = trim($_POST['kategorie'] ?? '');
         $kosten = (float)($_POST['kosten'] ?? 0);

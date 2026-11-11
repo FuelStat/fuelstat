@@ -43,9 +43,15 @@ $out = fopen('php://output', 'w');
 fwrite($out, "\xEF\xBB\xBF");
 // Plug-in-Hybrid: Liter und kWh in einer Datei, deshalb eigene Spalte "Einheit" (wird beim Import wieder erkannt)
 $phev = $fuelType === 'phev';
-fputcsv($out, $phev
+// Mehrere Sorten (#140): Spalte "Sorte" (wird beim Import wieder erkannt)
+$mitSorte = count(sortenDesFahrzeugs($fahrzeug)) > 1;
+$kopf = $phev
     ? ['Datum', 'Kategorie', 'Tachostand (km)', 'Menge', 'Einheit', 'Kosten (EUR)', 'Voll', 'Lücke davor', 'Verbrauch (pro 100km)', 'Ort/Anbieter', 'Beschreibung']
-    : ['Datum', 'Kategorie', 'Tachostand (km)', 'Menge (' . $einheit . ')', 'Kosten (EUR)', $begriffe['voll'], 'Lücke davor', 'Verbrauch (' . $einheit . '/100km)', 'Ort/Anbieter', 'Beschreibung'], ';');
+    : ['Datum', 'Kategorie', 'Tachostand (km)', 'Menge (' . $einheit . ')', 'Kosten (EUR)', $begriffe['voll'], 'Lücke davor', 'Verbrauch (' . $einheit . '/100km)', 'Ort/Anbieter', 'Beschreibung'];
+if ($mitSorte) {
+    array_splice($kopf, 4, 0, ['Sorte']);
+}
+fputcsv($out, $kopf, ';');
 foreach ($zeilen as $e) {
     $istTank = $e['kategorie'] === 'Tankfuellung';
     fputcsv($out, array_merge([
@@ -53,7 +59,7 @@ foreach ($zeilen as $e) {
         $text(getKategorieName($e['kategorie'], $fuelType, $e['einheit'] ?? null)),
         $e['tachostand'] ?? '',
         $istTank ? $zahl($e['menge'], 2) : '',
-    ], $phev ? [$istTank ? einheitKurz($e['einheit'] ?? 'l') : ''] : [], [
+    ], $mitSorte ? [$istTank && !empty($e['sorte']) ? $text(sortenName($e['sorte'])) : ''] : [], $phev ? [$istTank ? einheitKurz($e['einheit'] ?? 'l') : ''] : [], [
         $zahl($e['kosten'], 2),
         $istTank ? (!empty($e['vollgetankt']) ? 'ja' : 'nein') : '',
         $istTank ? (!empty($e['skip_previous']) ? 'ja' : 'nein') : '',

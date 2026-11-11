@@ -15,6 +15,7 @@
 const { canAccessVehicle } = require('./vehicleAccess');
 
 const { NON_COST_KEYS } = require('./categories');
+const { ENERGIES, ENERGY_ORDER, energyOf } = require('./fuels');
 
 const TZ = 'Europe/Berlin';
 const round2 = (x) => Math.round(x * 100) / 100;
@@ -52,11 +53,11 @@ function typeOf(row) {
 async function loadRows(db, userId, vehicleId) {
   if (!(await canAccessVehicle(db, userId, vehicleId, 'read'))) return null;
   const r = await db.query(
-    `SELECT 'fillup' AS src, unit AS kind, total_cost_eur::float8 AS cost,
+    `SELECT 'fillup' AS src, unit AS kind, fuel, total_cost_eur::float8 AS cost,
             CASE WHEN odometer_estimated THEN NULL ELSE odometer_km END AS odo, filled_at AS at, created_at
        FROM fillups WHERE vehicle_id = $1
      UNION ALL
-     SELECT 'expense', category, amount_eur::float8, odometer_km, occurred_at, created_at
+     SELECT 'expense', category, NULL, amount_eur::float8, odometer_km, occurred_at, created_at
        FROM expenses WHERE vehicle_id = $1`,
     [vehicleId]
   );
@@ -68,6 +69,8 @@ async function loadRows(db, userId, vehicleId) {
       type,
       // Kategorie-Schlüssel wie in /categories; Tank-/Ladevorgänge je Einheit ("Tankfuellung:l", "Tankfuellung:kwh")
       category: row.src === 'fillup' ? `Tankfuellung:${row.kind}` : row.kind,
+      // Energieart der Tank-/Ladevorgänge (#140), sonst null
+      energy: row.src === 'fillup' ? energyOf(row.fuel) : null,
       cost: Number(row.cost) || 0,
       countsAsCost: type === 'fuel' || type === 'charge' || (type === 'expense' && !NON_COST_KEYS.includes(row.kind)),
       odo: row.odo === null || row.odo === undefined ? null : Number(row.odo),
@@ -187,6 +190,18 @@ async function getVehicleCosts(db, userId, vehicleId, { year = null, now = new D
 
   const monthSums = (month) => ({ month, ...sums(all.filter((r) => r.month === month)) });
 
+  // Energiekosten je Energieart im Zeitraum (#140): z. B. Benzin und Autogas getrennt
+  const energyMap = new Map();
+  for (const r of costRows.filter((x) => x.energy)) {
+    const e = energyMap.get(r.energy) ?? { energy: r.energy, name: ENERGIES[r.energy]?.name ?? r.energy, total: 0, count: 0 };
+    e.total += r.cost;
+    e.count += 1;
+    energyMap.set(r.energy, e);
+  }
+  const energies = [...energyMap.values()]
+    .map((e) => ({ ...e, total: round2(e.total), share: total.energy > 0 ? Math.round((e.total / total.energy) * 1000) / 10 : null }))
+    .sort((a, b) => ENERGY_ORDER.indexOf(a.energy) - ENERGY_ORDER.indexOf(b.energy));
+
   return {
     year,
     currency: 'EUR',
@@ -202,6 +217,7 @@ async function getVehicleCosts(db, userId, vehicleId, { year = null, now = new D
     currentMonth: monthSums(currentMonth),
     previousMonth: monthSums(previousMonth(currentMonth)),
     categories,
+    energies,
     // Jahre mit Kosten (gesamter Zeitraum), neueste zuerst – für die Jahresauswahl
     years: [...new Set(all.filter((r) => r.countsAsCost).map((r) => r.year))].sort((a, b) => b - a),
     months

@@ -145,6 +145,11 @@ Typauswahl beim Erfassen sind Chips in `CardTint` mit Symbol in der Energiefarbe
 | `EnergyGas` | `#2563EB` | `#6CA8FF` | LPG, CNG |
 | `EnergyHydrogen` | `#0E7490` | `#3FD6EE` | Wasserstoff |
 
+Zuordnung zu den Energiearten der API (#140, `GET /fuels`): `petrol` → `EnergyPetrol`, `diesel` → `EnergyDiesel`,
+`lpg` und `cng` → `EnergyGas`, `electricity` → `EnergyElectric`, `hydrogen` → `EnergyHydrogen`, `other` →
+`EnergyPetrol`. Diagramme mit mehreren Energiearten (z. B. Benzin und Autogas) färben jede Reihe so; bei nur einer
+Energieart bleibt die Reihe in `Brand`.
+
 ### 3.4 Zweck-Farben (Eintragsarten und Fahrten)
 
 | Bereich | Token | Hell | Dunkel | Regel |

@@ -1,5 +1,5 @@
 -- backend/database/postgres_init.sql
--- Vollständiges Schema für eine NEUE Installation (Stand: Migration 020).
+-- Vollständiges Schema für eine NEUE Installation (Stand: Migration 021).
 -- Beim ersten Start der Datenbank spielt Docker diese Datei automatisch ein (siehe infra/docker-compose.yml).
 -- Bestehende Installationen nutzen stattdessen die Migrationen postgres_0XX_*.sql.
 BEGIN;
@@ -48,6 +48,9 @@ CREATE TABLE IF NOT EXISTS vehicles (
   name text NOT NULL,
   -- hybrid = Vollhybrid (tankt nur), phev = Plug-in-Hybrid (tankt und lädt)
   fuel_type text NOT NULL CHECK (fuel_type = ANY (ARRAY['diesel','e5','e10','lpg','cng','electric','hybrid','phev','hydrogen','other'])),
+  -- Kraftstoffsorten des Fahrzeugs (#140, Schlüssel aus backend/src/services/fuels.js) und Standard für neue Einträge
+  fuels text[] NOT NULL DEFAULT '{}',
+  default_fuel text NULL,
   brand text NULL,
   model text NULL,
   year smallint NULL CHECK (year IS NULL OR (year >= 1886 AND year <= 2100)),
@@ -93,6 +96,7 @@ CREATE TABLE IF NOT EXISTS fillups (
   odometer_estimated boolean NOT NULL DEFAULT false, -- nur geschätzt: zählt nicht für Verbrauch und Tachostand
   amount numeric(10,3) NOT NULL CHECK (amount >= 0),
   unit text NOT NULL DEFAULT 'l' CHECK (unit IN ('l','kwh','kg')),
+  fuel text NOT NULL,                      -- Sorte (#140); die Einheit ergibt sich daraus
   total_cost_eur numeric(10,2) NOT NULL CHECK (total_cost_eur >= 0),
   price_per_unit numeric(10,4),
   station text NULL,
@@ -299,5 +303,73 @@ CREATE TABLE IF NOT EXISTS password_resets (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id, created_at DESC);
+
+
+-- Kraftstoffsorten (#140): Zuordnung für Clients ohne Sorte, wie in Migration 021
+-- Antriebsart → Sorten des Fahrzeugs (die erste ist der Standard)
+CREATE OR REPLACE FUNCTION fuelstat_standard_sorten(fuel_type text) RETURNS text[]
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE lower(coalesce(fuel_type, ''))
+    WHEN 'e5' THEN ARRAY['super_e5']
+    WHEN 'e10' THEN ARRAY['super_e10']
+    WHEN 'diesel' THEN ARRAY['diesel']
+    WHEN 'lpg' THEN ARRAY['lpg']
+    WHEN 'cng' THEN ARRAY['cng']
+    WHEN 'electric' THEN ARRAY['electricity']
+    WHEN 'hybrid' THEN ARRAY['super_e5']
+    WHEN 'phev' THEN ARRAY['super_e5', 'electricity']
+    WHEN 'hydrogen' THEN ARRAY['hydrogen']
+    WHEN 'other' THEN ARRAY['other']
+    ELSE ARRAY['super_e5']
+  END
+$$;
+
+-- Antriebsart + Einheit → Sorte eines Eintrags (wie bisher gerechnet)
+CREATE OR REPLACE FUNCTION fuelstat_sorte_aus_altdaten(fuel_type text, unit text) RETURNS text
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE
+    WHEN lower(coalesce(unit, 'l')) = 'kwh' THEN 'electricity'
+    WHEN lower(coalesce(unit, 'l')) = 'kg' THEN CASE WHEN lower(coalesce(fuel_type, '')) = 'hydrogen' THEN 'hydrogen' ELSE 'cng' END
+    WHEN lower(coalesce(fuel_type, '')) = 'diesel' THEN 'diesel'
+    WHEN lower(coalesce(fuel_type, '')) = 'e10' THEN 'super_e10'
+    WHEN lower(coalesce(fuel_type, '')) = 'lpg' THEN 'lpg'
+    WHEN lower(coalesce(fuel_type, '')) = 'other' THEN 'other'
+    ELSE 'super_e5'
+  END
+$$;
+
+-- Neue Fahrzeuge ohne Sorten (alter API-Code): Sorten aus der Antriebsart
+CREATE OR REPLACE FUNCTION fuelstat_fahrzeug_sorten() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.fuels IS NULL OR cardinality(NEW.fuels) = 0 THEN
+    NEW.fuels := fuelstat_standard_sorten(NEW.fuel_type);
+  END IF;
+  IF NEW.default_fuel IS NULL OR NOT (NEW.default_fuel = ANY (NEW.fuels)) THEN
+    NEW.default_fuel := NEW.fuels[1];
+  END IF;
+  RETURN NEW;
+END
+$$;
+DROP TRIGGER IF EXISTS trg_vehicles_fuels ON vehicles;
+CREATE TRIGGER trg_vehicles_fuels BEFORE INSERT OR UPDATE OF fuels, default_fuel ON vehicles
+  FOR EACH ROW EXECUTE FUNCTION fuelstat_fahrzeug_sorten();
+
+-- Einträge ohne Sorte (alter API-Code, Clients ohne Sorte): aus Antriebsart und Einheit. Ändert jemand nur die
+-- Einheit (alter API-Code), passt die Sorte sich an.
+CREATE OR REPLACE FUNCTION fuelstat_eintrag_sorte() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.fuel IS NULL OR (TG_OP = 'UPDATE' AND NEW.unit IS DISTINCT FROM OLD.unit AND NEW.fuel IS NOT DISTINCT FROM OLD.fuel) THEN
+    NEW.fuel := fuelstat_sorte_aus_altdaten((SELECT fuel_type FROM vehicles WHERE id = NEW.vehicle_id), NEW.unit);
+  END IF;
+  RETURN NEW;
+END
+$$;
+DROP TRIGGER IF EXISTS trg_fillups_fuel ON fillups;
+CREATE TRIGGER trg_fillups_fuel BEFORE INSERT OR UPDATE ON fillups
+  FOR EACH ROW EXECUTE FUNCTION fuelstat_eintrag_sorte();
+
+CREATE INDEX IF NOT EXISTS idx_fillups_vehicle_fuel ON fillups(vehicle_id, fuel);
 
 COMMIT;

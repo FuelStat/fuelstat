@@ -5,7 +5,8 @@ const { pool } = require('../db');
 const { optionalNumber, serverError } = require('../lib/http');
 const { auth } = require('../middleware/auth');
 const { checkOdometer } = require('../services/odometer');
-const { unitForFuelType, unitsForFuelType } = require('../services/stats');
+const { unitsForFuelType } = require('../services/stats');
+const { fuelInfo, unitOf, vehicleFuels, fuelForUnit } = require('../services/fuels');
 const { checkUnverifiedLimit } = require('../middleware/verified');
 const { vehicleRole, canEditEntry, RECHTE } = require('../services/vehicleAccess');
 
@@ -33,8 +34,10 @@ router.post('/fillups', auth, async (req, res) => {
   const isFull = req.body?.isFull !== undefined ? Boolean(req.body.isFull) : true;
   const skipPrevious = req.body?.skipPrevious !== undefined ? Boolean(req.body.skipPrevious) : false;
 
-  // unit optional: wenn nicht gesetzt, wird es aus vehicle.fuel_type abgeleitet
+  // unit optional: wenn nicht gesetzt, aus der Sorte bzw. dem Standard des Fahrzeugs
   let unit = req.body?.unit ? String(req.body.unit).trim().toLowerCase() : null;
+  // Sorte (#140) optional: fehlt sie, gilt der Standard des Fahrzeugs für die Einheit
+  let fuel = req.body?.fuel ? String(req.body.fuel).trim().toLowerCase() : null;
 
   if (!vehicleId) return res.status(400).json({ error: 'missing_vehicleId' });
   if (odometerKm !== null && (!Number.isFinite(odometerKm) || odometerKm < 0)) return res.status(400).json({ error: 'invalid_odometerKm' });
@@ -49,14 +52,22 @@ router.post('/fillups', auth, async (req, res) => {
     const role = await vehicleRole(pool, req.user.sub, vehicleId);
     if (!role) return res.status(404).json({ error: 'vehicle_not_found' });
     if (!RECHTE.write.has(role)) return res.status(403).json({ error: 'read_only' });
-    const v = await pool.query('SELECT fuel_type FROM vehicles WHERE id = $1', [vehicleId]);
+    const v = await pool.query('SELECT fuel_type, fuels, default_fuel FROM vehicles WHERE id = $1', [vehicleId]);
+    const vehicle = v.rows[0];
+    const fuelType = String(vehicle.fuel_type || '').toLowerCase();
 
-    const fuelType = String(v.rows[0].fuel_type || '').toLowerCase();
-
-    if (!unit) unit = unitForFuelType(fuelType);
-    if (!allowedUnits.has(unit)) return res.status(400).json({ error: 'invalid_unit' });
-    // Plug-in-Hybrid: Liter (getankt) oder kWh (geladen), nichts anderes
-    if (fuelType === 'phev' && !unitsForFuelType(fuelType).includes(unit)) return res.status(400).json({ error: 'invalid_unit' });
+    if (fuel) {
+      // Nur Sorten des Fahrzeugs; die Einheit ergibt sich aus der Sorte
+      if (!fuelInfo(fuel) || !vehicleFuels(vehicle).fuels.includes(fuel)) return res.status(400).json({ error: 'invalid_fuel' });
+      if (unit && unit !== unitOf(fuel)) return res.status(400).json({ error: 'invalid_unit' });
+      unit = unitOf(fuel);
+    } else {
+      if (!unit) unit = unitOf(vehicleFuels(vehicle).defaultFuel);
+      if (!allowedUnits.has(unit)) return res.status(400).json({ error: 'invalid_unit' });
+      // Plug-in-Hybrid: Liter (getankt) oder kWh (geladen), nichts anderes
+      if (fuelType === 'phev' && !unitsForFuelType(fuelType).includes(unit)) return res.status(400).json({ error: 'invalid_unit' });
+      fuel = fuelForUnit(vehicle, unit);
+    }
 
     const r = await pool.query(
       `INSERT INTO fillups (
@@ -71,7 +82,8 @@ router.post('/fillups', auth, async (req, res) => {
          filled_at,
          is_full,
          skip_previous,
-         odometer_estimated
+         odometer_estimated,
+         fuel
        )
        VALUES (
          $1,
@@ -89,10 +101,11 @@ router.post('/fillups', auth, async (req, res) => {
          COALESCE($8, now()),
          $9,
          $10,
-         $11
+         $11,
+         $12
        )
-       RETURNING id, vehicle_id, odometer_km, amount, unit, total_cost_eur, price_per_unit, station, filled_at, created_at, is_full, skip_previous, odometer_estimated`,
-      [req.user.sub, vehicleId, odometerKm === null ? null : Math.round(odometerKm), amount, unit, totalCostEur, station, filledAt, isFull, skipPrevious, odometerEstimated]
+       RETURNING id, vehicle_id, odometer_km, amount, unit, fuel, total_cost_eur, price_per_unit, station, filled_at, created_at, is_full, skip_previous, odometer_estimated`,
+      [req.user.sub, vehicleId, odometerKm === null ? null : Math.round(odometerKm), amount, unit, totalCostEur, station, filledAt, isFull, skipPrevious, odometerEstimated, fuel]
     );
 
     // Unplausibler Tachostand: speichern, aber warnen (#51)
@@ -117,6 +130,7 @@ router.get('/fillups/:fillupId', auth, async (req, res) => {
          odometer_km,
          amount,
          unit,
+         fuel,
          total_cost_eur,
          price_per_unit,
          station,
@@ -166,6 +180,7 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
          odometer_km,
          amount,
          unit,
+         fuel,
          total_cost_eur,
          price_per_unit,
          station,
@@ -233,6 +248,9 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
     const patchUnit =
       body.unit !== undefined ? String(body.unit).trim().toLowerCase() : undefined;
 
+    const patchFuel =
+      body.fuel !== undefined && body.fuel !== null && body.fuel !== '' ? String(body.fuel).trim().toLowerCase() : undefined;
+
     const patchStation =
       body.station !== undefined ? String(body.station).trim() : undefined;
 
@@ -251,6 +269,7 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
       patchAmount === undefined &&
       patchTotalCostEur === undefined &&
       patchUnit === undefined &&
+      patchFuel === undefined &&
       patchStation === undefined &&
       patchFilledAt === undefined &&
       patchIsFull === undefined &&
@@ -268,8 +287,25 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
       patchAmount !== undefined ? patchAmount : Number(existing.amount);
     const newTotalCostEur =
       patchTotalCostEur !== undefined ? patchTotalCostEur : Number(existing.total_cost_eur);
-    const newUnit =
+    let newUnit =
       patchUnit !== undefined ? patchUnit : existing.unit;
+    // Sorte (#140): ausdrücklich gesendet (Einheit folgt daraus), sonst bei geänderter Einheit die passende Sorte
+    // des Fahrzeugs, sonst unverändert
+    let newFuel = existing.fuel;
+    if (patchFuel !== undefined || newUnit !== existing.unit) {
+      const vehicle = (await pool.query('SELECT fuel_type, fuels, default_fuel FROM vehicles WHERE id = $1', [existing.vehicle_id])).rows[0];
+      if (patchFuel !== undefined) {
+        // Eine Sorte, die nicht mehr am Fahrzeug steht, darf ein Eintrag behalten
+        if (!fuelInfo(patchFuel) || (patchFuel !== existing.fuel && !vehicleFuels(vehicle).fuels.includes(patchFuel))) {
+          return res.status(400).json({ error: 'invalid_fuel' });
+        }
+        if (patchUnit !== undefined && patchUnit !== unitOf(patchFuel)) return res.status(400).json({ error: 'invalid_unit' });
+        newFuel = patchFuel;
+        newUnit = unitOf(patchFuel);
+      } else {
+        newFuel = fuelForUnit(vehicle, newUnit);
+      }
+    }
     const newStation =
       patchStation !== undefined ? patchStation : existing.station;
     const newFilledAt =
@@ -319,7 +355,8 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
          filled_at     = $6,
          is_full       = $7,
          skip_previous = $8,
-         odometer_estimated = $10
+         odometer_estimated = $10,
+         fuel = $11
        WHERE id = $9
        RETURNING
          id,
@@ -328,6 +365,7 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
          odometer_km,
          amount,
          unit,
+         fuel,
          total_cost_eur,
          price_per_unit,
          station,
@@ -346,7 +384,8 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
         newIsFull,
         newSkipPrevious,
         fillupId,
-        newOdometerEstimated
+        newOdometerEstimated,
+        newFuel
       ]
     );
 
@@ -466,6 +505,7 @@ router.get('/vehicles/:vehicleId/fillups', auth, async (req, res) => {
          odometer_km,
          amount,
          unit,
+         fuel,
          total_cost_eur,
          price_per_unit,
          station,

@@ -47,6 +47,7 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 - Zuletzt verwendete Tankstellen und Ladestationen als Vorschläge
 - Unterstützung für Teil- und Vollbetankungen sowie Teilladevorgänge
 - Getrennte Verbrauchsauswertung für Kraftstoff und Strom bei Plug-in-Hybriden
+- Mehrere Kraftstoffe je Fahrzeug (z. B. Benzin und Autogas, Diesel und Premium-Diesel, E5 und E10): Sorte je Tankvorgang, Verbrauch je Energieart, Preise und Mehrpreis je Sorte
 - Plausibilitätsprüfung des Tachostands
 - Nachträgliches Ergänzen fehlender Tachostände, auch nach 14 Tagen
 - Separate Kilometerstandseinträge ohne Kosten

@@ -289,7 +289,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                         <th>Jahr</th>
                         <?php foreach ($proEinheit as $p): ?>
                         <?php if ($mehrereEinheiten): ?>
-                        <th class="text-end"><?= $p['begriffe']['vorgaenge'] ?></th>
+                        <th class="text-end"><?= htmlspecialchars($p['name']) ?></th>
                         <?php else: ?>
                         <th class="text-end"><?= $p['begriffe']['vorgaenge'] ?></th>
                         <th class="text-end"><?= $p['begriffe']['menge'] ?></th>
@@ -351,7 +351,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                 </div>
                 <div class="row row-cols-3 g-2 small">
                     <?php foreach ($proEinheit as $p): $j = $p['jahre'][$jahr]; ?>
-                    <div><div class="text-body-secondary"><?= $p['begriffe']['vorgaenge'] ?></div><?= (int)$j['anzahl_tankstops'] ?></div>
+                    <div><div class="text-body-secondary"><?= $p['begriffe']['vorgaenge'] ?><?= $mehrereEinheiten ? ' ' . htmlspecialchars($p['name']) : '' ?></div><?= (int)$j['anzahl_tankstops'] ?></div>
                     <div><div class="text-body-secondary"><?= $p['begriffe']['menge'] ?></div><?= $zahl($j['gekauft_menge'], 1) ?> <?= $p['kurz'] ?></div>
                     <?php endforeach; ?>
                     <div><div class="text-body-secondary">Kosten</div><?= $zahl($summe['kosten']) ?> €</div>

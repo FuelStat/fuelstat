@@ -8,7 +8,6 @@
 
 /* --- Design-Tokens (docs/design.md, #153) ----------------------------------
    Einzige Quelle für Werte ist docs/design.md; hier nur übernehmen, nie neu festlegen.
-   Noch nicht auf Bootstrap gelegt – das folgt mit der Neugestaltung (#145, #144, #49).
    Neue Regeln verwenden var(--fs-…) statt Hex-Werten. */
 :root {
     --fs-brand: #0A717A;
@@ -87,35 +86,433 @@
     --fs-trip-commute: #3FD6EE;
 }
 
+/* --- Thema: Bootstrap auf die Design-Tokens gelegt (docs/design.md, Abschnitt 6 und 11) ---------
+   Bootstrap bleibt die Grundlage; hier bekommen seine Variablen die Werte der Tokens, damit jede
+   Seite ohne eigene Regeln im Fuelstat-Design erscheint. Die RGB-Tripel sind dieselben Werte wie
+   die Tokens oben (Bootstrap braucht sie für rgba()). */
+:root {
+    --fs-brand-rgb: 10, 113, 122;
+    --fs-text-rgb: 20, 32, 46;
+    --fs-background-rgb: 242, 246, 248;
+    --fs-card-rgb: 255, 255, 255;
+    --fs-card-tint-rgb: 226, 241, 242;
+    --fs-status-ok-rgb: 24, 114, 58;
+    --fs-status-soon-rgb: 138, 90, 0;
+    --fs-status-overdue-rgb: 185, 58, 12;
+    --fs-info-rgb: 14, 116, 144;
+    /* Brand-Fläche beim Überfahren/Drücken und getönte Flächen für Status */
+    --fs-brand-hover: color-mix(in srgb, var(--fs-brand) 86%, var(--fs-brand-deep));
+    --fs-schatten: 0 .5rem 1.5rem rgba(10, 28, 51, .14);
+}
 
-/* Zum Aktualisieren nach unten ziehen, nur in der installierten App (js/ziehen-neu-laden.js, #1) */
-.ziehen-anzeige {
-    position: fixed;
-    top: calc(var(--kopf-hoehe) - 36px);
-    left: 50%;
-    z-index: 1040;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
+[data-bs-theme="dark"] {
+    --fs-brand-rgb: 94, 211, 207;
+    --fs-text-rgb: 230, 237, 245;
+    --fs-background-rgb: 14, 22, 36;
+    --fs-card-rgb: 26, 34, 48;
+    --fs-card-tint-rgb: 34, 48, 58;
+    --fs-status-ok-rgb: 74, 222, 128;
+    --fs-status-soon-rgb: 245, 197, 66;
+    --fs-status-overdue-rgb: 255, 138, 91;
+    --fs-info-rgb: 63, 214, 238;
+    --fs-brand-hover: color-mix(in srgb, var(--fs-brand) 86%, #fff);
+    --fs-schatten: 0 .5rem 1.5rem rgba(0, 0, 0, .45);
+}
+
+:root,
+[data-bs-theme="dark"] {
+    --bs-primary: var(--fs-brand);
+    --bs-primary-rgb: var(--fs-brand-rgb);
+    --bs-success: var(--fs-status-ok);
+    --bs-success-rgb: var(--fs-status-ok-rgb);
+    --bs-warning: var(--fs-status-soon);
+    --bs-warning-rgb: var(--fs-status-soon-rgb);
+    --bs-danger: var(--fs-status-overdue);
+    --bs-danger-rgb: var(--fs-status-overdue-rgb);
+    --bs-info: var(--fs-energy-hydrogen);
+    --bs-info-rgb: var(--fs-info-rgb);
+    --bs-secondary: var(--fs-text-secondary);
+
+    --bs-body-bg: var(--fs-background);
+    --bs-body-bg-rgb: var(--fs-background-rgb);
+    --bs-body-color: var(--fs-text);
+    --bs-body-color-rgb: var(--fs-text-rgb);
+    --bs-emphasis-color: var(--fs-text);
+    --bs-emphasis-color-rgb: var(--fs-text-rgb);
+    --bs-heading-color: var(--fs-text);
+    --bs-secondary-color: var(--fs-text-secondary);
+    --bs-tertiary-color: var(--fs-text-secondary);
+    --bs-secondary-bg: var(--fs-card-tint);
+    --bs-secondary-bg-rgb: var(--fs-card-tint-rgb);
+    --bs-tertiary-bg: var(--fs-card-tint);
+    --bs-tertiary-bg-rgb: var(--fs-card-tint-rgb);
+    --bs-border-color: var(--fs-separator);
+    --bs-border-color-translucent: var(--fs-separator);
+
+    --bs-link-color: var(--fs-brand);
+    --bs-link-color-rgb: var(--fs-brand-rgb);
+    --bs-link-hover-color: var(--fs-brand-hover);
+    --bs-link-hover-color-rgb: var(--fs-brand-rgb);
+
+    --bs-border-radius: var(--fs-radius-tile);
+    --bs-border-radius-sm: .625rem;
+    --bs-border-radius-lg: var(--fs-radius-card);
+    --bs-border-radius-pill: var(--fs-radius-capsule);
+    --bs-focus-ring-color: rgba(var(--fs-brand-rgb), .3);
+    --bs-box-shadow: var(--fs-schatten);
+
+    /* Getönte Flächen: Status nie als volle Fläche hinter Text (docs/design.md 3) */
+    --bs-primary-bg-subtle: var(--fs-card-tint);
+    --bs-primary-border-subtle: var(--fs-brand);
+    --bs-primary-text-emphasis: var(--fs-brand);
+    --bs-success-bg-subtle: rgba(var(--fs-status-ok-rgb), .14);
+    --bs-success-border-subtle: rgba(var(--fs-status-ok-rgb), .35);
+    --bs-success-text-emphasis: var(--fs-status-ok);
+    --bs-warning-bg-subtle: rgba(var(--fs-status-soon-rgb), .14);
+    --bs-warning-border-subtle: rgba(var(--fs-status-soon-rgb), .35);
+    --bs-warning-text-emphasis: var(--fs-status-soon);
+    --bs-danger-bg-subtle: rgba(var(--fs-status-overdue-rgb), .14);
+    --bs-danger-border-subtle: rgba(var(--fs-status-overdue-rgb), .35);
+    --bs-danger-text-emphasis: var(--fs-status-overdue);
+    --bs-info-bg-subtle: var(--fs-card-tint);
+    --bs-info-border-subtle: var(--fs-separator);
+    --bs-info-text-emphasis: var(--fs-text);
+    --bs-secondary-bg-subtle: var(--fs-card-tint);
+    --bs-secondary-border-subtle: var(--fs-separator);
+    --bs-secondary-text-emphasis: var(--fs-text);
+    --bs-form-valid-color: var(--fs-status-ok);
+    --bs-form-valid-border-color: var(--fs-status-ok);
+    --bs-form-invalid-color: var(--fs-status-overdue);
+    --bs-form-invalid-border-color: var(--fs-status-overdue);
+}
+
+/* Schrift: Rollen aus docs/design.md 4 */
+body {
+    font: var(--fs-font-body);
+    color: var(--fs-text);
+    -webkit-font-smoothing: antialiased;
+}
+h1, .h1 { font: var(--fs-font-screen-title); letter-spacing: -.01em; }
+h2, .h2 { font: var(--fs-font-section-title); }
+h3, .h3, h4, .h4, h5, .h5, h6, .h6 { font: var(--fs-font-headline); }
+h1, h2, h3, h4, h5, h6 { color: var(--fs-text); }
+.small, small { font-size: .875rem; }
+.form-text { font: var(--fs-font-footnote); color: var(--fs-text-secondary); }
+.zahl,
+.kennzahl-wert,
+.eintrag-betrag,
+table td { font-variant-numeric: tabular-nums; }
+.fs-screen-title { font: var(--fs-font-screen-title); }
+.fs-section-title { font: var(--fs-font-section-title); }
+.fs-figure-hero { font: var(--fs-font-figure-hero); font-variant-numeric: tabular-nums; }
+.fs-figure { font: var(--fs-font-figure); font-variant-numeric: tabular-nums; }
+.fs-headline { font: var(--fs-font-headline); }
+.fs-label { font: var(--fs-font-label); color: var(--fs-text-secondary); }
+.fs-footnote { font: var(--fs-font-footnote); color: var(--fs-text-secondary); }
+.fs-unit { font: var(--fs-font-unit); }
+
+a { text-underline-offset: .15em; }
+:focus-visible { outline: 2px solid var(--fs-brand); outline-offset: 2px; }
+.btn:focus-visible, .form-control:focus, .form-select:focus, .form-check-input:focus { outline: 0; }
+
+/* Seitenbreite: Inhalt höchstens 1200 px, Seitenrand 16 (Telefon) bzw. 24 (ab 768 px) */
+.container, .container-fluid, .container-sm, .container-md, .container-lg, .container-xl, .container-xxl {
+    --bs-gutter-x: 2rem;
+    max-width: 1200px;
+}
+@media (min-width: 768px) {
+    .container, .container-fluid, .container-sm, .container-md, .container-lg, .container-xl, .container-xxl {
+        --bs-gutter-x: 3rem;
+    }
+}
+
+/* Karten: Fläche Card, Radius 20, kein Schatten und kein Rahmen (der Farbunterschied trennt) */
+.card {
+    --bs-card-bg: var(--fs-card);
+    --bs-card-color: var(--fs-text);
+    --bs-card-border-width: 0;
+    --bs-card-border-radius: var(--fs-radius-card);
+    --bs-card-inner-border-radius: var(--fs-radius-card);
+    --bs-card-spacer-x: var(--fs-space-m);
+    --bs-card-spacer-y: var(--fs-space-m);
+    --bs-card-cap-bg: transparent;
+    --bs-card-cap-padding-x: var(--fs-space-m);
+    --bs-card-cap-padding-y: var(--fs-space-s);
+}
+.card.shadow-sm, .card.shadow { box-shadow: none !important; }
+.card.border-danger, .card.border-warning { border: 1px solid; }
+.card-header { border-bottom: 1px solid var(--fs-separator); font: var(--fs-font-headline); }
+.card-footer { border-top: 1px solid var(--fs-separator); }
+.card-title { font: var(--fs-font-section-title); }
+.card .card-header + .list-group .list-group-item:first-child { border-top: 0; }
+
+/* Buttons: Radius 14, Mindesthöhe 44 px; nur Brand ist eine volle Fläche */
+.btn {
+    --bs-btn-border-radius: var(--fs-radius-tile);
+    --bs-btn-font-weight: 600;
+    --bs-btn-padding-x: 1rem;
+    --bs-btn-padding-y: .5rem;
+    --bs-btn-focus-box-shadow: 0 0 0 .25rem rgba(var(--fs-brand-rgb), .3);
+    min-height: 2.75rem;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: var(--bs-body-bg);
-    color: var(--bs-secondary-color);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, .18);
-    opacity: 0;
-    transform: translate(-50%, 0);
-    transition: transform .2s ease, opacity .2s ease;
-    pointer-events: none;
+    gap: .375rem;
 }
-.ziehen-anzeige i { transition: transform .15s ease; }
-.ziehen-anzeige.bereit { color: var(--bs-primary); }
-.ziehen-anzeige.laedt i { animation: ziehen-drehen .8s linear infinite; }
-@keyframes ziehen-drehen { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) {
-    .ziehen-anzeige, .ziehen-anzeige i { transition: none; }
-    .ziehen-anzeige.laedt i { animation: none; }
+.btn.w-100, .btn.d-block { display: flex; }
+.btn > .me-1, .btn > .me-2, .btn > .ms-1, .btn > .ms-2 { margin: 0 !important; }
+.btn-sm, .btn-group-sm > .btn {
+    --bs-btn-border-radius: .625rem;
+    --bs-btn-padding-x: .75rem;
+    --bs-btn-padding-y: .25rem;
+    --bs-btn-font-size: .875rem;
+    min-height: 2.25rem;
 }
+.btn-lg { --bs-btn-border-radius: var(--fs-radius-tile); --bs-btn-font-size: 1.0625rem; min-height: 3rem; }
+.btn-primary {
+    --bs-btn-color: var(--fs-on-brand);
+    --bs-btn-bg: var(--fs-brand);
+    --bs-btn-border-color: var(--fs-brand);
+    --bs-btn-hover-color: var(--fs-on-brand);
+    --bs-btn-hover-bg: var(--fs-brand-hover);
+    --bs-btn-hover-border-color: var(--fs-brand-hover);
+    --bs-btn-active-color: var(--fs-on-brand);
+    --bs-btn-active-bg: var(--fs-brand-hover);
+    --bs-btn-active-border-color: var(--fs-brand-hover);
+    --bs-btn-disabled-color: var(--fs-on-brand);
+    --bs-btn-disabled-bg: var(--fs-brand);
+    --bs-btn-disabled-border-color: var(--fs-brand);
+}
+.btn-outline-primary {
+    --bs-btn-color: var(--fs-brand);
+    --bs-btn-border-color: var(--fs-brand);
+    --bs-btn-hover-color: var(--fs-on-brand);
+    --bs-btn-hover-bg: var(--fs-brand);
+    --bs-btn-hover-border-color: var(--fs-brand);
+    --bs-btn-active-color: var(--fs-on-brand);
+    --bs-btn-active-bg: var(--fs-brand);
+    --bs-btn-active-border-color: var(--fs-brand);
+    --bs-btn-disabled-color: var(--fs-brand);
+    --bs-btn-disabled-border-color: var(--fs-brand);
+}
+/* Neutrale Buttons: getönte Fläche bzw. Rahmen in Separator */
+.btn-secondary, .btn-light, .btn-dark,
+.btn-outline-secondary, .btn-outline-dark, .btn-outline-light {
+    --bs-btn-color: var(--fs-text);
+    --bs-btn-bg: var(--fs-card-tint);
+    --bs-btn-border-color: transparent;
+    --bs-btn-hover-color: var(--fs-text);
+    --bs-btn-hover-bg: color-mix(in srgb, var(--fs-card-tint) 80%, var(--fs-brand));
+    --bs-btn-hover-border-color: transparent;
+    --bs-btn-active-color: var(--fs-on-brand);
+    --bs-btn-active-bg: var(--fs-brand);
+    --bs-btn-active-border-color: var(--fs-brand);
+    --bs-btn-disabled-color: var(--fs-text-secondary);
+    --bs-btn-disabled-bg: var(--fs-card-tint);
+    --bs-btn-disabled-border-color: transparent;
+}
+/* Status-Buttons: getönt, Text in Statusfarbe (keine volle Statusfläche hinter Text) */
+.btn-success, .btn-outline-success { --fs-btn-status: var(--fs-status-ok); --fs-btn-status-rgb: var(--fs-status-ok-rgb); }
+.btn-warning, .btn-outline-warning { --fs-btn-status: var(--fs-status-soon); --fs-btn-status-rgb: var(--fs-status-soon-rgb); }
+.btn-danger, .btn-outline-danger { --fs-btn-status: var(--fs-status-overdue); --fs-btn-status-rgb: var(--fs-status-overdue-rgb); }
+.btn-success, .btn-outline-success, .btn-warning, .btn-outline-warning, .btn-danger, .btn-outline-danger {
+    --bs-btn-color: var(--fs-btn-status);
+    --bs-btn-bg: rgba(var(--fs-btn-status-rgb), .12);
+    --bs-btn-border-color: transparent;
+    --bs-btn-hover-color: var(--fs-btn-status);
+    --bs-btn-hover-bg: rgba(var(--fs-btn-status-rgb), .22);
+    --bs-btn-hover-border-color: transparent;
+    --bs-btn-active-color: var(--fs-btn-status);
+    --bs-btn-active-bg: rgba(var(--fs-btn-status-rgb), .3);
+    --bs-btn-active-border-color: transparent;
+    --bs-btn-disabled-color: var(--fs-btn-status);
+    --bs-btn-disabled-bg: rgba(var(--fs-btn-status-rgb), .08);
+    --bs-btn-disabled-border-color: transparent;
+    --bs-btn-focus-shadow-rgb: var(--fs-btn-status-rgb);
+}
+.btn-link { --bs-btn-color: var(--fs-brand); --bs-btn-hover-color: var(--fs-brand-hover); --bs-btn-font-weight: 600; }
+.btn-group > .btn { min-width: 2.75rem; }
+.btn-close { min-width: 2.75rem; min-height: 2.75rem; background-size: .875rem; padding: 0; }
+[data-bs-theme="dark"] .btn-close { filter: invert(1) grayscale(100%) brightness(200%); }
+
+/* Formulare: sichtbare Beschriftung, Felder mit Radius 14 und 44 px Höhe */
+.form-label { font: var(--fs-font-label); font-weight: 600; color: var(--fs-text); margin-bottom: var(--fs-space-xxs); }
+.form-control, .form-select {
+    min-height: 2.75rem;
+    border-color: var(--fs-separator);
+    border-radius: var(--fs-radius-tile);
+    background-color: var(--fs-card);
+    color: var(--fs-text);
+}
+.form-control-lg, .form-select-lg { min-height: 3.25rem; border-radius: var(--fs-radius-tile); font: var(--fs-font-figure); font-variant-numeric: tabular-nums; }
+.form-control-sm, .form-select-sm { min-height: 2.25rem; border-radius: .625rem; }
+.form-control:focus, .form-select:focus {
+    border-color: var(--fs-brand);
+    background-color: var(--fs-card);
+    color: var(--fs-text);
+    box-shadow: 0 0 0 .25rem rgba(var(--fs-brand-rgb), .2);
+}
+.form-control::placeholder { color: var(--fs-text-secondary); opacity: .75; }
+.form-control:disabled, .form-select:disabled, .form-control[readonly] { background-color: var(--fs-card-tint); }
+.form-control::file-selector-button { background-color: var(--fs-card-tint); color: var(--fs-text); }
+.input-group-text { background-color: var(--fs-card-tint); border-color: var(--fs-separator); color: var(--fs-text-secondary); border-radius: var(--fs-radius-tile); }
+.input-group > .btn { min-width: 2.75rem; }
+.form-check-input { width: 1.25em; height: 1.25em; margin-top: .15em; border-color: var(--fs-text-secondary); background-color: var(--fs-card); }
+.form-check-input:checked { background-color: var(--fs-brand); border-color: var(--fs-brand); }
+.form-check-input:focus { border-color: var(--fs-brand); box-shadow: 0 0 0 .25rem rgba(var(--fs-brand-rgb), .2); }
+.form-switch .form-check-input { width: 2.5em; height: 1.5em; margin-top: 0; }
+.form-check { min-height: 1.75rem; }
+.form-check-label { padding-left: .25rem; }
+/* Haken und Schalterknopf im Dunkelmodus in OnBrand (weiß auf Teal wäre zu schwach) */
+[data-bs-theme="dark"] .form-check-input:checked[type="checkbox"] {
+    --bs-form-check-bg-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%230A1C33' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+}
+[data-bs-theme="dark"] .form-check-input:checked[type="radio"] {
+    --bs-form-check-bg-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%230A1C33'/%3e%3c/svg%3e");
+}
+[data-bs-theme="dark"] .form-switch .form-check-input:checked {
+    --bs-form-switch-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%230A1C33'/%3e%3c/svg%3e");
+}
+.form-range::-webkit-slider-thumb { background-color: var(--fs-brand); }
+.form-range::-moz-range-thumb { background-color: var(--fs-brand); }
+
+/* Chips: Kapsel; gewählt Brand/OnBrand, sonst CardTint/Text (FilterChip) */
+.nav-pills, .nav-tabs { --bs-nav-link-color: var(--fs-text); --bs-nav-link-hover-color: var(--fs-text); gap: var(--fs-space-xs); border: 0; }
+.nav-pills .nav-link, .nav-tabs .nav-link,
+.btn-check + .btn.rounded-pill, .chip {
+    min-height: 2.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: .375rem;
+    padding: .375rem 1rem;
+    border: 0;
+    border-radius: var(--fs-radius-capsule);
+    background: var(--fs-card-tint);
+    color: var(--fs-text);
+    font: var(--fs-font-label);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.nav-pills .nav-link:hover, .nav-tabs .nav-link:hover, .chip:hover { background: color-mix(in srgb, var(--fs-card-tint) 80%, var(--fs-brand)); color: var(--fs-text); }
+.nav-pills .nav-link.active, .nav-tabs .nav-link.active, .nav-tabs .nav-item.show .nav-link,
+.btn-check:checked + .btn.rounded-pill, .chip.active {
+    background: var(--fs-brand);
+    color: var(--fs-on-brand);
+}
+
+/* Badges: Kapsel, getönt, Text in der jeweiligen Farbe – immer mit Wort (StatusBadge) */
+.badge {
+    --bs-badge-border-radius: var(--fs-radius-capsule);
+    --bs-badge-padding-x: .625rem;
+    --bs-badge-padding-y: .3rem;
+    --bs-badge-font-size: .75rem;
+    --bs-badge-font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    line-height: 1.2;
+}
+.badge > .me-1 { margin: 0 !important; }
+.text-bg-primary, .badge.bg-primary { background-color: var(--fs-brand) !important; color: var(--fs-on-brand) !important; }
+.text-bg-success { background-color: rgba(var(--fs-status-ok-rgb), .14) !important; color: var(--fs-status-ok) !important; }
+.text-bg-warning { background-color: rgba(var(--fs-status-soon-rgb), .16) !important; color: var(--fs-status-soon) !important; }
+.text-bg-danger { background-color: rgba(var(--fs-status-overdue-rgb), .14) !important; color: var(--fs-status-overdue) !important; }
+.text-bg-info { background-color: rgba(var(--fs-info-rgb), .14) !important; color: var(--fs-energy-hydrogen) !important; }
+.text-bg-secondary, .text-bg-light, .text-bg-dark { background-color: var(--fs-card-tint) !important; color: var(--fs-text) !important; border: 0 !important; }
+.text-primary { color: var(--fs-brand) !important; }
+.text-success { color: var(--fs-status-ok) !important; }
+.text-warning { color: var(--fs-status-soon) !important; }
+.text-danger { color: var(--fs-status-overdue) !important; }
+.text-info { color: var(--fs-energy-hydrogen) !important; }
+.text-secondary, .text-muted { color: var(--fs-text-secondary) !important; }
+.bg-body-tertiary, .bg-light { background-color: var(--fs-card-tint) !important; }
+.bg-body, .bg-white { background-color: var(--fs-card) !important; }
+
+/* Meldungen: getönt, Radius 14, Text in Text – das Symbol trägt die Farbe */
+.alert {
+    --bs-alert-border-radius: var(--fs-radius-tile);
+    --bs-alert-border-color: transparent;
+    --bs-alert-color: var(--fs-text);
+    --bs-alert-link-color: var(--fs-brand);
+    --bs-alert-padding-x: var(--fs-space-m);
+    --bs-alert-padding-y: var(--fs-space-s);
+}
+.alert-success { --bs-alert-bg: rgba(var(--fs-status-ok-rgb), .12); }
+.alert-warning { --bs-alert-bg: rgba(var(--fs-status-soon-rgb), .14); }
+.alert-danger { --bs-alert-bg: rgba(var(--fs-status-overdue-rgb), .12); }
+.alert-info, .alert-secondary, .alert-light, .alert-primary { --bs-alert-bg: var(--fs-card-tint); }
+.alert-success > .fas:first-child, .alert-success > i:first-child { color: var(--fs-status-ok); }
+.alert-warning > .fas:first-child, .alert-warning > i:first-child { color: var(--fs-status-soon); }
+.alert-danger > .fas:first-child, .alert-danger > i:first-child { color: var(--fs-status-overdue); }
+.alert-info > .fas:first-child, .alert-info > i:first-child { color: var(--fs-brand); }
+
+/* Listen, Menüs, Blätter, Dialoge, Tabellen */
+.list-group {
+    --bs-list-group-bg: var(--fs-card);
+    --bs-list-group-color: var(--fs-text);
+    --bs-list-group-border-color: var(--fs-separator);
+    --bs-list-group-border-radius: var(--fs-radius-card);
+    --bs-list-group-item-padding-x: var(--fs-space-m);
+    --bs-list-group-item-padding-y: var(--fs-space-s);
+    --bs-list-group-action-color: var(--fs-text);
+    --bs-list-group-action-hover-color: var(--fs-text);
+    --bs-list-group-action-hover-bg: var(--fs-card-tint);
+    --bs-list-group-action-active-bg: var(--fs-card-tint);
+    --bs-list-group-action-active-color: var(--fs-text);
+    --bs-list-group-active-bg: var(--fs-card-tint);
+    --bs-list-group-active-color: var(--fs-brand);
+    --bs-list-group-active-border-color: var(--fs-separator);
+}
+.list-group:not(.list-group-flush) > .list-group-item { border-left: 0; border-right: 0; }
+.list-group:not(.list-group-flush) > .list-group-item:first-child { border-top: 0; }
+.list-group:not(.list-group-flush) > .list-group-item:last-child { border-bottom: 0; }
+.dropdown-menu {
+    --bs-dropdown-bg: var(--fs-card);
+    --bs-dropdown-color: var(--fs-text);
+    --bs-dropdown-border-width: 0;
+    --bs-dropdown-border-radius: var(--fs-radius-tile);
+    --bs-dropdown-padding-y: var(--fs-space-xs);
+    --bs-dropdown-item-padding-x: var(--fs-space-m);
+    --bs-dropdown-item-padding-y: var(--fs-space-xs);
+    --bs-dropdown-link-color: var(--fs-text);
+    --bs-dropdown-link-hover-color: var(--fs-text);
+    --bs-dropdown-link-hover-bg: var(--fs-card-tint);
+    --bs-dropdown-link-active-color: var(--fs-on-brand);
+    --bs-dropdown-link-active-bg: var(--fs-brand);
+    --bs-dropdown-divider-bg: var(--fs-separator);
+    --bs-dropdown-header-color: var(--fs-text-secondary);
+    box-shadow: var(--fs-schatten);
+    min-width: 14rem;
+}
+.dropdown-item { display: flex; align-items: center; gap: var(--fs-space-xs); min-height: 2.5rem; border-radius: 0; }
+.dropdown-item > .me-2, .dropdown-item > .me-1 { margin: 0 !important; }
+.modal { --bs-modal-bg: var(--fs-card); --bs-modal-border-width: 0; --bs-modal-border-radius: var(--fs-radius-card); --bs-modal-header-border-color: var(--fs-separator); --bs-modal-footer-border-color: var(--fs-separator); }
+.offcanvas { --bs-offcanvas-bg: var(--fs-card); --bs-offcanvas-border-width: 0; }
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--fs-text);
+    --bs-table-border-color: var(--fs-separator);
+    --bs-table-striped-bg: rgba(var(--fs-card-tint-rgb), .6);
+    --bs-table-hover-bg: var(--fs-card-tint);
+}
+.table > thead th { font: var(--fs-font-label); font-weight: 600; color: var(--fs-text-secondary); }
+.table > :not(caption) > * > * { padding: var(--fs-space-s) var(--fs-space-xs); }
+.table-light { --bs-table-bg: var(--fs-card-tint); --bs-table-color: var(--fs-text); }
+.progress { --bs-progress-bg: var(--fs-card-tint); --bs-progress-bar-bg: var(--fs-brand); --bs-progress-border-radius: var(--fs-radius-capsule); }
+.pagination {
+    --bs-pagination-bg: var(--fs-card);
+    --bs-pagination-color: var(--fs-text);
+    --bs-pagination-border-color: var(--fs-separator);
+    --bs-pagination-hover-bg: var(--fs-card-tint);
+    --bs-pagination-hover-color: var(--fs-text);
+    --bs-pagination-active-bg: var(--fs-brand);
+    --bs-pagination-active-border-color: var(--fs-brand);
+    --bs-pagination-active-color: var(--fs-on-brand);
+    --bs-pagination-disabled-bg: var(--fs-card);
+}
+.accordion { --bs-accordion-bg: var(--fs-card); --bs-accordion-border-color: var(--fs-separator); --bs-accordion-active-bg: var(--fs-card-tint); --bs-accordion-active-color: var(--fs-text); --bs-accordion-btn-focus-box-shadow: 0 0 0 .25rem rgba(var(--fs-brand-rgb), .2); }
+.tooltip { --bs-tooltip-bg: var(--fs-brand-deep); --bs-tooltip-color: var(--fs-background); --bs-tooltip-border-radius: .5rem; --bs-tooltip-font-size: .8125rem; }
+hr { border-color: var(--fs-separator); opacity: 1; }
 
 /* Seite mindestens bildschirmhoch, Footer unten. Wichtig: keine feste Höhe (height: 100%),
    sonst endet der Body nach einer Bildschirmhöhe und die sticky Kopfleiste scrollt mit weg. */
@@ -156,15 +553,12 @@ footer {
     /* box-shadow: var(--bs-card-box-shadow, 0 .125rem .25rem rgba(0,0,0,.075)) !important; */
 }
 
-/* Anpassung der Symbole */
-.card-body .fas {
-    color: var(--bs-primary); /* Primärfarbe für Icons */
-}
-
-/* Icons in Buttons und Badges übernehmen deren Schriftfarbe */
-.card-body .btn .fas,
-.card-body .badge .fas {
-    color: inherit;
+/* Symbole in Kartenüberschriften in Brand; überall sonst erben sie die Schriftfarbe */
+.card-body > h2 > .fas:first-child,
+.card-body > h3 > .fas:first-child,
+.card-header > .fas:first-child,
+.card-title > .fas:first-child {
+    color: var(--fs-brand);
 }
 
 /* Kopfleiste: Abstand für Notch/Dynamic Island nur hier (nicht zusätzlich am Body) */
@@ -174,6 +568,114 @@ footer {
     z-index: 1030;
 }
 
+.kopfleiste {
+    --bs-navbar-color: var(--fs-text);
+    --bs-navbar-hover-color: var(--fs-text);
+    --bs-navbar-active-color: var(--fs-brand);
+    --bs-navbar-brand-color: var(--fs-text);
+    --bs-navbar-brand-hover-color: var(--fs-text);
+    --bs-navbar-padding-y: 0;
+    background: rgba(var(--fs-background-rgb), .88);
+    -webkit-backdrop-filter: saturate(1.4) blur(14px);
+    backdrop-filter: saturate(1.4) blur(14px);
+    border-bottom: 1px solid transparent;
+    transition: border-color .15s;
+}
+
+.kopfleiste.gescrollt {
+    border-bottom-color: var(--fs-separator);
+}
+
+.kopf-marke {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--fs-space-xs);
+    font: var(--fs-font-headline);
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: -.01em;
+}
+
+.kopf-marke img {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+}
+
+/* PC: Navigation als Symbole mit Tooltip (#145); aktiver Bereich in Brand auf CardTint */
+.kopf-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--fs-space-xxs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.kopf-symbol {
+    width: 2.75rem;
+    height: 2.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--fs-text);
+    font-size: 1.125rem;
+    text-decoration: none;
+    transition: background-color .15s, color .15s;
+}
+
+.kopf-symbol:hover,
+.kopf-symbol.show {
+    background: var(--fs-card-tint);
+    color: var(--fs-text);
+}
+
+.kopf-symbol.active {
+    background: var(--fs-card-tint);
+    color: var(--fs-brand);
+}
+
+.kopf-symbol.dropdown-toggle::after {
+    display: none;
+}
+
+.kopf-symbol img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.kopf-wechsler {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--fs-space-xs);
+    min-height: 2.75rem;
+    max-width: 18rem;
+    padding: 0 var(--fs-space-m);
+    border: 0;
+    border-radius: var(--fs-radius-capsule);
+    background: var(--fs-card-tint);
+    color: var(--fs-text);
+    font: var(--fs-font-headline);
+}
+
+.kopf-wechsler:hover,
+.kopf-wechsler.show {
+    background: color-mix(in srgb, var(--fs-card-tint) 80%, var(--fs-brand));
+}
+
+.kopf-trenner {
+    width: 1px;
+    height: 1.5rem;
+    margin: 0 var(--fs-space-xs);
+    background: var(--fs-separator);
+}
+
 .beta-badge {
     font-size: .6rem;
     vertical-align: middle;
@@ -181,13 +683,20 @@ footer {
 }
 
 .kopf-titel {
-    font-size: 1.1rem;
-    font-weight: 600;
+    font: var(--fs-font-headline);
+    font-size: 1.125rem;
+    color: var(--fs-text);
 }
 
 .kopf-zurueck {
+    min-width: 2.75rem;
     font-size: 1.1rem;
     line-height: 1;
+}
+
+.kopfleiste .btn-link {
+    min-width: 2.75rem;
+    color: var(--fs-text);
 }
 
 .min-w-0 {
@@ -214,10 +723,10 @@ body.mit-tabbar {
     display: flex;
     height: calc(var(--tabbar-hoehe) + env(safe-area-inset-bottom));
     padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-    background: rgba(var(--bs-tertiary-bg-rgb), .94);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
-    border-top: 1px solid var(--bs-border-color-translucent);
+    background: rgba(var(--fs-card-rgb), .9);
+    -webkit-backdrop-filter: saturate(1.4) blur(14px);
+    backdrop-filter: saturate(1.4) blur(14px);
+    border-top: 1px solid var(--fs-separator);
 }
 
 .tabbar-link {
@@ -231,8 +740,8 @@ body.mit-tabbar {
     padding: 0;
     border: 0;
     background: none;
-    color: var(--bs-secondary-color);
-    font-size: .7rem;
+    color: var(--fs-text-secondary);
+    font: var(--fs-font-unit);
     text-decoration: none;
     -webkit-tap-highlight-color: transparent;
 }
@@ -262,16 +771,16 @@ body.mit-tabbar {
 }
 
 .tabbar-kreis {
-    width: 50px;
-    height: 50px;
+    width: 52px;
+    height: 52px;
     margin-top: -16px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bs-primary);
-    color: #fff;
-    box-shadow: 0 .35rem 1rem rgba(var(--bs-primary-rgb), .45);
+    background: var(--fs-brand);
+    color: var(--fs-on-brand);
+    box-shadow: 0 .35rem 1rem rgba(var(--fs-brand-rgb), .4);
 }
 
 .tabbar-kreis i {
@@ -283,8 +792,9 @@ body.mit-tabbar {
     height: auto;
     max-height: 85vh;
     max-height: 85dvh;
-    border-radius: 1.25rem 1.25rem 0 0;
+    border-radius: var(--fs-radius-card) var(--fs-radius-card) 0 0;
     padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: var(--fs-schatten);
 }
 
 .blatt-griff {
@@ -323,9 +833,10 @@ body.mit-tabbar {
         overflow-x: auto;
         scrollbar-width: none;
         margin: 0 calc(var(--bs-gutter-x) * -.5);
-        padding: .6rem calc(var(--bs-gutter-x) * .5);
-        border-bottom: 1px solid var(--bs-border-color-translucent);
-        background: var(--bs-body-bg);
+        padding: var(--fs-space-xs) calc(var(--bs-gutter-x) * .5);
+        background: rgba(var(--fs-background-rgb), .88);
+        -webkit-backdrop-filter: saturate(1.4) blur(14px);
+        backdrop-filter: saturate(1.4) blur(14px);
     }
 
     .fahrzeug-reiter::-webkit-scrollbar {
@@ -333,85 +844,222 @@ body.mit-tabbar {
     }
 
     .fahrzeug-reiter .nav-link {
-        white-space: nowrap;
         margin: 0;
-        padding: .4rem .95rem;
-        border: 1px solid var(--bs-border-color);
-        border-radius: 50rem;
-        color: var(--bs-body-color);
-    }
-
-    .fahrzeug-reiter .nav-link.active {
-        color: #fff;
-        background: var(--bs-primary);
-        border-color: var(--bs-primary);
     }
 }
 
-/* --- Fahrzeugübersicht: Karten (mobil als kompakte Liste) ---------------- */
-.fahrzeug-bild {
+/* --- VehicleHero: Foto mit Verlauf, darauf Name, Kennzeichen, Energie-Badge ---------------- */
+.fahrzeug-karte {
+    overflow: hidden;
+}
+
+.fahrzeug-hero {
     position: relative;
     aspect-ratio: 16 / 9;
     overflow: hidden;
-    border-radius: var(--bs-card-inner-border-radius) var(--bs-card-inner-border-radius) 0 0;
+    border-radius: var(--fs-radius-card);
+    background: var(--fs-card-tint);
+    /* Text auf dem Foto ist in beiden Modi hell: der Verlauf darunter ist immer Navy */
+    color: #fff;
 }
 
-.fahrzeug-bild img {
+.fahrzeug-hero > img {
     width: 100%;
     height: 100%;
     object-fit: cover;
 }
 
+.fahrzeug-hero::after {
+    content: "";
+    position: absolute;
+    inset: 35% 0 0;
+    background: linear-gradient(to bottom, rgba(10, 28, 51, 0), rgba(10, 28, 51, .82));
+    pointer-events: none;
+}
+
+.fahrzeug-hero-text {
+    position: absolute;
+    left: var(--fs-space-m);
+    right: var(--fs-space-m);
+    bottom: var(--fs-space-m);
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--fs-space-xs);
+}
+
+.fahrzeug-hero-name {
+    margin: 0;
+    font: var(--fs-font-screen-title);
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(10, 28, 51, .5);
+}
+
+.fahrzeug-hero-zeile {
+    font: var(--fs-font-label);
+    color: rgba(255, 255, 255, .92);
+}
+
+/* Aktionen auf dem Foto: runde Knöpfe (Bearbeiten) */
+.fahrzeug-hero-aktionen {
+    position: absolute;
+    top: var(--fs-space-s);
+    right: var(--fs-space-s);
+    z-index: 2;
+    display: flex;
+    gap: var(--fs-space-xs);
+}
+
+.hero-knopf {
+    width: 2.75rem;
+    height: 2.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(var(--fs-card-rgb), .9);
+    color: var(--fs-text);
+    box-shadow: var(--fs-schatten);
+    text-decoration: none;
+}
+
+.hero-knopf:hover {
+    background: var(--fs-card);
+    color: var(--fs-brand);
+}
+
+.fahrzeug-karte .card-body {
+    position: static;
+}
+
 .fahrzeug-aktionen {
     position: relative;
     z-index: 2;
-    padding: 0 1rem 1rem;
 }
 
-@media (max-width: 575.98px) {
-    .fahrzeug-karte {
-        flex-direction: row;
-        align-items: center;
-    }
-
-    .fahrzeug-karte .fahrzeug-bild {
-        width: 76px;
-        flex-shrink: 0;
-        aspect-ratio: 1;
-        margin: .75rem 0 .75rem .75rem;
-        border-radius: .75rem;
-    }
-
-    .fahrzeug-karte .card-body {
-        padding: .75rem;
-    }
-
-    .fahrzeug-aktionen {
-        padding: 0 .75rem 0 0;
-    }
-
-    .fahrzeug-aktionen .btn-eintrag {
-        width: 44px;
-        height: 44px;
-        padding: 0;
-        border-radius: 50%;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
+/* Energie-Badge: Symbol in der Energiefarbe, Text daneben (nie nur Farbe) */
+.energie-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--fs-space-xxs);
+    padding: .2rem .625rem;
+    border-radius: var(--fs-radius-capsule);
+    background: var(--fs-card);
+    color: var(--fs-text);
+    font: var(--fs-font-unit);
+    white-space: nowrap;
 }
 
-/* Kennzahlen-Kacheln auf der Fahrzeugseite */
+.energie-badge i {
+    color: var(--farbe, var(--fs-brand));
+}
+
+/* Symbol im getönten Kreis (EntryRow, Kostengruppen): 36 px, Kreis in 15 % der Farbe.
+   Tokens färben auch das Symbol; bei Kategoriefarben der API bleibt es in Text (docs/design.md 3.5). */
+.symbol-kreis {
+    flex-shrink: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--farbe, var(--fs-brand)) 15%, transparent);
+    color: var(--fs-text);
+    font-size: .95rem;
+}
+
+.symbol-kreis-token {
+    color: var(--farbe, var(--fs-brand));
+}
+
+.symbol-kreis-gross {
+    width: 4rem;
+    height: 4rem;
+    font-size: 1.5rem;
+}
+
+/* EmptyState: Symbol, ein Satz, eine Aktion */
+.leer-zustand {
+    max-width: 36rem;
+    text-align: center;
+}
+
+.leer-zustand .card-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--fs-space-xs);
+    padding: var(--fs-space-xl) var(--fs-space-l);
+}
+
+.leer-zustand h2 {
+    margin: var(--fs-space-xs) 0 0;
+}
+
+/* Fußzeile: ruhig, in footnote */
+.seitenfuss {
+    margin-top: var(--fs-space-xl);
+    padding: var(--fs-space-m);
+    text-align: center;
+    font: var(--fs-font-footnote);
+    color: var(--fs-text-secondary);
+}
+
+.seitenfuss-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0 var(--fs-space-m);
+    margin-top: var(--fs-space-xxs);
+}
+
+.seitenfuss a,
+.seitenfuss .btn-link {
+    min-height: 2.75rem;
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
+    border: 0;
+    font: inherit;
+    font-weight: 400;
+    color: var(--fs-text-secondary);
+    text-decoration: none;
+}
+
+.seitenfuss a:hover,
+.seitenfuss .btn-link:hover {
+    color: var(--fs-brand);
+    text-decoration: underline;
+}
+
+/* StatTile: Wert (figure), Einheit (unit), Beschriftung (label) auf CardTint */
 .kennzahl {
-    background: var(--bs-tertiary-bg);
-    border-radius: .75rem;
-    padding: .75rem 1rem;
+    background: var(--fs-card-tint);
+    border-radius: var(--fs-radius-tile);
+    padding: var(--fs-space-s);
     height: 100%;
+    font: var(--fs-font-label);
+    color: var(--fs-text-secondary);
 }
 
 .kennzahl-wert {
-    font-size: 1.15rem;
-    font-weight: 600;
+    font: var(--fs-font-figure);
+    color: var(--fs-text);
+    overflow-wrap: anywhere;
+}
+
+.kennzahl-wert small,
+.kennzahl-wert .small,
+.kennzahl-wert .fw-normal {
+    font: var(--fs-font-unit);
+    color: var(--fs-text-secondary);
+}
+
+/* Kacheln direkt auf dem Seitenhintergrund bekommen die Kartenfläche */
+.kennzahl.auf-seite {
+    background: var(--fs-card);
 }
 
 /* Statistik: Diagramme mit fester Höhe, Symbol-Kreise für Höhepunkte */
@@ -528,12 +1176,12 @@ body.mit-tabbar {
     gap: .35rem;
     min-height: 76px;
     padding: .6rem .4rem;
-    border: 1px solid var(--bs-border-color);
-    border-radius: .75rem;
-    background: var(--bs-body-bg);
-    color: var(--bs-body-color);
-    font-size: .9rem;
-    font-weight: 500;
+    border: 2px solid transparent;
+    border-radius: var(--fs-radius-tile);
+    background: var(--fs-card-tint);
+    color: var(--fs-text);
+    font: var(--fs-font-label);
+    font-weight: 600;
     text-align: center;
     cursor: pointer;
     user-select: none;
@@ -542,7 +1190,7 @@ body.mit-tabbar {
 
 .art-kachel i {
     font-size: 1.35rem;
-    color: var(--bs-secondary-color);
+    color: var(--fs-brand);
 }
 
 @media (max-width: 575.98px) {
@@ -559,17 +1207,17 @@ body.mit-tabbar {
 }
 
 .art-kachel:hover {
-    background: var(--bs-tertiary-bg);
+    background: color-mix(in srgb, var(--fs-card-tint) 80%, var(--fs-brand));
 }
 
+/* Gewählte Art: Brand/OnBrand wie ein gewählter Chip */
 .btn-check:checked + .art-kachel {
-    border-color: var(--bs-primary);
-    background: var(--bs-primary-bg-subtle);
-    color: var(--bs-primary-text-emphasis);
+    background: var(--fs-brand);
+    color: var(--fs-on-brand);
 }
 
 .btn-check:checked + .art-kachel i {
-    color: var(--bs-primary);
+    color: var(--fs-on-brand);
 }
 
 .btn-check:focus-visible + .art-kachel {
@@ -589,8 +1237,10 @@ body.mit-tabbar {
     /* bis an den Rand des Containers: dessen Innenabstand ist die halbe Spaltenbreite (#90) */
     margin: 1rem calc(-.5 * var(--bs-gutter-x, 1.5rem)) 0;
     padding: .75rem calc(.5 * var(--bs-gutter-x, 1.5rem));
-    background: var(--bs-body-bg);
-    border-top: 1px solid var(--bs-border-color-translucent);
+    background: rgba(var(--fs-background-rgb), .92);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border-top: 1px solid var(--fs-separator);
 }
 
 /* Mobil: über der unteren App-Leiste */
@@ -665,9 +1315,9 @@ body.mit-tabbar {
 }
 
 .assistent-schritte li.aktiv .nr {
-    border-color: var(--bs-primary);
-    background: var(--bs-primary);
-    color: #fff;
+    border-color: var(--fs-brand);
+    background: var(--fs-brand);
+    color: var(--fs-on-brand);
 }
 
 .assistent-schritte li.erledigt .nr {
@@ -714,11 +1364,11 @@ body.mit-tabbar {
 .kennzeichen {
     display: inline-block;
     padding: .05rem .45rem;
-    border: 1px solid var(--bs-border-color);
-    border-left: .4rem solid #003399;
-    border-radius: .25rem;
-    background: var(--bs-body-bg);
-    color: var(--bs-body-color);
+    border: 1px solid var(--fs-separator);
+    border-left: .4rem solid var(--fs-energy-gas); /* blauer Streifen des Kennzeichens */
+    border-radius: .375rem;
+    background: var(--fs-card);
+    color: var(--fs-text);
     font-family: var(--bs-font-monospace);
     font-weight: 600;
     letter-spacing: .03em;
@@ -730,28 +1380,24 @@ body.mit-tabbar {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    margin: 1.25rem 0 .5rem;
-    font-size: 1rem;
-    font-weight: 600;
+    margin: var(--fs-space-l) var(--fs-space-xxs) var(--fs-space-xs);
+    font: var(--fs-font-headline);
+}
+
+.eintrag-monat-titel > :last-child {
+    font: var(--fs-font-label);
+    color: var(--fs-text-secondary);
+    font-variant-numeric: tabular-nums;
 }
 
 .eintrag-zeile {
     display: flex;
     align-items: center;
-    gap: .75rem;
-    padding: .6rem .5rem .6rem .75rem;
+    gap: var(--fs-space-s);
+    min-height: 3.75rem;
+    padding: var(--fs-space-s) var(--fs-space-xs) var(--fs-space-s) var(--fs-space-m);
 }
 
-.eintrag-icon {
-    flex-shrink: 0;
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: .95rem;
-}
 
 .eintrag-text {
     flex: 1 1 auto;
@@ -764,7 +1410,7 @@ body.mit-tabbar {
 }
 
 .eintrag-zeile:hover {
-    background: var(--bs-tertiary-bg);
+    background: rgba(var(--fs-card-tint-rgb), .5);
 }
 
 /* Fahrzeug-Reiter per Wischen (#88): neuer Inhalt kommt aus der Wischrichtung */
@@ -798,20 +1444,7 @@ body.mit-tabbar {
     }
 }
 
-/* Allgemein (#48): nächster Termin, Mini-Diagramm */
-.naechster-termin {
-    display: flex;
-    align-items: center;
-    gap: .75rem;
-    padding: .75rem 1rem;
-    border-radius: .75rem;
-    border-left: .3rem solid;
-    background: var(--bs-tertiary-bg);
-}
-
-.naechster-termin > i {
-    font-size: 1.3rem;
-}
+/* Allgemein (#48): Mini-Diagramm */
 
 .diagramm-mini {
     position: relative;
@@ -842,12 +1475,12 @@ body.mit-tabbar {
     gap: .5rem 1rem;
     max-width: 760px;
     margin: 0 auto;
-    padding: .75rem 1rem;
-    border: 1px solid var(--bs-border-color);
-    border-radius: .75rem;
-    background: var(--bs-body-bg);
-    color: var(--bs-body-color);
-    box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .15);
+    padding: var(--fs-space-s) var(--fs-space-m);
+    border-radius: var(--fs-radius-card);
+    background: var(--fs-card);
+    color: var(--fs-text);
+    font: var(--fs-font-label);
+    box-shadow: var(--fs-schatten);
 }
 
 .cookie-hinweis[hidden] {
@@ -972,4 +1605,279 @@ body.seite-laedt .hauptinhalt {
 @media (prefers-reduced-motion: reduce) {
     .ziehen-anzeige, .ziehen-anzeige i { transition: none; }
     .ziehen-anzeige.laedt i { animation: none; }
+}
+
+/* --- Bausteine der Neugestaltung (docs/design.md 8) --------------------------------------------- */
+
+/* StatTile: Wert oben, Beschriftung darunter, Zusatz zuletzt – unabhängig von der Reihenfolge im HTML
+   (dort steht die Beschriftung zuerst, damit Screenreader „Tachostand 76.654 km“ vorlesen) */
+.kennzahl {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.kennzahl > * { order: 3; }
+.kennzahl > .kennzahl-wert { order: 1; }
+.kennzahl > :first-child:not(.kennzahl-wert) { order: 2; }
+.kennzahl .small { font: var(--fs-font-label); }
+
+.trend-pfeil {
+    font-size: .875rem;
+}
+
+/* Fahrzeugseite: großes Foto links (PC bleibt es beim Scrollen stehen) */
+.fahrzeug-hero-gross {
+    aspect-ratio: 4 / 3;
+}
+
+@media (max-width: 991.98px) {
+    .fahrzeug-hero-gross {
+        aspect-ratio: 16 / 10;
+    }
+}
+
+@media (min-width: 992px) {
+    .hero-spalte {
+        position: sticky;
+        top: calc(var(--kopf-hoehe) + var(--fs-space-m));
+    }
+
+    .fahrzeug-reiter {
+        padding: var(--fs-space-xs) 0;
+    }
+}
+
+/* Chip-Leiste: wischbar in einer Zeile (mobil), sonst umbrechend */
+.chip-leiste {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--fs-space-xs);
+}
+
+.chip {
+    cursor: pointer;
+    text-decoration: none;
+}
+
+@media (max-width: 575.98px) {
+    .chip-leiste {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        margin: 0 calc(var(--bs-gutter-x) * -.5);
+        padding: 0 calc(var(--bs-gutter-x) * .5);
+    }
+
+    .chip-leiste::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/* Suchfeld mit Lupe im Feld */
+.such-feld {
+    position: relative;
+    min-width: 12rem;
+    max-width: 24rem;
+}
+
+.such-feld > i {
+    position: absolute;
+    top: 50%;
+    left: var(--fs-space-m);
+    transform: translateY(-50%);
+    color: var(--fs-text-secondary);
+    pointer-events: none;
+}
+
+.such-feld > .form-control {
+    padding-left: 2.75rem;
+    border-radius: var(--fs-radius-capsule);
+    border-color: transparent;
+}
+
+/* EntryRow in einer Karte je Monat */
+.eintrag-gruppe {
+    border-radius: var(--fs-radius-card);
+    overflow: visible;
+}
+
+.eintrag-gruppe > .list-group-item:first-child { border-radius: var(--fs-radius-card) var(--fs-radius-card) 0 0; }
+.eintrag-gruppe > .list-group-item:last-child { border-radius: 0 0 var(--fs-radius-card) var(--fs-radius-card); }
+.eintrag-gruppe > .list-group-item:only-child { border-radius: var(--fs-radius-card); }
+
+.eintrag-text {
+    display: block;
+    padding: 2px 0;
+}
+
+.eintrag-betrag {
+    font: var(--fs-font-headline);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Farbpunkt vor einem Namen (Legende): Farbe steht nie allein */
+.farb-punkt {
+    display: inline-block;
+    width: .625rem;
+    height: .625rem;
+    margin-right: .375rem;
+    border-radius: 50%;
+    background: var(--farbe, var(--fs-brand));
+}
+
+/* Fahrten (#144): km je Monat als gestapelte Balken */
+.monats-balken {
+    display: grid;
+    gap: var(--fs-space-xs);
+}
+
+.monats-balken-zeile {
+    display: grid;
+    grid-template-columns: 5rem 1fr 5rem;
+    align-items: center;
+    gap: var(--fs-space-s);
+}
+
+.monats-balken-spur {
+    display: flex;
+    gap: 2px;
+    height: .75rem;
+    border-radius: var(--fs-radius-capsule);
+    background: var(--fs-card-tint);
+    overflow: hidden;
+}
+
+.monats-balken-spur > span {
+    background: var(--farbe);
+}
+
+details > summary {
+    min-height: 2.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--fs-space-xs);
+    cursor: pointer;
+}
+
+/* Termin-Zeile: Symbol, Text, Status-Badge; wird es eng, rutscht das Badge in eine eigene Zeile */
+.termin-zeile {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--fs-space-xs) var(--fs-space-m);
+}
+
+.termin-text {
+    flex: 1 1 9rem;
+    min-width: 0;
+}
+
+/* Statistik: Höhepunkte (sparsamster Monat usw.) als Zeile mit Symbolkreis auf der Kartenfläche */
+.hoehepunkt {
+    display: flex;
+    align-items: center;
+    gap: var(--fs-space-s);
+    height: 100%;
+    padding: var(--fs-space-s) var(--fs-space-m);
+    border-radius: var(--fs-radius-tile);
+    background: var(--fs-card);
+}
+
+/* --- Willkommen und Anmeldung --------------------------------------------------------------------
+   Markenfläche (docs/design.md 2): Navy wie das App-Icon in beiden Modi, weiße Schrift, Teal-Akzente.
+   Die festen Werte hier sind die Markenwerte aus Abschnitt 2 (BrandDeep hell, Brand dunkel). */
+.willkommen-hero {
+    --willkommen-navy: #0A1C33;
+    --willkommen-teal: #5ED3CF;
+    padding: var(--fs-space-xl) var(--fs-space-l);
+    border-radius: var(--fs-radius-card);
+    background: var(--willkommen-navy);
+    color: #fff;
+}
+
+.willkommen-hero h1 {
+    color: #fff;
+    font-size: clamp(1.75rem, 1.2rem + 2.4vw, 2.75rem);
+}
+
+.willkommen-text {
+    max-width: 40rem;
+    font-size: 1.0625rem;
+    color: rgba(255, 255, 255, .85);
+}
+
+.willkommen-logo {
+    width: 96px;
+    height: 96px;
+    border-radius: 22px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .12), 0 .75rem 2rem rgba(0, 0, 0, .35);
+}
+
+.willkommen-beta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--fs-space-xs);
+    padding: .375rem .875rem;
+    border-radius: var(--fs-radius-capsule);
+    background: rgba(255, 255, 255, .1);
+    color: var(--willkommen-teal);
+    font: var(--fs-font-unit);
+}
+
+.willkommen-knopf {
+    --bs-btn-color: var(--willkommen-navy);
+    --bs-btn-bg: var(--willkommen-teal);
+    --bs-btn-border-color: var(--willkommen-teal);
+    --bs-btn-hover-color: var(--willkommen-navy);
+    --bs-btn-hover-bg: #fff;
+    --bs-btn-hover-border-color: #fff;
+    --bs-btn-active-color: var(--willkommen-navy);
+    --bs-btn-active-bg: #fff;
+    --bs-btn-active-border-color: #fff;
+}
+
+.willkommen-knopf-rahmen {
+    --bs-btn-color: #fff;
+    --bs-btn-border-color: rgba(255, 255, 255, .5);
+    --bs-btn-hover-color: var(--willkommen-navy);
+    --bs-btn-hover-bg: #fff;
+    --bs-btn-hover-border-color: #fff;
+    --bs-btn-active-color: var(--willkommen-navy);
+    --bs-btn-active-bg: #fff;
+    --bs-btn-active-border-color: #fff;
+}
+
+.willkommen-schritt {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--fs-brand);
+    color: var(--fs-on-brand);
+    font: var(--fs-font-headline);
+}
+
+.anmelde-logo {
+    border-radius: 16px;
+}
+
+.anmelde-karte .card-body {
+    padding: var(--fs-space-l) !important;
+}
+
+/* Kartenüberschriften: sectionTitle, auch wo im HTML noch h3.h5/h6 steht */
+.card-body > h3:not(.fs-label),
+.card-header h3,
+.card-header h2,
+.card-body > h2 {
+    font: var(--fs-font-section-title);
+}
+
+.card-body > h3 small,
+.card-header h3 small {
+    font: var(--fs-font-label);
 }

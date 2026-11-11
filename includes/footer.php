@@ -2,15 +2,15 @@
 <?php require_once __DIR__ . '/version.php'; ?>
 
 <!-- Footer -->
-<footer class="bg-body-tertiary text-center text-muted py-3 mt-4">
-  <small>
-    &copy; <?php echo date('Y'); ?> Mario Caraggiu — 
-    <a href="<?php echo htmlspecialchars($baseUrl); ?>pages/impressum.php" class="text-decoration-none">Impressum</a> | 
-    <a href="<?php echo htmlspecialchars($baseUrl); ?>pages/datenschutz.php" class="text-decoration-none">Datenschutz</a> |
-    <a href="<?php echo htmlspecialchars($baseUrl); ?>pages/nutzungsbedingungen.php" class="text-decoration-none">Nutzungsbedingungen</a> |
-    <button type="button" class="btn btn-link btn-sm p-0 align-baseline text-decoration-none" id="cookieHinweisOeffnen" style="font-size: inherit;">Cookie-Hinweis</button> |
-    <a href="<?php echo htmlspecialchars($baseUrl); ?>pages/neuigkeiten.php" class="text-decoration-none" title="Neuigkeiten">Version <?= htmlspecialchars(fuelstatVersion()) ?><span class="badge rounded-pill text-bg-primary ms-1 d-none" data-neu-version>neu</span></a>
-  </small>
+<footer class="seitenfuss">
+  &copy; <?php echo date('Y'); ?> Mario Caraggiu
+  <span class="seitenfuss-links">
+    <a href="<?php echo htmlspecialchars($baseUrl); ?>pages/impressum.php">Impressum</a>
+    <a href="<?php echo htmlspecialchars($baseUrl); ?>pages/datenschutz.php">Datenschutz</a>
+    <a href="<?php echo htmlspecialchars($baseUrl); ?>pages/nutzungsbedingungen.php">Nutzungsbedingungen</a>
+    <button type="button" class="btn btn-link" id="cookieHinweisOeffnen">Cookie-Hinweis</button>
+    <a href="<?php echo htmlspecialchars($baseUrl); ?>pages/neuigkeiten.php" title="Neuigkeiten">Version <?= htmlspecialchars(fuelstatVersion()) ?><span class="badge text-bg-primary ms-1 d-none" data-neu-version>neu</span></a>
+  </span>
 </footer>
 
 <!-- Cookie-Hinweis (#33): Fuelstat nutzt nur technisch notwendige Speicherungen, daher ein Hinweis statt einer
@@ -84,8 +84,10 @@
     function applyChartTheme() {
       if (!window.Chart) return;
       var css = getComputedStyle(root);
-      var text = css.getPropertyValue('--bs-body-color').trim();
-      var grid = css.getPropertyValue('--bs-border-color-translucent').trim();
+      // Achsenbeschriftung in TextSecondary, Achsen und Gitter in Separator (docs/design.md 3.6)
+      var text = css.getPropertyValue('--fs-text-secondary').trim();
+      var grid = css.getPropertyValue('--fs-separator').trim();
+      Chart.defaults.font.family = css.getPropertyValue('--bs-body-font-family').trim() || Chart.defaults.font.family;
       Chart.defaults.color = text;
       Chart.defaults.borderColor = grid;
       Object.values(Chart.instances || {}).forEach(function (chart) {
@@ -102,12 +104,20 @@
 
     function updateIcon() {
       var dark = root.getAttribute('data-bs-theme') === 'dark';
-      if (themeMeta) themeMeta.setAttribute('content', dark ? '#2b3035' : '#f8f9fa');
+      if (themeMeta) themeMeta.setAttribute('content', dark ? '#0E1624' : '#F2F6F8');
       toggles.forEach(function (toggle) {
         var icon = toggle.querySelector('i');
         icon.classList.toggle('fa-sun', dark);
         icon.classList.toggle('fa-moon', !dark);
-        toggle.title = dark ? 'Hell darstellen' : 'Dunkel darstellen';
+        var tipp = dark ? 'Hell darstellen' : 'Dunkel darstellen';
+        toggle.setAttribute('aria-label', tipp);
+        if (toggle.hasAttribute('data-tipp')) {
+          toggle.setAttribute('data-tipp', tipp);
+          var t = window.bootstrap && bootstrap.Tooltip.getInstance(toggle);
+          if (t) t.setContent({ '.tooltip-inner': tipp });
+        } else {
+          toggle.title = tipp;
+        }
         var text = toggle.querySelector('.theme-text');
         if (text) text.textContent = dark ? 'Helle Darstellung' : 'Dunkle Darstellung';
       });
@@ -118,10 +128,25 @@
         var next = root.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
         root.setAttribute('data-bs-theme', next);
         try { localStorage.setItem('fuelstat-theme', next); } catch (e) {}
+        // Diagramme haben ihre Reihenfarben beim Zeichnen aus den Tokens gelesen: mit neuen Farben neu aufbauen
+        if (window.Chart && Object.keys(Chart.instances || {}).length) { location.reload(); return; }
         updateIcon();
         applyChartTheme();
       });
     });
+
+    // Kopfleiste: Tooltips für die Symbole (#145) und Trennlinie, sobald gescrollt ist
+    if (window.bootstrap && window.matchMedia('(hover: hover)').matches) {
+      document.querySelectorAll('[data-tipp]').forEach(function (el) {
+        new bootstrap.Tooltip(el, { title: function () { return el.getAttribute('data-tipp'); }, placement: 'bottom', trigger: 'hover focus', delay: { show: 300, hide: 0 } });
+      });
+    }
+    var kopf = document.querySelector('.kopfleiste');
+    if (kopf) {
+      var gescrollt = function () { kopf.classList.toggle('gescrollt', window.scrollY > 4); };
+      window.addEventListener('scroll', gescrollt, { passive: true });
+      gescrollt();
+    }
 
     updateIcon();
     applyChartTheme();
@@ -162,7 +187,7 @@
     hinweis.className = 'alert alert-warning d-flex align-items-center gap-2 mb-3';
     hinweis.setAttribute('role', 'status');
     hinweis.innerHTML = '<i class="fas fa-wifi" aria-hidden="true"></i><span class="flex-grow-1"></span>'
-      + '<button type="button" class="btn btn-sm btn-outline-dark d-none">Neu laden</button>';
+      + '<button type="button" class="btn btn-sm btn-primary d-none">Neu laden</button>';
     hinweis.querySelector('span').textContent = 'Offline: Du siehst den zuletzt geladenen Stand' + text + '. Ändern geht erst wieder mit Verbindung.';
     var neuLaden = hinweis.querySelector('button');
     neuLaden.addEventListener('click', function () { location.reload(); });

@@ -41,10 +41,11 @@ $katTeile = fn(string $k) => str_starts_with($k, 'Tankfuellung:') ? ['Tankfuellu
 
 // Kategorien zu Gruppen zusammenfassen (Kostenstruktur und Jahresvergleich)
 $gruppen = $istPhev ? [
-    'kraftstoff' => [begriffeFuerEinheit($fuelType, 'l')['Verb'], 'fa-gas-pump', '#0d6efd', ['Tankfuellung:l']],
-    'strom' => [begriffeFuerEinheit($fuelType, 'kwh')['Verb'], 'fa-charging-station', '#198754', ['Tankfuellung:kwh']],
+    'kraftstoff' => [begriffeFuerEinheit($fuelType, 'l')['Verb'], 'fa-gas-pump', energieFarbe($fuelType, 'l'), ['Tankfuellung:l']],
+    'strom' => [begriffeFuerEinheit($fuelType, 'kwh')['Verb'], 'fa-charging-station', energieFarbe($fuelType, 'kwh'), ['Tankfuellung:kwh']],
 ] : [
-    'kraftstoff' => [$begriffe['Verb'], $begriffe['icon'], '#0d6efd', ['Tankfuellung']],
+    // Tanken bzw. Laden in der Energiefarbe des Fahrzeugs (docs/design.md 3.4)
+    'kraftstoff' => [$begriffe['Verb'], $begriffe['icon'], energieFarbe($fuelType), ['Tankfuellung']],
 ];
 // Weitere Gruppen kommen mit den Kategorien vom API (#95): Fixkosten, Werkstatt & Wartung, Parken & Maut, Sonstiges
 foreach (kategorieGruppen() as $gKey => $g) {
@@ -65,8 +66,8 @@ $gruppeVon = function (string $kategorie) use ($gruppen): string {
 $kategorieName = fn(string $k) => getKategorieName($katTeile($k)[0], $fuelType, $katTeile($k)[1]);
 $kategorieIcon = fn(string $k) => getCategoryIcon($katTeile($k)[0], $fuelType, $katTeile($k)[1]);
 
-// Farben je Kategorie (Diagramm und Liste), vom API; Plug-in-Hybrid: Laden grün
-$kategorieFarben = ['Tankfuellung:l' => getKategorieFarbe('Tankfuellung'), 'Tankfuellung:kwh' => '#198754'];
+// Farben je Kategorie (Diagramm und Liste): Tanken und Laden als Energie-Token, alles andere vom API
+$kategorieFarben = ['Tankfuellung' => energieFarbe($fuelType), 'Tankfuellung:l' => energieFarbe($fuelType, 'l'), 'Tankfuellung:kwh' => energieFarbe($fuelType, 'kwh'), 'Tankfuellung:kg' => energieFarbe($fuelType, 'kg')];
 foreach ($eintraege as $e) {
     $kategorieFarben[$e['kategorie']] ??= getKategorieFarbe($e['kategorie']);
 }
@@ -207,7 +208,7 @@ $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'gesamt';
                 <?php foreach ($sichtbareGruppen as $g => [$name, $icon, $farbe]): ?>
                 <div class="col-6 col-lg-3">
                     <div class="d-flex align-items-start gap-2">
-                        <span class="statistik-icon flex-shrink-0" style="background-color: <?= $farbe ?>26; color: <?= $farbe ?>"><i class="fas <?= $icon ?>"></i></span>
+                        <?= symbolKreis($icon, $farbe) ?>
                         <div class="min-w-0">
                             <div class="small text-body-secondary text-truncate"><?= htmlspecialchars($name) ?></div>
                             <div class="fw-semibold"><?= $zahl($gruppenSummen[$g]) ?> €</div>
@@ -231,10 +232,10 @@ $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'gesamt';
                     <h3 class="h6 mb-3">Nach Kategorie</h3>
                     <div class="diagramm diagramm-klein mb-3"><canvas id="kategorieChart"></canvas></div>
                     <ul class="list-unstyled mb-0">
-                        <?php foreach ($kategorien as $k => $d): $anteil = $gesamt > 0 ? $d['summe'] / $gesamt * 100 : 0; $farbe = $kategorieFarben[$k] ?? '#adb5bd'; ?>
+                        <?php foreach ($kategorien as $k => $d): $anteil = $gesamt > 0 ? $d['summe'] / $gesamt * 100 : 0; $farbe = $kategorieFarben[$k] ?? getKategorieFarbe(null); ?>
                         <li class="mb-2">
                             <div class="d-flex justify-content-between align-items-baseline gap-2 small">
-                                <span class="text-truncate"><i class="fas <?= $kategorieIcon($k) ?> fa-fw me-1" style="color: <?= $farbe ?>"></i><?= htmlspecialchars($kategorieName($k)) ?> <span class="text-body-secondary">(<?= $d['anzahl'] ?>)</span></span>
+                                <span class="text-truncate"><span class="farb-punkt" style="--farbe: <?= $farbe ?>" aria-hidden="true"></span><i class="fas <?= $kategorieIcon($k) ?> fa-fw me-1" aria-hidden="true"></i><?= htmlspecialchars($kategorieName($k)) ?> <span class="text-body-secondary">(<?= $d['anzahl'] ?>)</span></span>
                                 <span class="text-nowrap fw-semibold"><?= $zahl($d['summe']) ?> €</span>
                             </div>
                             <div class="progress mt-1" style="height: 4px;" role="presentation">
@@ -262,9 +263,9 @@ $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'gesamt';
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-header bg-transparent py-3"><h3 class="h6 mb-0">Größte Einzelausgaben <small class="text-body-secondary fw-normal">ohne <?= $begriffe['vorgaenge'] ?></small></h3></div>
         <ul class="list-group list-group-flush">
-            <?php foreach ($groesste as $e): $farbe = $kategorieFarben[$e['kategorie']] ?? '#adb5bd'; ?>
+            <?php foreach ($groesste as $e): $farbe = $kategorieFarben[$e['kategorie']] ?? getKategorieFarbe(null); ?>
             <li class="list-group-item d-flex align-items-center gap-3 py-3">
-                <span class="statistik-icon flex-shrink-0" style="background-color: <?= $farbe ?>26; color: <?= $farbe ?>"><i class="fas <?= getCategoryIcon($e['kategorie'], $fuelType) ?>"></i></span>
+                <?= symbolKreis(getCategoryIcon($e['kategorie'], $fuelType), $farbe) ?>
                 <div class="flex-grow-1 min-w-0">
                     <div class="fw-semibold text-truncate"><?= htmlspecialchars($e['beschreibung'] ?: $kategorieName($e['kategorie'])) ?></div>
                     <div class="small text-body-secondary text-truncate"><?= date('d.m.Y', strtotime($e['datum'])) ?> · <?= htmlspecialchars($kategorieName($e['kategorie'])) ?><?= !empty($e['standort']) ? ' · ' . htmlspecialchars($e['standort']) : '' ?></div>
@@ -331,6 +332,9 @@ $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'gesamt';
 (function () {
     if (!window.Chart) return;
     var zahl = function (wert, stellen) { return Number(wert).toLocaleString('de-DE', { minimumFractionDigits: stellen, maximumFractionDigits: stellen }); };
+    // Farben können Tokens sein (var(--fs-…)): für das Canvas in ihren Wert auflösen
+    var css = getComputedStyle(document.documentElement);
+    var farbe = function (f) { var m = /^var\((--[\w-]+)\)$/.exec(f); return m ? css.getPropertyValue(m[1]).trim() : f; };
     var euro = function (c) { return (c.dataset.label ? c.dataset.label + ': ' : c.label + ': ') + zahl(c.parsed.y !== undefined ? c.parsed.y : c.parsed, 2) + ' €'; };
 
     var el = document.getElementById('kategorieChart');
@@ -341,8 +345,9 @@ $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'gesamt';
                 labels: <?= json_encode(array_map($kategorieName, array_keys($kategorien)), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?>,
                 datasets: [{
                     data: <?= json_encode(array_map(fn($d) => round($d['summe'], 2), array_values($kategorien))) ?>,
-                    backgroundColor: <?= json_encode(array_map(fn($k) => $kategorieFarben[$k] ?? '#adb5bd', array_keys($kategorien))) ?>,
-                    borderWidth: 0
+                    backgroundColor: <?= json_encode(array_map(fn($k) => $kategorieFarben[$k] ?? getKategorieFarbe(null), array_keys($kategorien))) ?>.map(farbe),
+                    borderColor: css.getPropertyValue('--fs-card').trim(),
+                    borderWidth: 2
                 }]
             },
             options: {
@@ -362,6 +367,7 @@ $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'gesamt';
             'borderRadius' => 3,
             'stack' => 'a',
         ], array_values(array_filter(array_keys($gruppen), fn($g) => $gruppenSummen[$g] > 0)))) ?>;
+        reihen.forEach(function (r) { r.backgroundColor = farbe(r.backgroundColor); });
         new Chart(el, {
             type: 'bar',
             data: { labels: monate, datasets: reihen },

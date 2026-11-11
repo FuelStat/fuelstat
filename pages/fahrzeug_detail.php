@@ -30,10 +30,11 @@ $darfErfassen = in_array($rolle, ['owner', 'editor'], true);
 $ichId = (string)($_SESSION['user_id'] ?? '');
 ?>
 
-<div class="container mt-lg-5">
-    <h1 class="d-none d-lg-block"><?= htmlspecialchars($fahrzeug['name'] ?? 'Fahrzeug') ?></h1>
+<div class="container mt-lg-3">
+    <!-- Der Name steht sichtbar im Foto (Allgemein), in der Kopfleiste (mobil) und im Fahrzeugwechsler (PC) -->
+    <h1 class="visually-hidden"><?= htmlspecialchars($fahrzeug['name'] ?? 'Fahrzeug') ?></h1>
     <?php if (!$istBesitzer): ?>
-    <p class="text-body-secondary mb-2"><i class="fas fa-users me-1" aria-hidden="true"></i>Geteilt von <?= htmlspecialchars((string)($fahrzeug['owner_name'] ?? '')) ?> · <?= $rolle === 'editor' ? 'du kannst Einträge erfassen' : 'nur ansehen' ?></p>
+    <p class="fs-label mt-2 mb-2"><i class="fas fa-users me-1" aria-hidden="true"></i>Geteilt von <?= htmlspecialchars((string)($fahrzeug['owner_name'] ?? '')) ?> · <?= $rolle === 'editor' ? 'du kannst Einträge erfassen' : 'nur ansehen' ?></p>
     <?php endif; ?>
 
     <!-- Reiter: am PC Tabs, mobil wischbare Leiste, die unter der Kopfleiste stehen bleibt -->
@@ -100,6 +101,8 @@ document.addEventListener('DOMContentLoaded', function () {
       var tabStatistik = document.getElementById('tabbarStatistik');
       var tabFahrzeuge = document.getElementById('tabbarFahrzeuge');
       if (tabStatistik) tabStatistik.classList.toggle('active', statistik);
+      var kopfStatistik = document.getElementById('kopfStatistik');
+      if (kopfStatistik) kopfStatistik.classList.toggle('active', statistik);
       if (tabFahrzeuge) tabFahrzeuge.classList.toggle('active', !statistik);
       // Nach einem Wischen den neuen Inhalt aus der Wischrichtung einblenden
       var inhalt = document.querySelector('.hauptinhalt') || document.getElementById('fahrzeugTabsContent');

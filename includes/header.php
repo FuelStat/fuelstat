@@ -164,7 +164,7 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
 <html lang="de" class="light-style layout-menu-fixed layout-compact" dir="ltr">
 <head>
     <meta charset="utf-8" />
-    <title>Fuelstat - Die Tank-Statistik</title>
+    <title><?= $seitenTitel !== null ? htmlspecialchars($seitenTitel) . ' – ' : '' ?>Fuelstat</title>
 
     <meta name="description" content="" />
 
@@ -176,7 +176,8 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
          unter der Statusleiste, und iOS hat sie auf scrollbaren Seiten weichgezeichnet (#97). Wirkt erst nach erneutem
          Hinzufügen zum Home-Bildschirm. -->
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="theme-color" content="#f8f9fa">
+    <!-- Farbe der Statusleiste = Token Background des aktiven Modus (docs/design.md 11) -->
+    <meta name="theme-color" content="#F2F6F8">
     <link rel="apple-touch-icon" href="<?= htmlspecialchars($baseUrl) ?>images/apple-touch-icon.png">
 	<link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($baseUrl) ?>images/new-icon.ico">
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -192,7 +193,7 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
         }
         document.documentElement.setAttribute('data-bs-theme', theme);
         // Farbe der Statusleiste (Android/Chrome) passend zur Kopfleiste
-        document.querySelector('meta[name="theme-color"]').setAttribute('content', theme === 'dark' ? '#2b3035' : '#f8f9fa');
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', theme === 'dark' ? '#0E1624' : '#F2F6F8');
       })();
     </script>
 
@@ -209,32 +210,34 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
 
 <body<?= $angemeldet ? ' class="mit-tabbar"' : '' ?>>
 
-<!-- Kopfleiste: am PC komplettes Menü, mobil Zurück-Pfeil und Seitentitel (Menü steckt dort in der unteren Leiste) -->
-<nav class="navbar sticky-top navbar-expand-lg bg-body-tertiary kopfleiste">
-    <div class="container-fluid flex-nowrap">
+<!-- Kopfleiste: am PC Navigation als Symbole mit Tooltip (#145), mobil Zurück-Pfeil und Seitentitel
+     (die Navigation steckt dort in der unteren Leiste) -->
+<nav class="navbar sticky-top navbar-expand-lg kopfleiste" aria-label="Kopfleiste">
+    <div class="container-fluid flex-nowrap gap-2">
         <?php if ($seitenTitel !== null): ?>
         <div class="d-flex d-lg-none align-items-center flex-grow-1 min-w-0">
             <?php if ($zurueckUrl !== null): ?>
-            <a href="<?= htmlspecialchars($baseUrl . $zurueckUrl) ?>" class="btn btn-link text-body px-2 me-1 kopf-zurueck" aria-label="Zurück">
-                <i class="fas fa-chevron-left"></i>
+            <a href="<?= htmlspecialchars($baseUrl . $zurueckUrl) ?>" class="btn btn-link px-0 me-1 kopf-zurueck" aria-label="Zurück">
+                <i class="fas fa-chevron-left" aria-hidden="true"></i>
             </a>
             <?php endif; ?>
             <span class="navbar-brand mb-0 text-truncate kopf-titel"><?= htmlspecialchars($seitenTitel) ?></span>
         </div>
         <?php endif; ?>
-        <a class="navbar-brand <?= $seitenTitel !== null ? 'd-none d-lg-inline' : '' ?>" href="<?= htmlspecialchars($baseUrl) ?>index.php">
-            <i class="fas fa-gas-pump"></i> Fuelstat<?php if ($betaPhase): ?> <span class="badge rounded-pill text-bg-warning beta-badge">Beta</span><?php endif; ?>
+        <a class="navbar-brand kopf-marke me-lg-3 <?= $seitenTitel !== null ? 'd-none d-lg-inline-flex' : '' ?>" href="<?= htmlspecialchars($baseUrl) ?>index.php">
+            <img src="<?= htmlspecialchars($baseUrl) ?>images/icon-192x192.png" alt="" width="32" height="32">
+            Fuelstat<?php if ($betaPhase): ?> <span class="badge text-bg-warning beta-badge">Beta</span><?php endif; ?>
         </a>
 
         <!-- Mobil: Aktionen rechts in der Kopfleiste -->
         <div class="d-flex d-lg-none align-items-center gap-1 ms-auto">
             <?php if ($angemeldet && $skript === 'fahrzeug_detail.php' && $kontextFahrzeug): ?>
-                <a href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_bearbeiten.php?id=<?= htmlspecialchars(urlencode($kontextFahrzeug['id'])) ?>" class="btn btn-link text-body px-2" aria-label="Fahrzeug bearbeiten">
-                    <i class="fas fa-pen"></i>
+                <a href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_bearbeiten.php?id=<?= htmlspecialchars(urlencode($kontextFahrzeug['id'])) ?>" class="kopf-symbol" aria-label="Fahrzeug bearbeiten">
+                    <i class="fas fa-pen" aria-hidden="true"></i>
                 </a>
             <?php elseif (!$angemeldet): ?>
-                <button type="button" class="btn btn-link text-body px-2 theme-umschalter" aria-label="Darstellung umschalten">
-                    <i class="fas fa-moon"></i>
+                <button type="button" class="kopf-symbol theme-umschalter" aria-label="Darstellung umschalten">
+                    <i class="fas fa-moon" aria-hidden="true"></i>
                 </button>
                 <?php if ($skript !== 'login.php'): ?>
                 <a class="btn btn-sm btn-primary" href="<?= htmlspecialchars($baseUrl) ?>pages/login.php">Anmelden</a>
@@ -242,60 +245,106 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
             <?php endif; ?>
         </div>
 
-        <!-- PC: Menü -->
-        <div class="collapse navbar-collapse justify-content-end d-none d-lg-flex" id="navbarNav">
-            <ul class="navbar-nav">
-                <li class="nav-item">
-                    <a class="nav-link" href="<?= htmlspecialchars($baseUrl) ?>index.php">Home</a>
-                </li>
-                <?php if ($angemeldet): ?>
-                    <!-- Dropdown für Fahrzeuge -->
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="fahrzeugeDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            Meine Fahrzeuge
+        <!-- PC: Fahrzeugwechsler links, Navigation als Symbole rechts -->
+        <?php if ($angemeldet && $userVehicles): ?>
+        <div class="dropdown d-none d-lg-block">
+            <button type="button" class="kopf-wechsler dropdown-toggle" id="fahrzeugeDropdown" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Fahrzeug wählen">
+                <i class="fas fa-car-side" aria-hidden="true"></i>
+                <span class="text-truncate"><?= htmlspecialchars($kontextFahrzeug ? trim($kontextFahrzeug['marke'] . ' ' . $kontextFahrzeug['modell']) : 'Meine Fahrzeuge') ?></span>
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="fahrzeugeDropdown">
+                <?php foreach ($userVehicles as $vehicle): ?>
+                    <li>
+                        <a class="dropdown-item<?= $kontextFahrzeug && $kontextFahrzeug['id'] === $vehicle['id'] ? ' active' : '' ?>" href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_detail.php?id=<?php echo htmlspecialchars($vehicle['id']); ?>"<?= $kontextFahrzeug && $kontextFahrzeug['id'] === $vehicle['id'] ? ' aria-current="true"' : '' ?>>
+                            <i class="fas fa-car-side fa-fw" aria-hidden="true"></i><?php echo htmlspecialchars(trim($vehicle['marke'] . ' ' . $vehicle['modell'])); ?>
                         </a>
-                        <ul class="dropdown-menu" aria-labelledby="fahrzeugeDropdown">
-                            <?php foreach ($userVehicles as $vehicle): ?>
-                                <li>
-                                    <a class="dropdown-item" href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_detail.php?id=<?php echo htmlspecialchars($vehicle['id']); ?>">
-                                        <?php echo htmlspecialchars(trim($vehicle['marke'] . ' ' . $vehicle['modell'])); ?>
-                                    </a>
-                                </li>
-                            <?php endforeach; ?>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_hinzufuegen.php">Fahrzeug hinzufügen</a></li>
-                        </ul>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="<?= htmlspecialchars($feedbackUrl) ?>"><i class="fas fa-comment-dots me-1"></i>Feedback</a>
-                    </li>
-                    <!-- Benutzereinstellungen -->
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="userSettingsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <?php if ($profilBildUrl): ?>
-                                <img src="<?= htmlspecialchars($profilBildUrl) ?>" alt="" class="rounded-circle me-1" style="width:22px;height:22px;object-fit:cover;vertical-align:-5px">
-                            <?php else: ?>
-                                <i class="fas fa-user-cog"></i>
-                            <?php endif; ?>
-                            <?= htmlspecialchars(($currentUser['username'] ?? '') ?: 'Einstellungen') ?>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userSettingsDropdown">
-                            <?php include __DIR__ . '/profil_menue.php'; ?>
-                        </ul>
-                    </li>
-                <?php else: ?>
-                    <li class="nav-item">
-                        <a class="nav-link" href="<?= htmlspecialchars($baseUrl) ?>pages/login.php">Anmelden</a>
-                    </li>
-                <?php endif; ?>
-                <!-- Darkmode umschalten -->
-                <li class="nav-item">
-                    <button type="button" class="nav-link theme-umschalter" aria-label="Darstellung umschalten">
-                        <i class="fas fa-moon"></i>
-                    </button>
-                </li>
+                <?php endforeach; ?>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_hinzufuegen.php"><i class="fas fa-plus fa-fw" aria-hidden="true"></i>Fahrzeug hinzufügen</a></li>
             </ul>
         </div>
+        <?php endif; ?>
+
+        <ul class="kopf-nav d-none d-lg-flex ms-auto">
+            <?php if ($angemeldet): ?>
+                <?php
+                // Ziel von „Eintrag erfassen“ und „Statistik“ wie in der unteren Leiste: aktuelles bzw. einziges Fahrzeug
+                $erfassenUrl = !$userVehicles ? 'pages/fahrzeug_hinzufuegen.php'
+                    : ($zielFahrzeug ? 'pages/eintrag_hinzufuegen.php?fahrzeug_id=' . urlencode($zielFahrzeug['id']) : null);
+                ?>
+                <li class="me-2">
+                    <?php if ($erfassenUrl !== null): ?>
+                    <a class="btn btn-primary" href="<?= htmlspecialchars($baseUrl . $erfassenUrl) ?>">
+                        <i class="fas fa-plus" aria-hidden="true"></i><?= $userVehicles ? 'Eintrag erfassen' : 'Fahrzeug hinzufügen' ?>
+                    </a>
+                    <?php else: ?>
+                    <div class="dropdown">
+                        <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-plus" aria-hidden="true"></i>Eintrag erfassen
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><h6 class="dropdown-header">Für welches Fahrzeug?</h6></li>
+                            <?php foreach ($userVehicles as $vehicle): ?>
+                            <li><a class="dropdown-item" href="<?= htmlspecialchars($baseUrl) ?>pages/eintrag_hinzufuegen.php?fahrzeug_id=<?= htmlspecialchars(urlencode($vehicle['id'])) ?>"><i class="fas fa-car-side fa-fw" aria-hidden="true"></i><?= htmlspecialchars(trim($vehicle['marke'] . ' ' . $vehicle['modell'])) ?></a></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                    <?php endif; ?>
+                </li>
+                <li>
+                    <a class="kopf-symbol<?= $tabbarAktiv === 'uebersicht' ? ' active' : '' ?>" href="<?= htmlspecialchars($baseUrl) ?>index.php" aria-label="Start" data-tipp="Start"<?= $tabbarAktiv === 'uebersicht' ? ' aria-current="page"' : '' ?>>
+                        <i class="fas fa-house" aria-hidden="true"></i>
+                    </a>
+                </li>
+                <?php if ($zielFahrzeug): ?>
+                <li>
+                    <a class="kopf-symbol" id="kopfStatistik" href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_detail.php?id=<?= htmlspecialchars(urlencode($zielFahrzeug['id'])) ?>#statistiken" aria-label="Statistik" data-tipp="Statistik">
+                        <i class="fas fa-chart-line" aria-hidden="true"></i>
+                    </a>
+                </li>
+                <?php endif; ?>
+                <li>
+                    <a class="kopf-symbol<?= $skript === 'neuigkeiten.php' ? ' active' : '' ?>" href="<?= htmlspecialchars($baseUrl) ?>pages/neuigkeiten.php" aria-label="Neuigkeiten" data-tipp="Neuigkeiten"<?= $skript === 'neuigkeiten.php' ? ' aria-current="page"' : '' ?>>
+                        <i class="fas fa-bullhorn" aria-hidden="true"></i>
+                    </a>
+                </li>
+                <li>
+                    <a class="kopf-symbol<?= $skript === 'feedback.php' ? ' active' : '' ?>" href="<?= htmlspecialchars($feedbackUrl) ?>" aria-label="Feedback senden" data-tipp="Feedback senden"<?= $skript === 'feedback.php' ? ' aria-current="page"' : '' ?>>
+                        <i class="fas fa-comment-dots" aria-hidden="true"></i>
+                    </a>
+                </li>
+            <?php endif; ?>
+            <li>
+                <button type="button" class="kopf-symbol theme-umschalter" aria-label="Darstellung umschalten" data-tipp="Darstellung umschalten">
+                    <i class="fas fa-moon" aria-hidden="true"></i>
+                </button>
+            </li>
+            <?php if ($angemeldet): ?>
+                <li class="kopf-trenner" aria-hidden="true"></li>
+                <li class="dropdown">
+                    <button type="button" class="kopf-symbol dropdown-toggle<?= $tabbarAktiv === 'profil' && !in_array($skript, ['neuigkeiten.php', 'feedback.php'], true) ? ' active' : '' ?>" id="userSettingsDropdown" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Profil und Einstellungen<?= !empty($currentUser['username']) ? ' von ' . htmlspecialchars($currentUser['username']) : '' ?>" data-tipp="Profil">
+                        <?php if ($profilBildUrl): ?>
+                            <img src="<?= htmlspecialchars($profilBildUrl) ?>" alt="">
+                        <?php else: ?>
+                            <i class="fas fa-circle-user" aria-hidden="true"></i>
+                        <?php endif; ?>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userSettingsDropdown">
+                        <li class="px-3 py-2">
+                            <div class="fs-headline text-truncate"><?= htmlspecialchars(($currentUser['username'] ?? '') ?: 'Mein Konto') ?></div>
+                            <?php if (!empty($currentUser['email'])): ?><div class="fs-footnote text-truncate"><?= htmlspecialchars($currentUser['email']) ?></div><?php endif; ?>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <?php include __DIR__ . '/profil_menue.php'; ?>
+                    </ul>
+                </li>
+            <?php else: ?>
+                <?php if ($skript !== 'login.php'): ?>
+                <li class="ms-2"><a class="btn btn-primary" href="<?= htmlspecialchars($baseUrl) ?>pages/login.php">Anmelden</a></li>
+                <?php endif; ?>
+            <?php endif; ?>
+        </ul>
     </div>
 </nav>
 
@@ -303,7 +352,7 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
 <!-- Mobil: untere Leiste wie in einer App -->
 <nav class="tabbar d-lg-none" aria-label="Hauptnavigation">
     <a href="<?= htmlspecialchars($baseUrl) ?>index.php" class="tabbar-link<?= $tabbarAktiv === 'uebersicht' ? ' active' : '' ?>">
-        <i class="fas fa-house"></i><span>Übersicht</span>
+        <i class="fas fa-house" aria-hidden="true"></i><span>Start</span>
     </a>
     <button type="button" id="tabbarFahrzeuge" class="tabbar-link<?= $tabbarAktiv === 'fahrzeuge' ? ' active' : '' ?>" data-bs-toggle="offcanvas" data-bs-target="#blattFahrzeuge" data-aktion="details">
         <i class="fas fa-car"></i><span>Fahrzeuge</span>
@@ -313,11 +362,11 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
         <span class="tabbar-kreis"><i class="fas fa-plus"></i></span>
     </a>
     <?php elseif ($zielFahrzeug): ?>
-    <a href="<?= htmlspecialchars($baseUrl) ?>pages/eintrag_hinzufuegen.php?fahrzeug_id=<?= htmlspecialchars(urlencode($zielFahrzeug['id'])) ?>" class="tabbar-link tabbar-plus<?= $tabbarAktiv === 'eintrag' ? ' active' : '' ?>" aria-label="Neuer Eintrag">
+    <a href="<?= htmlspecialchars($baseUrl) ?>pages/eintrag_hinzufuegen.php?fahrzeug_id=<?= htmlspecialchars(urlencode($zielFahrzeug['id'])) ?>" class="tabbar-link tabbar-plus<?= $tabbarAktiv === 'eintrag' ? ' active' : '' ?>" aria-label="Eintrag erfassen">
         <span class="tabbar-kreis"><i class="fas fa-plus"></i></span>
     </a>
     <?php else: ?>
-    <button type="button" class="tabbar-link tabbar-plus<?= $tabbarAktiv === 'eintrag' ? ' active' : '' ?>" data-bs-toggle="offcanvas" data-bs-target="#blattFahrzeuge" data-aktion="eintrag" aria-label="Neuer Eintrag">
+    <button type="button" class="tabbar-link tabbar-plus<?= $tabbarAktiv === 'eintrag' ? ' active' : '' ?>" data-bs-toggle="offcanvas" data-bs-target="#blattFahrzeuge" data-aktion="eintrag" aria-label="Eintrag erfassen">
         <span class="tabbar-kreis"><i class="fas fa-plus"></i></span>
     </button>
     <?php endif; ?>
@@ -356,7 +405,7 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
                data-details="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_detail.php?id=<?= htmlspecialchars($vid) ?>#allgemein"
                data-statistik="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_detail.php?id=<?= htmlspecialchars($vid) ?>#statistiken"
                data-eintrag="<?= htmlspecialchars($baseUrl) ?>pages/eintrag_hinzufuegen.php?fahrzeug_id=<?= htmlspecialchars($vid) ?>">
-                <i class="fas fa-car-side me-3"></i><?= htmlspecialchars($vehicle['modell']) ?>
+                <i class="fas fa-car-side fa-fw me-3" aria-hidden="true"></i><?= htmlspecialchars($vehicle['modell']) ?>
                 <i class="fas fa-chevron-right ms-auto small opacity-50"></i>
             </a>
             <?php endforeach; ?>
@@ -406,7 +455,7 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
   <div class="alert alert-info d-flex flex-wrap align-items-center gap-2 mb-0" role="status">
     <i class="fas fa-users" aria-hidden="true"></i>
     <span class="flex-grow-1"><?= (int)$currentUser['pending_invitations'] === 1 ? 'Jemand möchte ein Fahrzeug mit dir teilen.' : (int)$currentUser['pending_invitations'] . ' Einladungen zu geteilten Fahrzeugen warten auf dich.' ?></span>
-    <a class="btn btn-sm btn-outline-dark" href="<?= htmlspecialchars($baseUrl) ?>pages/einladungen.php">Ansehen</a>
+    <a class="btn btn-sm btn-primary" href="<?= htmlspecialchars($baseUrl) ?>pages/einladungen.php">Ansehen</a>
   </div>
 </div>
 <?php endif; ?>
@@ -416,7 +465,7 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
   <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2 mb-0" role="status">
     <i class="fas fa-envelope-open-text" aria-hidden="true"></i>
     <span class="flex-grow-1">Bitte bestätige deine E-Mail-Adresse <strong><?= htmlspecialchars((string)($currentUser['email'] ?? '')) ?></strong> über den Link in unserer Mail. Bis dahin sind ein Fahrzeug und ein Eintrag möglich.</span>
-    <a class="btn btn-sm btn-outline-dark" href="<?= htmlspecialchars($baseUrl) ?>pages/email_bestaetigen.php">Erneut senden oder Code eingeben</a>
+    <a class="btn btn-sm btn-primary" href="<?= htmlspecialchars($baseUrl) ?>pages/email_bestaetigen.php">Erneut senden oder Code eingeben</a>
   </div>
 </div>
 <?php endif; ?>

@@ -40,22 +40,16 @@ $filterArten = array_filter([
     'fahrt' => isset($vorhandeneArten['fahrt']) ? 'Fahrten' : null,
     'km' => isset($vorhandeneArten['km']) ? 'km-Notizen' : null,
 ]);
-$farbe = ['tanken' => 'primary', 'laden' => 'success', 'ausgabe' => 'warning', 'fahrt' => 'info', 'km' => 'secondary'];
 $euro = fn($v) => number_format((float)$v, 2, ',', '.') . ' €';
 $proSeite = 40;
 $zeilenNr = 0;
 ?>
 
 <div class="mt-3 mt-lg-4 eintraege-liste">
+  <!-- „Eintrag erfassen“ steckt im Plus der unteren Leiste (mobil) bzw. in der Kopfleiste (PC) -->
   <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-    <!-- Mobil steckt "Neuer Eintrag" im Plus der unteren Leiste -->
-    <?php if ($darfErfassen): ?>
-    <a href="../pages/eintrag_hinzufuegen.php?fahrzeug_id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>" class="btn btn-success flex-shrink-0 d-none d-lg-inline-block">
-      <i class="fas fa-plus me-1"></i> Neuer&nbsp;Eintrag
-    </a>
-    <?php endif; ?>
-    <div class="input-group flex-grow-1" style="min-width: 12rem; max-width: 22rem;">
-      <span class="input-group-text"><i class="fas fa-magnifying-glass"></i></span>
+    <div class="such-feld flex-grow-1">
+      <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
       <input type="search" class="form-control" id="eintragSuche" placeholder="Ort oder Beschreibung" aria-label="Einträge durchsuchen">
     </div>
     <form method="get" action="fahrzeug_detail.php#eintraege" class="d-flex">
@@ -68,40 +62,48 @@ $zeilenNr = 0;
       </select>
       <noscript><button class="btn btn-outline-secondary ms-2">Anzeigen</button></noscript>
     </form>
-    <div class="btn-group flex-shrink-0 ms-lg-auto">
-      <a download href="../pages/export.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?><?= $jahr !== null ? '&jahr=' . $jahr : '' ?>" class="btn btn-outline-primary" title="Als CSV für Excel herunterladen">
-        <i class="fas fa-file-csv"></i><span class="d-none d-sm-inline ms-1">CSV</span>
-      </a>
-      <a href="../pages/bericht.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?><?= $jahr !== null ? '&jahr=' . $jahr : '' ?>" class="btn btn-outline-primary" title="Druckansicht, auch zum Speichern als PDF" target="_blank">
-        <i class="fas fa-file-pdf"></i><span class="d-none d-sm-inline ms-1">Bericht</span>
-      </a>
-      <?php if ($istBesitzer): ?>
-      <a href="../pages/import.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>" class="btn btn-outline-primary" title="Einträge aus einer CSV-Datei übernehmen">
-        <i class="fas fa-file-import"></i><span class="d-none d-sm-inline ms-1">Import</span>
-      </a>
-      <?php endif; ?>
+    <div class="dropdown flex-shrink-0">
+      <button type="button" class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="fas fa-arrow-right-arrow-left" aria-hidden="true"></i><span class="d-none d-sm-inline">Export und Import</span><span class="d-sm-none visually-hidden">Export und Import</span>
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" download href="../pages/export.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?><?= $jahr !== null ? '&jahr=' . $jahr : '' ?>"><i class="fas fa-file-csv fa-fw" aria-hidden="true"></i>Als CSV für Excel herunterladen</a></li>
+        <li><a class="dropdown-item" href="../pages/bericht.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?><?= $jahr !== null ? '&jahr=' . $jahr : '' ?>" target="_blank"><i class="fas fa-file-pdf fa-fw" aria-hidden="true"></i>Bericht drucken oder als PDF speichern</a></li>
+        <?php if ($istBesitzer): ?>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="../pages/import.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>"><i class="fas fa-file-import fa-fw" aria-hidden="true"></i>Einträge aus CSV-Datei importieren</a></li>
+        <?php endif; ?>
+      </ul>
     </div>
   </div>
 
   <!-- Filter nach Art -->
-  <div class="d-flex flex-wrap gap-1 mb-3" role="group" aria-label="Nach Art filtern" id="artFilter">
-    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill active" data-art="" aria-pressed="true">Alle</button>
+  <div class="chip-leiste mb-3" role="group" aria-label="Nach Art filtern" id="artFilter">
+    <button type="button" class="chip active" data-art="" aria-pressed="true">Alle</button>
     <?php foreach ($filterArten as $art => $name): ?>
-      <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" data-art="<?= $art ?>" aria-pressed="false"><?= $name ?></button>
+      <button type="button" class="chip" data-art="<?= $art ?>" aria-pressed="false"><?= $name ?></button>
     <?php endforeach; ?>
   </div>
 
   <?php if (empty($eintraege)): ?>
-    <div class="alert alert-secondary">Noch keine Einträge<?= $jahr !== null ? ' in ' . $jahr : '' ?>.</div>
+    <div class="card leer-zustand mx-auto">
+      <div class="card-body">
+        <span class="symbol-kreis symbol-kreis-token symbol-kreis-gross" style="--farbe: var(--fs-brand)" aria-hidden="true"><i class="fas fa-list"></i></span>
+        <h2>Noch keine Einträge<?= $jahr !== null ? ' in ' . $jahr : '' ?></h2>
+        <?php if ($darfErfassen): ?>
+        <a href="../pages/eintrag_hinzufuegen.php?fahrzeug_id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>" class="btn btn-primary mt-2">Ersten Eintrag erfassen</a>
+        <?php endif; ?>
+      </div>
+    </div>
   <?php else: ?>
     <?php foreach ($eintraege as $monat => $entries):
       $summe = array_sum(array_map(fn($e) => istEintragOhneKosten($e['kategorie'] ?? '') ? 0 : (float)($e['kosten'] ?? 0), $entries)); ?>
       <section class="eintrag-monat">
         <h3 class="eintrag-monat-titel">
           <span><?= htmlspecialchars(formatMonat($monat, true)) ?></span>
-          <span class="text-body-secondary fw-normal monat-summe" data-summe="<?= $summe ?>"><?= $euro($summe) ?></span>
+          <span class="monat-summe" data-summe="<?= $summe ?>"><?= $euro($summe) ?></span>
         </h3>
-        <ul class="list-group eintrag-gruppe mb-3">
+        <ul class="list-group eintrag-gruppe">
         <?php foreach ($entries as $e):
           $art = $artVon($e);
           $type = $e['type'] ?? 'entry';
@@ -133,14 +135,22 @@ $zeilenNr = 0;
           <li class="list-group-item eintrag-zeile" data-art="<?= $art ?>" data-kosten="<?= $ohneKosten ? 0 : (float)($e['kosten'] ?? 0) ?>"
               data-suche="<?= htmlspecialchars(mb_strtolower(($e['standort'] ?? '') . ' ' . ($e['beschreibung'] ?? '') . ' ' . getKategorieName($e['kategorie'], $fuelType, $eEinheit))) ?>"
               <?= $zeilenNr > $proSeite ? 'hidden data-spaeter' : '' ?>>
-            <span class="eintrag-icon text-bg-<?= $farbe[$art] ?>"><i class="fas <?= getCategoryIcon($e['kategorie'], $fuelType, $eEinheit) ?>"></i></span>
+            <?php
+            // Tanken/Laden in der Energiefarbe, Fahrten nach Zweck, km-Notiz neutral, Ausgaben in der Kategoriefarbe der API
+            $symbolFarbe = match ($art) {
+                'tanken', 'laden' => energieFarbe($fuelType, $eEinheit, $e['sorte'] ?? null),
+                'fahrt' => fahrtFarbe($e['zweck'] ?? null),
+                'km' => 'var(--fs-purpose-odometer)',
+                default => getKategorieFarbe($e['kategorie'] ?? null),
+            };
+            echo symbolKreis(getCategoryIcon($e['kategorie'], $fuelType, $eEinheit), $symbolFarbe); ?>
             <a <?= $darfAendern ? 'href="' . htmlspecialchars($editUrl) . '"' : 'aria-disabled="true"' ?> class="eintrag-text text-reset text-decoration-none min-w-0">
-              <span class="d-block fw-semibold text-truncate"><?= htmlspecialchars($titel) ?></span>
-              <span class="d-block small text-body-secondary"><?= htmlspecialchars(implode(' · ', $details)) ?></span>
-              <?php if (!empty($e['beschreibung']) && $type !== 'fillup'): ?><span class="d-block small text-truncate"><?= htmlspecialchars($e['beschreibung']) ?></span><?php endif; ?>
+              <span class="d-block fs-headline text-truncate"><?= htmlspecialchars($titel) ?></span>
+              <span class="d-block fs-label"><?= htmlspecialchars(implode(' · ', $details)) ?></span>
+              <?php if (!empty($e['beschreibung']) && $type !== 'fillup'): ?><span class="d-block fs-label text-truncate"><?= htmlspecialchars($e['beschreibung']) ?></span><?php endif; ?>
               <?php if ($tachoFehlt || ($type === 'fillup' && empty($e['vollgetankt']))): ?>
               <span class="d-flex flex-wrap gap-1 mt-1">
-                <?php if ($tachoFehlt): ?><span class="badge text-bg-warning"><i class="fas fa-gauge-high me-1"></i><?= empty($e['tachostand']) ? 'Tachostand fehlt' : 'Tachostand geschätzt' ?></span><?php endif; ?>
+                <?php if ($tachoFehlt): ?><span class="badge text-bg-warning"><i class="fas fa-gauge-high" aria-hidden="true"></i><?= empty($e['tachostand']) ? 'Tachostand fehlt' : 'Tachostand geschätzt' ?></span><?php endif; ?>
                 <?php if ($type === 'fillup' && empty($e['vollgetankt'])): ?><span class="badge text-bg-secondary"><?= begriffeFuerEinheit($fuelType, $eEinheit)['teil'] ?></span><?php endif; ?>
               </span>
               <?php endif; ?>
@@ -148,7 +158,7 @@ $zeilenNr = 0;
             <span class="eintrag-betrag"><?= $ohneKosten ? '' : $euro($e['kosten'] ?? 0) ?></span>
             <?php if ($darfAendern): ?>
             <div class="dropdown">
-              <button class="btn btn-sm btn-link text-body-secondary px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Aktionen">
+              <button class="kopf-symbol" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Aktionen für diesen Eintrag">
                 <i class="fas fa-ellipsis-vertical"></i>
               </button>
               <ul class="dropdown-menu dropdown-menu-end">
@@ -169,7 +179,7 @@ $zeilenNr = 0;
               </ul>
             </div>
             <?php else: ?>
-            <span class="px-2" aria-hidden="true"></span>
+            <span class="px-1" aria-hidden="true"></span>
             <?php endif; ?>
             <?php if ($tachoFehlt && $darfAendern): ?>
             <a class="visually-hidden-focusable small" href="<?= htmlspecialchars($nachtragenUrl) ?>">Nachtragen</a>
@@ -180,7 +190,7 @@ $zeilenNr = 0;
       </section>
     <?php endforeach; ?>
     <div class="text-center mb-4">
-      <button type="button" class="btn btn-outline-secondary" id="mehrEintraege" <?= $zeilenNr > $proSeite ? '' : 'hidden' ?>>Weitere Einträge anzeigen</button>
+      <button type="button" class="btn btn-secondary" id="mehrEintraege" <?= $zeilenNr > $proSeite ? '' : 'hidden' ?>>Weitere Einträge anzeigen</button>
     </div>
     <p class="text-body-secondary text-center d-none" id="keineTreffer">Keine passenden Einträge.</p>
   <?php endif; ?>

@@ -100,12 +100,12 @@ try {
 <div class="container">
     <div class="row justify-content-center mt-5">
         <div class="col-md-6 col-lg-4">
-            <div class="card shadow">
+            <div class="card anmelde-karte">
                 <div class="card-body p-4">
                     <div class="text-center mb-4">
-                        <i class="fas fa-gas-pump fa-3x text-primary mb-3"></i>
-                        <h3 class="h4">Fuelstat</h3>
-                        <p class="text-muted">Bitte melde dich an</p>
+                        <img src="<?= htmlspecialchars($baseUrl) ?>images/icon-192x192.png" alt="" class="anmelde-logo" width="64" height="64">
+                        <h1 class="mt-3 mb-1">Anmelden</h1>
+                        <p class="text-body-secondary mb-0">Schön, dass du da bist.</p>
                     </div>
 
                     <?php if ($error !== ''): ?>
@@ -148,7 +148,7 @@ try {
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fas fa-envelope"></i></span>
                                 <input type="email" class="form-control" id="email" name="email" autocomplete="username"
-                                       placeholder="Ihre E-Mail-Adresse" required>
+                                       placeholder="name@example.de" required>
                             </div>
                         </div>
                         <div class="mb-4">
@@ -156,7 +156,7 @@ try {
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fas fa-lock"></i></span>
                                 <input type="password" class="form-control" id="password" name="password" autocomplete="current-password"
-                                       placeholder="Ihr Passwort" required>
+                                        required>
                             </div>
                             <div class="text-end mt-1"><a href="passwort_vergessen.php" class="small text-decoration-none">Passwort vergessen?</a></div>
                         </div>

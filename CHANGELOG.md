@@ -9,6 +9,16 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 ### Neu
 - **Mehrere Kraftstoffe je Fahrzeug** (#140): Unter „Antriebsart“ → „Erweitert“ wählst du, was ein Fahrzeug tankt bzw. lädt, z. B. Benzin und Autogas, Diesel und Premium-Diesel oder E5 und E10; einer davon ist der Standard. Beim Tanken wählst du die Sorte (bei nur einer Sorte bleibt alles wie bisher), die Tankstellensuche zeigt den Preis dieser Sorte. Verbrauch wird je Energieart gerechnet – E5, E10 und Super Plus zusammen als Benzin, Benzin und Autogas getrennt –, nur nebenbei getanktes Benzin beim Autogas-Auto zählt nicht als eigener Verbrauch. Die Statistik zeigt Preise je Sorte und den Mehrpreis von Premium-Sorten. Bestehende Fahrzeuge und Einträge bekommen ihre Sorte automatisch. CSV-Export und -Import mit Spalte „Sorte“.
 
+### Verbessert
+- **Neues Design der Web-App** nach dem gemeinsamen Design-Dokument (`docs/design.md`): Petrol als Markenfarbe, ruhige Karten ohne Rahmen und Schatten, größere Kennzahlen, Dunkelmodus in Navy wie das App-Icon. Gilt für alle Seiten, hell und dunkel, am Handy und am PC.
+- Kopfleiste am PC (#145): Fahrzeugwechsler links, rechts „Eintrag erfassen“ und die Bereiche Start, Statistik, Neuigkeiten, Feedback, Darstellung und Profil als Symbole mit Tooltip; der aktive Bereich ist markiert.
+- Startseite: jedes Fahrzeug als Karte mit großem Foto, Kennzeichen, Antriebsart, Tachostand und Verbrauch; fällige Termine als Hinweis mit Symbol.
+- Fahrzeugseite: großes Fahrzeugfoto mit Name und Tachostand, darunter die Kennzahlen und die nächsten Termine mit Abstand in Worten („in 29 Tagen“, „seit 16 Tagen überfällig“).
+- Fahrten (#144): Liste je Monat wie bei den Einträgen, Filter nach Zweck als Chips, Kilometer je Monat als Balken (Werte weiter als Tabelle abrufbar).
+- Einträge: Symbole in der Farbe der Antriebsart bzw. Kategorie, Export und Import in einem Menü, Filter als Chips.
+- Anmelden, Registrieren und Willkommensseite im neuen Design; die untere Leiste heißt jetzt „Start“ statt „Übersicht“, das Plus „Eintrag erfassen“.
+- Barrierefreiheit: Tippflächen mindestens 44 px, Status immer mit Symbol und Text, geprüfte Kontraste in beiden Darstellungen.
+
 ### Technik
 - Gemeinsames Design-Dokument `docs/design.md` (#153) für Web, PWA, iOS und Android: Farben für hell und dunkel, Schriftrollen, Abstände, Radien, Zuordnung zu CSS, SwiftUI und Compose, Plattform-Leitplanken und Barrierefreiheit. Die Farb- und Abstandswerte stehen als `--fs-*`-Variablen in `css/style.css` bereit; sichtbar ändert sich noch nichts, die Umstellung folgt mit der Neugestaltung.
 - Ausrollen: `sudo infra/ausrollen.sh main` rollt den neuesten Stand von `main` zwischen zwei Releases aus – in derselben Reihenfolge wie ein Release (Migrationen vor dem Neustart), die API wird dabei aus dem Code gebaut. Zurück auf ein Release mit `sudo infra/ausrollen.sh X.Y.Z`.

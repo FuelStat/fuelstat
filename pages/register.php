@@ -50,20 +50,15 @@ try {
 }
 ?>
 
-<style>
-  .card:hover { transform: none !important; box-shadow: var(--bs-card-box-shadow, 0 .125rem .25rem rgba(0,0,0,.075)) !important; }
-  .card { transition: none !important; }
-</style>
-
 <div class="container">
     <div class="row justify-content-center mt-5">
         <div class="col-md-6 col-lg-4">
-            <div class="card shadow">
+            <div class="card anmelde-karte">
                 <div class="card-body p-4">
                     <div class="text-center mb-4">
-                        <i class="fas fa-gas-pump fa-3x text-primary mb-3"></i>
-                        <h3 class="h4">Fuelstat</h3>
-                        <p class="text-muted">Registrieren Sie sich</p>
+                        <img src="<?= htmlspecialchars($baseUrl) ?>images/icon-192x192.png" alt="" class="anmelde-logo" width="64" height="64">
+                        <h1 class="mt-3 mb-1">Konto erstellen</h1>
+                        <p class="text-body-secondary mb-0">In einer Minute startklar.</p>
                     </div>
 
                     <?php if ($error !== ''): ?>
@@ -76,7 +71,7 @@ try {
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fas fa-envelope"></i></span>
                                 <input type="email" class="form-control" id="email" name="email"
-                                       placeholder="Ihre E-Mail-Adresse" required>
+                                       placeholder="name@example.de" required>
                             </div>
                         </div>
                         <div class="mb-3">

@@ -153,6 +153,7 @@ Weitere technische Informationen:
 - [API-Dokumentation](docs/api.md)
 - [Aufbau der API (Backend)](docs/backend.md)
 - [OpenAPI-Spezifikation](docs/openapi.1.0.0.yaml)
+- [Design (Web, PWA, iOS, Android)](docs/design.md)
 
 ---
 

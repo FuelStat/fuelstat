@@ -86,10 +86,17 @@ Vor dem PR prüfen und am Ende einer Aufgabe daran erinnern, was davon fehlt:
   [FuelStat/fuelstat-ios#15](https://github.com/FuelStat/fuelstat-ios/issues/15) ergänzt, damit
   die App nachzieht.
 - **Tests:** passende Tests ergänzt (`backend/test`, `tests/`).
+- **Design:** neue oder geänderte Oberflächen folgen [`docs/design.md`](docs/design.md) (Tokens statt
+  Hex-Werten, Barrierefreiheit). Ändert sich ein Token, zuerst dort, dann in Web, iOS und Android.
 
 ## Regeln
 
 - **Aufbau der API:** `backend/src` ist nach Fachbereichen aufgeteilt (`routes/`, `services/`, `middleware/`, `lib/`), siehe [`docs/backend.md`](docs/backend.md). Neue Endpunkte ins passende Routen-Modul, Fachlogik in einen Service.
+
+- **Design:** [`docs/design.md`](docs/design.md) ist die einzige Quelle für das Aussehen von Web/PWA,
+  iOS und Android (Farben, Schrift, Abstände, Radien, Bausteine, Plattform-Leitplanken,
+  Barrierefreiheit). Neue CSS-Regeln verwenden die `--fs-*`-Variablen aus `css/style.css`, keine Hex-Werte.
+  Die Design-Dokumente der Apps beschreiben nur Plattform-Besonderheiten und verweisen hierher.
 
 - **API-first:** Fachliche Berechnungen gehören in die API, nicht ins PHP-Frontend (#82). Clients
   stellen nur dar.

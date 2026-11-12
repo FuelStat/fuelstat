@@ -96,17 +96,16 @@ try {
             ?>
             <div class="col">
                 <article class="card fahrzeug-karte h-100">
+                    <?php if (!$sortiermodus): ?>
+                    <!-- Die ganze Karte führt zum Fahrzeug (Foto, Name, Kennzahlen). Der Link steht direkt in der Karte:
+                         innerhalb des Fotos würde er nur dessen Textbereich abdecken. -->
+                    <a href="<?= htmlspecialchars($detailLink) ?>" class="stretched-link karten-link" aria-label="<?= htmlspecialchars($displayName) ?> öffnen"></a>
+                    <?php endif; ?>
                     <!-- VehicleHero: Foto mit Verlauf, darauf Name, Kennzeichen und Energie-Badge -->
                     <div class="fahrzeug-hero">
                         <img src="<?= htmlspecialchars($bildUrl) ?>" alt="" loading="lazy">
                         <div class="fahrzeug-hero-text">
-                            <h2 class="fahrzeug-hero-name text-truncate">
-                                <?php if ($sortiermodus): ?>
-                                    <?= htmlspecialchars($displayName) ?>
-                                <?php else: ?>
-                                    <a href="<?= htmlspecialchars($detailLink) ?>" class="stretched-link text-reset text-decoration-none"><?= htmlspecialchars($displayName) ?></a>
-                                <?php endif; ?>
-                            </h2>
+                            <h2 class="fahrzeug-hero-name text-truncate"><?= htmlspecialchars($displayName) ?></h2>
                             <div class="d-flex flex-wrap align-items-center gap-2">
                                 <?php if (!empty($row['license_plate'])): ?><span class="kennzeichen"><?= htmlspecialchars($row['license_plate']) ?></span><?php endif; ?>
                                 <span class="energie-badge" style="--farbe: <?= energieFarbe($row['fuel_type'] ?? null) ?>"><i class="fas <?= verbrauchsBegriffe($row['fuel_type'] ?? null)['icon'] ?>" aria-hidden="true"></i><?= htmlspecialchars($kraftstoffNamen[$row['fuel_type'] ?? ''] ?? 'Sonstiges') ?></span>

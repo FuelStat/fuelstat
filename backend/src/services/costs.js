@@ -22,12 +22,11 @@ const round2 = (x) => Math.round(x * 100) / 100;
 // €/km auf 4 Stellen: genau genug für €/100 km mit zwei Nachkommastellen
 const round4 = (x) => Math.round(x * 10000) / 10000;
 
-// Monat "JJJJ-MM" eines Zeitpunkts in Europe/Berlin
+// Monat "JJJJ-MM" eines Zeitpunkts in Europe/Berlin. Das Format einmal anlegen: ein neues Intl.DateTimeFormat je
+// Aufruf kostete bei 1.000 Einträgen rund 100 ms (#160).
+const MONAT_FORMAT = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit' });
 function monthOf(date) {
-  const p = Object.fromEntries(
-    new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit' })
-      .formatToParts(date).map((x) => [x.type, x.value])
-  );
+  const p = Object.fromEntries(MONAT_FORMAT.formatToParts(date).map((x) => [x.type, x.value]));
   return `${p.year}-${p.month}`;
 }
 

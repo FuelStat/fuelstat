@@ -639,6 +639,40 @@ function fahrtZwecke(): array
 }
 
 /** Kurztext einer Fahrt aus dem Fahrtenbuch, z. B. "Bolbingen → Aalen · Dienstlich · 42 km" */
+/**
+ * Zeile der Eintragsliste aus der API (GET /vehicles/:id/timeline, #160) im Format der Einträge-Liste
+ * (wie getMergedEintraegeFromApi), damit Darstellung und Bearbeiten gleich bleiben.
+ */
+function eintragAusTimeline(array $x): array
+{
+    $istFahrt = ($x['type'] ?? '') === 'trip';
+    $datum = (new DateTimeImmutable((string)$x['at']))->setTimezone(new DateTimeZone('Europe/Berlin'))->format('Y-m-d');
+    return [
+        'id' => $x['id'],
+        'type' => $x['type'],
+        'datum' => $datum,
+        'kategorie' => $x['category'] ?? 'Sonstige',
+        'kosten' => $x['cost'] ?? 0,
+        'menge' => $x['amount'] ?? null,
+        // null = Tachostand fehlt (#41), kann nachgetragen werden
+        'tachostand' => isset($x['odometer_km']) ? (int)$x['odometer_km'] : null,
+        'tachostand_geschaetzt' => !empty($x['odometer_estimated']),
+        'vollgetankt' => $x['is_full'] ?? false,
+        'skip_previous' => $x['skip_previous'] ?? false,
+        'standort' => $istFahrt ? '' : (string)($x['place'] ?? ''),
+        'beschreibung' => $istFahrt
+            ? fahrtText(['start_place' => $x['start_place'] ?? null, 'end_place' => $x['end_place'] ?? null, 'purpose' => $x['purpose'] ?? null,
+                'distance_km' => $x['distance_km'] ?? null, 'note' => $x['description'] ?? null])
+            : (string)($x['description'] ?? ''),
+        'einheit' => $x['unit'] ?? null,
+        'sorte' => $x['fuel'] ?? null,
+        'l_per_100km' => $x['consumption'] ?? null,
+        'zweck' => $x['purpose'] ?? null,
+        'erfasst_von' => $x['created_by'] ?? null,
+        'erfasst_von_name' => $x['created_by_name'] ?? null,
+    ];
+}
+
 function fahrtText(array $t): string
 {
     $strecke = implode(' → ', array_filter([(string)($t['start_place'] ?? ''), (string)($t['end_place'] ?? '')], fn($x) => $x !== ''));

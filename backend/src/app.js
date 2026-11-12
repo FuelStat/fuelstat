@@ -55,6 +55,7 @@ app.use('/api/v1', require('./routes/fillups')); // Tank- und Ladevorgänge
 app.use('/api/v1', require('./routes/categories')); // Ausgaben-Kategorien
 app.use('/api/v1', require('./routes/entries')); // Ausgaben, Kilometerstände
 app.use('/api/v1', require('./routes/trips')); // Fahrtenbuch (#52)
+app.use('/api/v1', require('./routes/timeline')); // Eintragsliste: alles gemischt, seitenweise (#160)
 app.use('/api/v1', require('./routes/import')); // CSV-Import je Fahrzeug
 app.use('/api/v1', require('./routes/statistics')); // Kennzahlen, Verbrauch, Kosten, Fälligkeiten
 app.use('/api/v1', require('./routes/stations')); // Tankstellen und Ladestationen

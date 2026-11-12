@@ -116,11 +116,18 @@ async function getVehicleStats(pool, userId, vehicleId) {
       FROM fillups
       WHERE vehicle_id=$1
     ),
+    -- Laufende Summe der Menge je Energieart (#160): Die Menge eines Abschnitts ist die Differenz zur Summe bei der
+    -- vorigen vollen Füllung. Vorher summierte eine Unterabfrage je Abschnitt alle Einträge (Aufwand wuchs quadratisch).
+    summiert AS (
+      SELECT *, SUM(amount) OVER (PARTITION BY energy ORDER BY rn ROWS UNBOUNDED PRECEDING) AS cum
+      FROM ordered
+    ),
     fulls AS (
       SELECT *,
         LAG(odometer_km) OVER (PARTITION BY energy ORDER BY rn) AS prev_full_odo,
-        LAG(rn) OVER (PARTITION BY energy ORDER BY rn) AS prev_full_rn
-      FROM ordered
+        LAG(rn) OVER (PARTITION BY energy ORDER BY rn) AS prev_full_rn,
+        LAG(cum) OVER (PARTITION BY energy ORDER BY rn) AS prev_full_cum
+      FROM summiert
       -- Ohne echten Tachostand schließt auch eine Vollbetankung keinen Abschnitt ab (#41): Sie zählt wie eine
       -- Teilbetankung, ihre Menge fließt in den nächsten vollen Abschnitt mit Tachostand ein.
       WHERE is_full = true AND has_km
@@ -133,11 +140,7 @@ async function getVehicleStats(pool, userId, vehicleId) {
         f.energy,
         f.rn,
         (f.odometer_km - f.prev_full_odo) AS km,
-        (
-          SELECT COALESCE(SUM(o.amount),0)
-          FROM ordered o
-          WHERE o.energy = f.energy AND o.rn > f.prev_full_rn AND o.rn <= f.rn
-        ) AS liters_segment
+        (f.cum - f.prev_full_cum) AS liters_segment
       FROM fulls f
       -- skip_previous: Vollbetankung ist nur neuer Startpunkt (vorherige Tankfüllungen fehlen)
       WHERE f.prev_full_rn IS NOT NULL AND f.skip_previous = false

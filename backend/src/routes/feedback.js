@@ -1,6 +1,7 @@
 // Routen: /feedback, /feedback/:id
 // Aus backend/src/server.js ausgelagert (#110), Inhalt unverändert.
 const express = require('express');
+const { pageOrReply, queryPage, pageOfArray } = require('../lib/pagination');
 const { pool } = require('../db');
 const { isLockedOut, recordFailure, tooManyAttempts } = require('../lib/attempts');
 const { optionalText, serverError } = require('../lib/http');
@@ -70,15 +71,17 @@ router.post('/feedback', auth, requireVerified('feedback'), async (req, res) => 
 
 // Feedback-Liste für Admins (neueste zuerst)
 router.get('/feedback', auth, requireAdmin, async (req, res) => {
+  // Seitenweise (#160)
+  const p = pageOrReply(req, res);
+  if (!p) return;
   try {
-    const r = await pool.query(
-      `SELECT f.id, f.category, f.message, f.page, f.user_agent, f.done, f.created_at,
+    res.json(await queryPage(pool, {
+      sql: `SELECT f.id, f.category, f.message, f.page, f.user_agent, f.done, f.created_at,
               COALESCE(u.email, f.user_email) AS user_email, u.username, u.beta_tester
        FROM feedback f LEFT JOIN users u ON u.id = f.user_id
-       ORDER BY f.done ASC, f.created_at DESC
-       LIMIT 200`
-    );
-    res.json(r.rows);
+       ORDER BY f.done ASC, f.created_at DESC, f.id`,
+      countSql: 'SELECT COUNT(*)::int AS total FROM feedback'
+    }, p));
   } catch (e) {
     serverError(res, e);
   }

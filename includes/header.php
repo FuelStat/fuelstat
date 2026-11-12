@@ -1,24 +1,7 @@
 <?php
 require_once __DIR__ . '/api_helpers.php';
 
-// Basis-URL (mit http/https) und Basis-Pfad (unterhalb Document-Root) ermitteln
-// So funktionieren Links und Assets auch in Unterordnern (z.B. /fuelstat)
-$isHttps = (
-    (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] && $_SERVER['HTTPS'] !== 'off')
-    || (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443)
-    || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
-);
-$scheme  = $isHttps ? 'https' : 'http';
-$host    = $_SERVER['HTTP_HOST'] ?? 'localhost';
-
-// Pfade auflösen und in URL-Pfad umwandeln
-$docRoot    = rtrim(str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
-$appRootFs  = str_replace('\\', '/', realpath(__DIR__ . '/..'));
-$basePath   = rtrim(str_replace($docRoot, '', $appRootFs), '/');
-if ($basePath === '' || $basePath[0] !== '/') {
-    $basePath = '/' . ltrim($basePath, '/');
-}
-$baseUrl = $scheme . '://' . $host . ($basePath === '/' ? '' : $basePath) . '/';
+require_once __DIR__ . '/basis_url.php';
 
 // Fahrzeuge des eingeloggten Benutzers über API (user_id wird ignoriert; API nutzt JWT)
 $api = getApiClient();
@@ -26,13 +9,16 @@ $api = getApiClient();
 // Abfragen, die diese Seite sicher braucht, gleichzeitig vorladen statt nacheinander (#89)
 if (isApiAuthenticated()) {
     $vorabSkript = basename($_SERVER['SCRIPT_NAME'] ?? '');
-    $vorab = ['/whoami', '/vehicles'];
+    $vorab = ['/whoami', FuelstatApi::ersteSeite('/vehicles')];
     $vorabId = (string)($_GET['fahrzeug_id'] ?? ($vorabSkript === 'fahrzeug_detail.php' ? ($_GET['id'] ?? '') : ''));
     if ($vorabId !== '' && in_array($vorabSkript, ['fahrzeug_detail.php', 'eintrag_hinzufuegen.php'], true)) {
         $p = '/vehicles/' . rawurlencode($vorabId);
-        array_push($vorab, $p, $p . '/stats', $p . '/fillups?limit=200&offset=0', $p . '/entries?limit=200&offset=0');
+        array_push($vorab, $p, $p . '/stats');
         if ($vorabSkript === 'fahrzeug_detail.php') {
-            $vorab[] = $p . '/reminders';
+            // Reiter „Allgemein“; die übrigen Reiter laden erst beim Öffnen (#160)
+            array_push($vorab, $p . '/reminders', $p . '/costs');
+        } else {
+            $vorab[] = $p . '/fillups?per_page=100';
         }
     }
     $api->vorladen($vorab);

@@ -18,8 +18,10 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - Einträge: Symbole in der Farbe der Antriebsart bzw. Kategorie, Export und Import in einem Menü, Filter als Chips.
 - Anmelden, Registrieren und Willkommensseite im neuen Design; die untere Leiste heißt jetzt „Start“ statt „Übersicht“, das Plus „Eintrag erfassen“.
 - Barrierefreiheit: Tippflächen mindestens 44 px, Status immer mit Symbol und Text, geprüfte Kontraste in beiden Darstellungen.
+- **Fahrzeugseite deutlich schneller** (#160): Sie lädt zuerst nur „Allgemein“; Einträge, Statistik, Ausgaben, Fahrten und Einstellungen kommen erst beim Öffnen. Die Eintragsliste kommt seitenweise vom Server (50 je Seite, „Weitere Einträge anzeigen“ lädt nach), Filter und Suche fragen den Server. Bei einem Fahrzeug mit rund 1.000 Einträgen schrumpft die Seite von 2,3 MB auf unter 50 KB. Verbrauch und Kennzahlen rechnet die API dabei rund zehnmal so schnell.
 
 ### Technik
+- **API: alle Listen seitenweise** (#160): `GET /vehicles`, `/fillups`, `/entries`, `/trips`, `/media`, `/invitations`, `/auth/tokens`, `/auth/users` und `/feedback` liefern `{ data, pagination }` statt einer reinen Liste, mit `?page=` und `?per_page=` (Standard 25, höchstens 100; `limit` als Alias, `offset` entfällt). Neu `GET /vehicles/:id/timeline`: Tank-/Ladevorgänge, Ausgaben und Fahrten gemischt mit Filter, Suche und Monatssummen. Die iOS-App ist im selben Zug angepasst (FuelStat/fuelstat-ios). Verbrauchsabschnitte per laufender Summe statt Unterabfrage je Abschnitt.
 - Gemeinsames Design-Dokument `docs/design.md` (#153) für Web, PWA, iOS und Android: Farben für hell und dunkel, Schriftrollen, Abstände, Radien, Zuordnung zu CSS, SwiftUI und Compose, Plattform-Leitplanken und Barrierefreiheit. Die Farb- und Abstandswerte stehen als `--fs-*`-Variablen in `css/style.css` bereit; sichtbar ändert sich noch nichts, die Umstellung folgt mit der Neugestaltung.
 - Ausrollen: `sudo infra/ausrollen.sh main` rollt den neuesten Stand von `main` zwischen zwei Releases aus – in derselben Reihenfolge wie ein Release (Migrationen vor dem Neustart), die API wird dabei aus dem Code gebaut. Zurück auf ein Release mit `sudo infra/ausrollen.sh X.Y.Z`.
 - Aufgeräumt: 16 nicht genutzte Font-Awesome-Stylesheets (≈ 490 KB, genutzt wird nur `css/all.min.css`), ungenutzte Funktionen in PHP und API, Reste der nie gültigen Antriebsart `petrol`. Altlasten für ältere Installationen entfernt: Migrationen 002–020 (in `postgres_init.sql` enthalten), die Umwandlung unverschlüsselter 2FA-Schlüssel beim Start, `scripts/bilder-optimieren.js` (#103) und die einmaligen Umstiegsanleitungen in `docs/betrieb.md`.
@@ -27,6 +29,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - API (#140, abwärtskompatibel): `GET /fuels`, `fuels`/`defaultFuel` an Fahrzeugen, `fuel` an Tank-/Ladevorgängen und im Import, `energies`/`byEnergy`/`byFuel`/`costPer100km` in `/consumption`, `energies` in `/stats` und `/costs`. Bisherige Felder je Einheit bleiben.
 
 ### Hinweise zum Update
+- **iOS-App mitaktualisieren** (#160): Die Listen der API haben ein neues Format; ältere Builds der App zeigen danach keine Fahrzeuge und Einträge mehr. Die App aus `main` von FuelStat/fuelstat-ios neu auf das Gerät spielen.
 - **Nur von 0.11.0 aus:** Die Migrationen bis 020 sind entfernt. Ältere Installationen spielen zuerst 0.11.0 ein.
 - Vor dem Update prüfen, dass alle 2FA-Schlüssel verschlüsselt sind (die Umwandlung beim Start entfällt); das Ergebnis muss `0` sein:
 

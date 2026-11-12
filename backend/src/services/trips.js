@@ -6,6 +6,7 @@
 // (plans.js: tripCategories = Anzahl erlaubter Zwecke in dieser Reihenfolge). Export als CSV ab Plus (tripExport).
 const plans = require('./plans');
 const { monthOf } = require('./costs');
+const { queryPage } = require('../lib/pagination');
 
 const PURPOSES = ['private', 'business', 'commute'];
 const PURPOSE_NAMES = { private: 'Privat', business: 'Dienstlich', commute: 'Arbeitsweg' };
@@ -71,17 +72,26 @@ function parseTrip(body, existing = null) {
 }
 
 /** Fahrten eines Fahrzeugs, neueste zuerst; optional Jahr (Europe/Berlin) und Zweck */
-async function listTrips(db, vehicleId, { year = null, purpose = null, limit = 500, offset = 0 } = {}) {
-  const r = await db.query(
-    `SELECT ${COLUMNS} FROM trips
-      WHERE vehicle_id = $1
+const TRIP_FILTER = `vehicle_id = $1
         AND ($2::int IS NULL OR EXTRACT(YEAR FROM started_at AT TIME ZONE 'Europe/Berlin') = $2)
-        AND ($3::text IS NULL OR purpose = $3)
-      ORDER BY started_at DESC, created_at DESC
-      LIMIT $4 OFFSET $5`,
-    [vehicleId, year, purpose, limit, offset]
+        AND ($3::text IS NULL OR purpose = $3)`;
+
+/** Alle Fahrten (für Auswertung und Export), neueste zuerst */
+async function listTrips(db, vehicleId, { year = null, purpose = null } = {}) {
+  const r = await db.query(
+    `SELECT ${COLUMNS} FROM trips WHERE ${TRIP_FILTER} ORDER BY started_at DESC, created_at DESC, id DESC`,
+    [vehicleId, year, purpose]
   );
   return r.rows;
+}
+
+/** Eine Seite Fahrten (#160) */
+function listTripsPage(db, vehicleId, { year = null, purpose = null } = {}, p) {
+  return queryPage(db, {
+    sql: `SELECT ${COLUMNS} FROM trips WHERE ${TRIP_FILTER} ORDER BY started_at DESC, created_at DESC, id DESC`,
+    countSql: `SELECT COUNT(*)::int AS total FROM trips WHERE ${TRIP_FILTER}`,
+    params: [vehicleId, year, purpose]
+  }, p);
 }
 
 const r1 = (n) => Math.round(n * 10) / 10;
@@ -142,4 +152,4 @@ function toCsv(trips, { costPerKm = null } = {}) {
   return '﻿' + [kopf, ...zeilen].map((z) => z.map(csvFeld).join(';')).join('\r\n') + '\r\n';
 }
 
-module.exports = { PURPOSES, PURPOSE_NAMES, COLUMNS, allowedPurposes, parseTrip, listTrips, summarize, toCsv };
+module.exports = { PURPOSES, PURPOSE_NAMES, COLUMNS, allowedPurposes, parseTrip, listTrips, listTripsPage, summarize, toCsv };

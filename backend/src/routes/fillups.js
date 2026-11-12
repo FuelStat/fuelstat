@@ -1,6 +1,7 @@
 // Routen: /fillups, /fillups/:fillupId, /vehicles/:vehicleId/fillups
 // Aus backend/src/server.js ausgelagert (#110), Inhalt unverändert.
 const express = require('express');
+const { pageOrReply, queryPage, pageOfArray } = require('../lib/pagination');
 const { pool } = require('../db');
 const { optionalNumber, serverError } = require('../lib/http');
 const { auth } = require('../middleware/auth');
@@ -468,14 +469,15 @@ router.delete('/fillups/:fillupId', auth, async (req, res) => {
 // List fillups by vehicle
 router.get('/vehicles/:vehicleId/fillups', auth, async (req, res) => {
   const vehicleId = String(req.params.vehicleId || '').trim();
-  const limit = Math.min(200, Math.max(1, Number(req.query.limit || 50)));
-  const offset = Math.max(0, Math.floor(Number(req.query.offset || 0)) || 0);
+  // Seitenweise (#160)
+  const p = pageOrReply(req, res);
+  if (!p) return;
 
   try {
     if (!(await vehicleRole(pool, req.user.sub, vehicleId))) return res.status(404).json({ error: 'vehicle_not_found' });
 
-    const r = await pool.query(
-      `SELECT
+    res.json(await queryPage(pool, {
+      sql: `SELECT
          id,
          odometer_km,
          amount,
@@ -493,13 +495,10 @@ router.get('/vehicles/:vehicleId/fillups', auth, async (req, res) => {
          (SELECT COALESCE(u.username, u.email) FROM users u WHERE u.id = fillups.user_id) AS created_by_name
        FROM fillups
        WHERE vehicle_id = $1
-       ORDER BY filled_at DESC, created_at DESC
-       LIMIT $2 OFFSET $3`,
-      [vehicleId, limit, offset]
-    );
-
-    // Für ältere Clients zusätzlich kompatible Felder anbieten
-    res.json(r.rows);
+       ORDER BY filled_at DESC, created_at DESC, id DESC`,
+      countSql: 'SELECT COUNT(*)::int AS total FROM fillups WHERE vehicle_id = $1',
+      params: [vehicleId]
+    }, p));
   } catch (e) {
     serverError(res, e);
   }

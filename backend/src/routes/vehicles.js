@@ -1,6 +1,7 @@
 // Routen: /vehicles, /vehicles/:vehicleId
 // Aus backend/src/server.js ausgelagert (#110), Inhalt unverändert.
 const express = require('express');
+const { pageOrReply, queryPage, pageOfArray } = require('../lib/pagination');
 const media = require('../services/media');
 const plans = require('../services/plans');
 const { pool } = require('../db');
@@ -137,14 +138,17 @@ router.post('/vehicles', auth, async (req, res) => {
 router.get('/vehicles', auth, async (req, res) => {
   try {
     // Eigene und mit dem Konto geteilte Fahrzeuge (#53); geteilte stehen hinter den eigenen
-    const r = await pool.query(
-      `SELECT ${VEHICLE_SELECT}
-       FROM vehicles v JOIN users o ON o.id = v.user_id
-       WHERE ${accessibleVehicles('v', 1)}
-       ORDER BY (v.user_id <> $1), v.sort_order ASC, v.created_at DESC`,
-      [req.user.sub]
-    );
-    res.json(r.rows);
+    // Seitenweise (#160)
+    const p = pageOrReply(req, res);
+    if (!p) return;
+    res.json(await queryPage(pool, {
+      sql: `SELECT ${VEHICLE_SELECT}
+            FROM vehicles v JOIN users o ON o.id = v.user_id
+            WHERE ${accessibleVehicles('v', 1)}
+            ORDER BY (v.user_id <> $1), v.sort_order ASC, v.created_at DESC, v.id`,
+      countSql: `SELECT COUNT(*)::int AS total FROM vehicles v WHERE ${accessibleVehicles('v', 1)}`,
+      params: [req.user.sub]
+    }, p));
   } catch (e) {
     serverError(res, e);
   }

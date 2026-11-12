@@ -3,6 +3,7 @@
 // Fahrtenbuch (#52). Zugriff wie bei Einträgen (#53): lesen alle Mitglieder, erfassen Besitzer und Mitfahrer,
 // ändern Besitzer alle und Mitfahrer eigene Fahrten.
 const express = require('express');
+const { pageOrReply, queryPage, pageOfArray } = require('../lib/pagination');
 const plans = require('../services/plans');
 const trips = require('../services/trips');
 const { pool } = require('../db');
@@ -75,11 +76,12 @@ router.get('/vehicles/:vehicleId/trips', auth, async (req, res) => {
   if (j.error) return res.status(400).json({ error: j.error });
   const purpose = req.query.purpose ? String(req.query.purpose) : null;
   if (purpose && !trips.PURPOSES.includes(purpose)) return res.status(400).json({ error: 'invalid_purpose', allowed: trips.PURPOSES });
-  const limit = Math.min(500, Math.max(1, Number(req.query.limit || 500)));
-  const offset = Math.max(0, Math.floor(Number(req.query.offset || 0)) || 0);
+  // Seitenweise (#160)
+  const p = pageOrReply(req, res);
+  if (!p) return;
   try {
     if (!(await vehicleRole(pool, req.user.sub, vehicleId))) return res.status(404).json({ error: 'vehicle_not_found' });
-    res.json(await trips.listTrips(pool, vehicleId, { year: j.year, purpose, limit, offset }));
+    res.json(await trips.listTripsPage(pool, vehicleId, { year: j.year, purpose }, p));
   } catch (e) {
     serverError(res, e);
   }

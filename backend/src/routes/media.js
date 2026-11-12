@@ -1,6 +1,7 @@
 // Routen: /media, /media/:mediaId, /media/upload, /vehicles/:vehicleId/media, /vehicles/:vehicleId/media/:mediaId, /vehicles/:vehicleId/media/upload
 // Aus backend/src/server.js ausgelagert (#110), Inhalt unverändert.
 const express = require('express');
+const { pageOrReply, queryPage, pageOfArray } = require('../lib/pagination');
 const fs = require('fs');
 const { MEDIA_BASE_URL } = require('../config');
 const { pool } = require('../db');
@@ -42,15 +43,19 @@ router.post('/media/upload', auth, requireVerified('upload'), uploadLimiter, (re
 
 // List user media
 router.get('/media', auth, async (req, res) => {
+  // Seitenweise (#160)
+  const p = pageOrReply(req, res);
+  if (!p) return;
   try {
-    const r = await pool.query(
-      `SELECT id, user_id, media_type, url, mime_type, bytes, created_at
+    const page = await queryPage(pool, {
+      sql: `SELECT id, user_id, media_type, url, mime_type, bytes, created_at
        FROM user_media
        WHERE user_id = $1
-       ORDER BY created_at DESC`,
-      [req.user.sub]
-    );
-    res.json(r.rows);
+       ORDER BY created_at DESC, id`,
+      countSql: 'SELECT COUNT(*)::int AS total FROM user_media WHERE user_id = $1',
+      params: [req.user.sub]
+    }, p);
+    res.json(page);
   } catch (e) {
     serverError(res, e);
   }
@@ -157,6 +162,9 @@ router.post('/vehicles/:vehicleId/media/upload', auth, requireVerified('upload')
 router.get('/vehicles/:vehicleId/media', auth, async (req, res) => {
   const vehicleId = String(req.params.vehicleId || '').trim();
   if (!vehicleId) return res.status(400).json({ error: 'missing_vehicleId' });
+  // Seitenweise (#160)
+  const p = pageOrReply(req, res);
+  if (!p) return;
 
   try {
     // Sichtbar für Besitzer und Mitglieder (#53)
@@ -164,14 +172,15 @@ router.get('/vehicles/:vehicleId/media', auth, async (req, res) => {
       return res.status(404).json({ error: 'vehicle_not_found' });
     }
 
-    const r = await pool.query(
-      `SELECT id, vehicle_id, user_id, media_type, url, mime_type, bytes, created_at
+    const page = await queryPage(pool, {
+      sql: `SELECT id, vehicle_id, user_id, media_type, url, mime_type, bytes, created_at
        FROM vehicle_media
        WHERE vehicle_id = $1
-       ORDER BY created_at DESC`,
-      [vehicleId]
-    );
-    res.json(r.rows);
+       ORDER BY created_at DESC, id`,
+      countSql: 'SELECT COUNT(*)::int AS total FROM vehicle_media WHERE vehicle_id = $1',
+      params: [vehicleId]
+    }, p);
+    res.json(page);
   } catch (e) {
     serverError(res, e);
   }

@@ -1,6 +1,7 @@
 // Routen: /auth/plans, /auth/users, /auth/users/:userId, /auth/users/:userId/beta, /auth/users/:userId/plan, /auth/users/:userId/plan-history, /auth/users/:userId/revoke-all
 // Aus backend/src/server.js ausgelagert (#110), Inhalt unverändert.
 const express = require('express');
+const { pageOrReply, queryPage, pageOfArray } = require('../lib/pagination');
 const fs = require('fs');
 const media = require('../services/media');
 const planChanges = require('../services/planChanges');
@@ -16,9 +17,12 @@ const router = express.Router();
 
 // List all users (Admin-Endpoint)
 router.get('/auth/users', auth, requireAdmin, async (req, res) => {
+  // Seitenweise (#160)
+  const p = pageOrReply(req, res);
+  if (!p) return;
   try {
-    const r = await pool.query(
-      `SELECT
+    res.json(await queryPage(pool, {
+      sql: `SELECT
          id,
          email,
          username,
@@ -39,9 +43,9 @@ router.get('/auth/users', auth, requireAdmin, async (req, res) => {
            (SELECT MAX(e.created_at) FROM expenses e WHERE e.user_id = users.id)
          ) AS last_entry_at
        FROM users
-       ORDER BY created_at ASC`
-    );
-    res.json(r.rows);
+       ORDER BY created_at ASC, id`,
+      countSql: 'SELECT COUNT(*)::int AS total FROM users'
+    }, p));
   } catch (e) {
     serverError(res, e);
   }

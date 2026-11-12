@@ -109,6 +109,9 @@ class FuelstatApi
     public function revokeToken(string $token): array { return $this->request('POST', '/auth/tokens/revoke', ['token' => $token, 'reason' => 'logout']); }
     public function revokeAllTokens(string $userId): array { return $this->request('POST', '/auth/users/' . rawurlencode($userId) . '/revoke-all', ['reason' => 'logout_all']); }
     public function getUsers(): array { return $this->getAllPages('/auth/users'); }
+    /** Angemeldete Apps (Gerätesitzungen, #117), zuletzt genutzte zuerst */
+    public function getDeviceSessions(): array { return $this->getAllPages('/auth/sessions'); }
+    public function revokeDeviceSession(string $sessionId): void { $this->request('DELETE', '/auth/sessions/' . rawurlencode($sessionId)); }
     public function deleteUser(string $userId): void { $this->request('DELETE', '/auth/users/' . rawurlencode($userId)); }
     public function uploadUserMedia(string $filePath, string $mimeType, string $fileName): array
     {

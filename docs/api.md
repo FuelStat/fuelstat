@@ -25,8 +25,11 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | POST | `/auth/accept-terms` | ✓ | Nutzungsbedingungen zustimmen (`version`) |
 | POST | `/auth/forgot-password` | – | Link zum Zurücksetzen des Passworts anfordern (#141) |
 | POST | `/auth/reset-password` | – | Neues Passwort mit dem Token aus der Mail setzen |
-| POST | `/auth/refresh` | ✓ | Anmeldung verlängern: neues Token (7 Tage), höchstens 90 Tage nach dem letzten Login |
-| POST | `/auth/password` | ✓ | Passwort ändern, widerruft alle Tokens |
+| POST | `/auth/refresh` | ✓ | Anmeldung verlängern (Web-App): neues Token (7 Tage), höchstens 90 Tage nach dem letzten Login |
+| POST | `/auth/session/refresh` | – | Apps: Refresh-Token gegen neues Token-Paar tauschen (#117) |
+| GET | `/auth/sessions` | ✓ | Angemeldete Apps (Gerätesitzungen) des eigenen Kontos |
+| DELETE | `/auth/sessions/:sessionId` | ✓ | Ein Gerät abmelden; `current` = dieses Gerät |
+| POST | `/auth/password` | ✓ | Passwort ändern, widerruft alle Tokens und Gerätesitzungen |
 | POST | `/auth/mfa/setup` · `/enable` · `/disable` | ✓ | 2FA einrichten, aktivieren, abschalten |
 | GET | `/auth/users` | Admin | Alle Benutzer mit Aktivität |
 | GET · PATCH · DELETE | `/auth/users/:userId` | Selbst/Admin | Konto lesen, `email`/`username`/`profileImageUrl` ändern, löschen |
@@ -128,9 +131,26 @@ Gibt bei gültigen Credentials ein JWT zurück.
 **Responses**
 
 * 200 wie Register (token + user)
-* 400: `missing_credentials`
+* 400: `missing_credentials`, mit `device`: `invalid_device`, `invalid_device_name`, `invalid_device_platform`
 * 401: `invalid_credentials`
 * 500: `server_error`
+
+### Gerätesitzungen für Apps (#117)
+
+Apps schicken bei `POST /auth/register`, `/auth/login` (und bei 2FA wahlweise erst bei `/auth/login/mfa`) ihr Gerät mit:
+
+```json
+{ "email": "…", "password": "…", "device": { "name": "iPhone von Mario", "platform": "ios", "appVersion": "0.2.0" } }
+```
+
+`platform`: `ios`, `android` oder `other`. Die Antwort enthält dann zusätzlich zum `token` (Zugriffstoken, **30 Minuten**) ein `refreshToken`, `expiresIn` (Sekunden) und `session` (`id`, `name`, `platform`, `app_version`, `created_at`, `last_used_at`). Ohne `device` – so arbeitet die Web-App – bleibt alles wie bisher (7-Tage-Token, `/auth/refresh`).
+
+* **Verlängern:** `POST /auth/session/refresh` `{ "refreshToken", "appVersion"? }` ohne Bearer-Token liefert `{ token, refreshToken, expiresIn }`. Jedes Refresh-Token gilt **genau einmal**; das neue sofort sicher speichern (Keychain) und das alte verwerfen. Eine Sitzung hält, solange die App sie mindestens alle 180 Tage nutzt – ohne erneute Anmeldung und ohne 2FA.
+* **Diebstahlschutz:** Kommt ein schon getauschtes Refresh-Token später noch einmal, beendet die API die ganze Sitzung (401 `refresh_token_reused`). Zwei gleichzeitige Anfragen derselben App (innerhalb von 30 Sekunden) ergeben nur 401 `refresh_token_already_used`, die Sitzung bleibt. Clients tauschen deshalb nie parallel, sondern warten auf den laufenden Tausch.
+* **Fehler beim Tausch:** 401 `invalid_refresh_token`, `refresh_token_reused`, `session_revoked`, `session_expired` → neu anmelden; `refresh_token_already_used` → mit dem zuletzt erhaltenen Token weiterarbeiten. Zugriffstokens einer beendeten Sitzung lehnt jede Anfrage mit 401 `session_revoked` ab.
+* **Geräteliste:** `GET /auth/sessions` (seitenweise) zeigt die aktiven Gerätesitzungen, `current: true` markiert die eigene. `DELETE /auth/sessions/:id` meldet ein Gerät ab, `DELETE /auth/sessions/current` das eigene (Abmelden in der App). Die Web-App zeigt die Liste unter Einstellungen → Sicherheit.
+* **Alle Geräte:** Passwortänderung, Passwort-Reset und `POST /auth/users/:id/revoke-all` („Auf allen Geräten abmelden“) beenden auch alle Gerätesitzungen. Ändert eine App das Passwort, bekommt sie selbst eine neue Gerätesitzung (`refreshToken`, `session` in der Antwort).
+* `/auth/refresh` lehnt Tokens einer Gerätesitzung mit 400 `use_session_refresh` ab.
 
 ## Benutzer & Admin-Rechte
 
@@ -631,7 +651,7 @@ Die **Eintragsliste** eines Fahrzeugs: Tank-/Ladevorgänge, Ausgaben und Fahrten
 
 ## Passwort und 2FA (Auth required)
 
-* `POST /auth/password` `{ "currentPassword", "newPassword" }` – widerruft alle bestehenden Tokens und gibt `{ "token" }` zurück. Fehler: 401 `invalid_current_password`, 400 `password_too_short`
+* `POST /auth/password` `{ "currentPassword", "newPassword" }` – widerruft alle bestehenden Tokens und Gerätesitzungen und gibt `{ "token" }` zurück (aus einer App zusätzlich `refreshToken`, `expiresIn`, `session`). Fehler: 401 `invalid_current_password`, 400 `password_too_short`
 * `POST /auth/mfa/setup` – erzeugt ein TOTP-Secret `{ "secret", "otpauthUrl" }` (noch nicht aktiv)
 * `POST /auth/mfa/enable` `{ "code" }` – aktiviert 2FA nach korrektem Code
 * `POST /auth/mfa/disable` `{ "password", "code" }` – deaktiviert 2FA

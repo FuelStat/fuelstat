@@ -56,16 +56,24 @@ async function auth(req, res, next) {
     const sub = String(payload.sub || '');
     if (!UUID_RE.test(sub)) return res.status(401).json({ error: 'invalid_token' });
 
-    // Eine Abfrage für drei Prüfungen: Konto existiert noch (gelöschte Konten – auch Admins aus ADMIN_USER_IDS –
-    // dürfen mit alten Tokens nichts mehr tun), Token einzeln widerrufen (jti), alle Tokens des Kontos widerrufen
+    // Gerätesitzung (#117): Zugriffstokens der Apps tragen die id ihrer Sitzung
+    const sid = payload.sid === undefined ? null : String(payload.sid);
+    if (sid !== null && !UUID_RE.test(sid)) return res.status(401).json({ error: 'invalid_token' });
+
+    // Eine Abfrage für vier Prüfungen: Konto existiert noch (gelöschte Konten – auch Admins aus ADMIN_USER_IDS –
+    // dürfen mit alten Tokens nichts mehr tun), Token einzeln widerrufen (jti), alle Tokens des Kontos widerrufen,
+    // Gerätesitzung beendet
     const r = await pool.query(
       `SELECT EXISTS (SELECT 1 FROM revoked_tokens WHERE jti = $2) AS jti_revoked,
-              (SELECT revoked_after FROM user_token_revocations WHERE user_id = u.id) AS revoked_after
+              (SELECT revoked_after FROM user_token_revocations WHERE user_id = u.id) AS revoked_after,
+              ($3::uuid IS NOT NULL AND NOT EXISTS (
+                 SELECT 1 FROM device_sessions s WHERE s.id = $3 AND s.user_id = u.id AND s.revoked_at IS NULL)) AS session_revoked
          FROM users u WHERE u.id = $1`,
-      [sub, payload.jti ? String(payload.jti) : null]
+      [sub, payload.jti ? String(payload.jti) : null, sid]
     );
     if (r.rowCount === 0) return res.status(401).json({ error: 'account_not_found' });
     if (r.rows[0].jti_revoked) return res.status(401).json({ error: 'token_revoked' });
+    if (r.rows[0].session_revoked) return res.status(401).json({ error: 'session_revoked' });
 
     // User-weite Revocation: alle Tokens vor revoked_after sind ungültig
     if (r.rows[0].revoked_after && payload.iat) {

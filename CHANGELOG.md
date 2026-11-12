@@ -6,6 +6,23 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+### Neu
+- **Angemeldete Apps** (#117): Unter Einstellungen → Sicherheit siehst du, auf welchen Geräten die iPhone- bzw. Android-App angemeldet ist (Name, App-Version, zuletzt genutzt), und kannst einzelne Geräte abmelden. „Auf allen Geräten abmelden“ und eine Passwortänderung melden auch alle Apps ab.
+
+### Sicherheit
+- **Gerätesitzungen für Apps** (#117): Apps bekommen statt eines 7-Tage-Tokens ein Zugriffstoken für 30 Minuten und ein Refresh-Token je Gerät. Es gilt nur einmal (wird bei jeder Verwendung getauscht) und steht nur als Hash in der Datenbank; taucht ein schon getauschtes Token noch einmal auf, endet die Sitzung dieses Geräts. Apps bleiben so monatelang angemeldet, ohne dass ein langlebiges Token auf dem Gerät liegt. Die Web-App meldet sich unverändert an.
+
+### Technik
+- API (#117): `device` bei `POST /auth/register`, `/auth/login` und `/auth/login/mfa`; neu `POST /auth/session/refresh`, `GET /auth/sessions`, `DELETE /auth/sessions/:id` (auch `current`). Doku in `docs/api.md` („Gerätesitzungen für Apps“) und OpenAPI.
+
+### Hinweise zum Update
+- Migration `022_device_sessions` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich). Von Hand:
+
+  ```bash
+  cd infra
+  sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_022_device_sessions.sql
+  ```
+
 ### Behoben
 - Startseite: Die ganze Fahrzeugkarte führt wieder zum Fahrzeug – auch das Foto und die Kennzahlen, nicht nur der Name.
 

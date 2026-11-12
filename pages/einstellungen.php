@@ -49,6 +49,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['success_message'] = !empty($user['pending_email']) && ($daten['email'] ?? '') === $user['pending_email']
                 ? 'Profil gespeichert. Wir haben einen Bestätigungslink an ' . $user['pending_email'] . ' geschickt; bis du ihn öffnest, gilt deine bisherige Adresse.'
                 : 'Profil gespeichert.';
+        } elseif ($aktion === 'geraet_abmelden') {
+            $api->revokeDeviceSession((string)($_POST['sitzung'] ?? ''));
+            $_SESSION['success_message'] = 'Das Gerät wurde abgemeldet.';
         } elseif ($aktion === 'alle_abmelden') {
             $api->revokeAllTokens($userId);
             // Auch das eigene Token ist jetzt ungültig: lokal abmelden
@@ -74,6 +77,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             : (tarifHinweis($e) ?? $e->getMessage());
     }
 }
+
+// Angemeldete Apps (#117); die Web-App selbst hat keine Gerätesitzung
+$geraete = [];
+try {
+    $geraete = $api->getDeviceSessions();
+} catch (Throwable $e) {
+    error_log('[Einstellungen] Geräte: ' . $e->getMessage());
+}
+$plattformen = ['ios' => ['iPhone/iPad', 'fa-mobile-screen'], 'android' => ['Android', 'fa-mobile-screen'], 'other' => ['Gerät', 'fa-laptop']];
 
 include '../includes/header.php';
 ?>
@@ -134,6 +146,29 @@ include '../includes/header.php';
                         <a href="benachrichtigungen.php" class="btn btn-outline-primary"><i class="fas fa-envelope me-2"></i>E-Mail-Benachrichtigungen</a>
                     </div>
                     <p class="mb-2">2FA ist <strong><?= !empty($user['mfa_enabled']) ? 'aktiv' : 'nicht aktiv' ?></strong>.</p>
+                    <h4 class="h6 mt-4 mb-2">Angemeldete Apps</h4>
+                    <?php if (!$geraete): ?>
+                    <p class="fs-label mb-3">Keine App angemeldet. Hier erscheinen iPhone- und Android-Apps, sobald du dich dort anmeldest.</p>
+                    <?php else: ?>
+                    <ul class="list-group mb-3">
+                        <?php foreach ($geraete as $g):
+                            [$plattform, $symbol] = $plattformen[$g['platform'] ?? ''] ?? $plattformen['other'];
+                            $zuletzt = !empty($g['last_used_at']) ? (new DateTime($g['last_used_at']))->setTimezone(new DateTimeZone('Europe/Berlin'))->format('d.m.Y, H:i') : '–'; ?>
+                        <li class="list-group-item d-flex align-items-center gap-3">
+                            <i class="fas <?= $symbol ?> fa-fw" aria-hidden="true"></i>
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="text-truncate"><?= htmlspecialchars((string)$g['name']) ?></div>
+                                <div class="fs-label"><?= htmlspecialchars(implode(' · ', array_filter([$plattform, !empty($g['app_version']) ? 'App ' . $g['app_version'] : '', 'zuletzt ' . $zuletzt]))) ?></div>
+                            </div>
+                            <form method="post" class="flex-shrink-0" onsubmit="return confirm('Dieses Gerät abmelden?');">
+                                <input type="hidden" name="aktion" value="geraet_abmelden">
+                                <input type="hidden" name="sitzung" value="<?= htmlspecialchars((string)$g['id']) ?>">
+                                <button type="submit" class="btn btn-sm btn-secondary" aria-label="<?= htmlspecialchars('„' . $g['name'] . '“ abmelden') ?>">Abmelden</button>
+                            </form>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <?php endif; ?>
                     <form method="post" onsubmit="return confirm('Wirklich auf allen Geräten abmelden, auch hier?');">
                         <input type="hidden" name="aktion" value="alle_abmelden">
                         <button type="submit" class="btn btn-outline-secondary"><i class="fas fa-sign-out-alt me-2"></i>Auf allen Geräten abmelden</button>

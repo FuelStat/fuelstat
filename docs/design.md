@@ -250,7 +250,9 @@ Auf iOS mit kontinuierlichen Ecken (`.continuous`), auf den anderen Plattformen 
 
 - Karten auf `Background` brauchen **keinen Schatten**; der Farbunterschied trennt sie.
 - Höchstens ein weicher Schatten auf schwebenden Elementen: „+“-Knopf, Blätter über Fotos.
-- Fotos: abgerundet, unten ein leichter Verlauf für die Lesbarkeit von Text darauf.
+- Fotos: abgerundet, unten ein leichter Verlauf für die Lesbarkeit von Text darauf. Verlauf und Text darauf sind in
+  beiden Modi gleich: `BrandDeep` des hellen Modus (`#0A1C33`, bis 82 % deckend) und Weiß (Web: `--fs-scrim-rgb`,
+  `--fs-on-scrim-rgb`).
 
 ### 5.5 Bewegung
 

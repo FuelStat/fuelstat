@@ -384,6 +384,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
 </div>
 
 <script src="<?= htmlspecialchars(assetUrl($baseUrl, 'vendor/chartjs/chart.umd.min.js')) ?>"></script>
+<script src="<?= htmlspecialchars(assetUrl($baseUrl, 'js/diagramm-text.js')) ?>"></script>
 <script>
 (function () {
     if (!window.Chart) return;

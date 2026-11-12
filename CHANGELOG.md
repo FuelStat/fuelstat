@@ -24,7 +24,12 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
   sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_022_device_sessions.sql
   ```
 
+### Verbessert
+- **Barrierefreiheit** (#158): Jedes Diagramm hat eine Zusammenfassung für Screenreader (Zeitraum, Höchst- und Tiefstwert) und darunter „Werte als Tabelle“. Alle Buttons und Textlinks sind mindestens 44 px hoch bzw. so groß antippbar.
+- Fahrzeugseite: „Fahrzeug löschen“ steht nur noch abgesetzt im Reiter „Einstellungen“, nicht mehr neben „Fahrzeug bearbeiten“. Das Erfassen heißt überall „Eintrag erfassen“.
+
 ### Behoben
+- Fahrzeugseite: Das Diagramm „Letzte 6 Monate“ unter „Allgemein“ blieb seit 0.12.0 leer.
 - Startseite: Die ganze Fahrzeugkarte führt wieder zum Fahrzeug – auch das Foto und die Kennzahlen, nicht nur der Name.
 
 ## [0.12.0] - 2026-11-12

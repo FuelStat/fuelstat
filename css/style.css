@@ -933,6 +933,30 @@ body.mit-tabbar {
     position: static;
 }
 
+/* Die ganze Karte ist ein Link: Foto reagiert beim Überfahren, Fokusrahmen um die Karte */
+.fahrzeug-hero > img {
+    transition: transform .25s ease;
+}
+
+.fahrzeug-karte:has(.karten-link:hover) .fahrzeug-hero > img {
+    transform: scale(1.03);
+}
+
+.karten-link:focus-visible {
+    outline: 0;
+}
+
+.fahrzeug-karte:has(.karten-link:focus-visible) {
+    outline: 2px solid var(--fs-brand);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fahrzeug-hero > img {
+        transition: none;
+    }
+}
+
 .fahrzeug-aktionen {
     position: relative;
     z-index: 2;

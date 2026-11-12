@@ -6,6 +6,9 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+### Behoben
+- Startseite: Die ganze Fahrzeugkarte führt wieder zum Fahrzeug – auch das Foto und die Kennzahlen, nicht nur der Name.
+
 ## [0.12.0] - 2026-11-12
 
 ### Neu

@@ -85,16 +85,43 @@ async function listTrips(db, vehicleId, { year = null, purpose = null } = {}) {
   return r.rows;
 }
 
-/** Eine Seite Fahrten (#160) */
-function listTripsPage(db, vehicleId, { year = null, purpose = null } = {}, p) {
-  return queryPage(db, {
-    sql: `SELECT ${COLUMNS} FROM trips WHERE ${TRIP_FILTER} ORDER BY started_at DESC, created_at DESC, id DESC`,
-    countSql: `SELECT COUNT(*)::int AS total FROM trips WHERE ${TRIP_FILTER}`,
-    params: [vehicleId, year, purpose]
-  }, p);
+const r1 = (n) => Math.round(n * 10) / 10;
+
+const TRIP_MONTH = "to_char(started_at AT TIME ZONE 'Europe/Berlin', 'YYYY-MM')";
+
+/**
+ * Eine Seite Fahrten (#160), dazu `months` (Anzahl und km der Monate auf dieser Seite, über den ganzen Monat und mit
+ * denselben Filtern) und `years` (alle Jahre mit Fahrten, ohne Filter) – damit Clients für Monatsköpfe und
+ * Jahresauswahl nicht alle Fahrten laden müssen.
+ */
+async function listTripsPage(db, vehicleId, { year = null, purpose = null } = {}, p) {
+  const params = [vehicleId, year, purpose];
+  const [page, years] = await Promise.all([
+    queryPage(db, {
+      sql: `SELECT ${COLUMNS} FROM trips WHERE ${TRIP_FILTER} ORDER BY started_at DESC, created_at DESC, id DESC`,
+      countSql: `SELECT COUNT(*)::int AS total FROM trips WHERE ${TRIP_FILTER}`,
+      params
+    }, p),
+    db.query(
+      `SELECT DISTINCT EXTRACT(YEAR FROM started_at AT TIME ZONE 'Europe/Berlin')::int AS year
+         FROM trips WHERE vehicle_id = $1 ORDER BY 1 DESC`,
+      [vehicleId]
+    )
+  ]);
+  const monthKeys = [...new Set(page.data.map((t) => monthOf(new Date(t.started_at))))];
+  let months = [];
+  if (monthKeys.length) {
+    const m = await db.query(
+      `SELECT ${TRIP_MONTH} AS month, COUNT(*)::int AS count, COALESCE(SUM(distance_km), 0)::float8 AS km
+         FROM trips WHERE ${TRIP_FILTER} AND ${TRIP_MONTH} = ANY($4::text[])
+        GROUP BY 1 ORDER BY 1 DESC`,
+      [...params, monthKeys]
+    );
+    months = m.rows.map((r) => ({ month: r.month, count: r.count, km: r1(r.km) }));
+  }
+  return { ...page, months, years: years.rows.map((r) => r.year) };
 }
 
-const r1 = (n) => Math.round(n * 10) / 10;
 
 /**
  * Auswertung: km je Zweck und Monat, Anteil dienstlich, geschätzte Kosten je Fahrt (Kosten pro km × Strecke).

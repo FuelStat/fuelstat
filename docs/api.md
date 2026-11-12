@@ -216,7 +216,8 @@ POST /trips
 
 - Strecke `distance_km` = Ende − Start; ohne Start aus `distanceKm` (bei ganzen km wird der Start daraus berechnet).
 - `purpose`: `private` und `business` im Free-Tarif, `commute` (Arbeitsweg) ab Plus (403 `plan_required`, `feature: tripCategories`). Ein bisheriger Zweck bleibt beim Ändern erlaubt.
-- `GET /vehicles/:vehicleId/trips?year=&purpose=`, `GET/PATCH/DELETE /trips/:tripId`; Rechte wie bei Einträgen (siehe Teilen).
+- `GET /vehicles/:vehicleId/trips?year=&purpose=&page=&per_page=`: seitenweise (`{ data, pagination }`), dazu `months` (Anzahl und km der Monate auf dieser Seite, über den ganzen Monat und mit denselben Filtern) und `years` (alle Jahre mit Fahrten, ohne Filter) (#160).
+- `GET/PATCH/DELETE /trips/:tripId`; Rechte wie bei Einträgen (siehe Teilen).
 - `GET /vehicles/:vehicleId/trips/summary?year=`: `totalKm`, `byPurpose` (km, Anzahl, geschätzte Kosten), `businessShare` (%), `months` (km je Zweck), `costPerKm`, `allowedPurposes`, `canExport`. Geschätzte Kosten = Kosten pro km aus `/costs` × Strecke.
 - `GET /vehicles/:vehicleId/trips/export?year=`: CSV (Semikolon, deutsches Zahlenformat, mit BOM), ab Plus (`tripExport`).
 - Fahrten liefern Tachostände für die Tachostand-Prüfung, den aktuellen Stand in `/stats` und die Fälligkeiten.

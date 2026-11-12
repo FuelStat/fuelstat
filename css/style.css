@@ -1384,6 +1384,12 @@ body.mit-tabbar {
     font: var(--fs-font-headline);
 }
 
+/* „Weitere … anzeigen“ unter einer Liste: Abstand zur letzten Karte wie zwischen zwei Monaten */
+.liste-mehr {
+    margin: var(--fs-space-l) 0 var(--fs-space-xl);
+    text-align: center;
+}
+
 .eintrag-monat-titel > :last-child {
     font: var(--fs-font-label);
     color: var(--fs-text-secondary);

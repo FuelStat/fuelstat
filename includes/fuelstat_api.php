@@ -159,6 +159,13 @@ class FuelstatApi
      * Eine Seite der Eintragsliste (#160): Tank-/Ladevorgänge, Ausgaben und Fahrten gemischt, mit Monatssummen.
      * @param array $query page, per_page, type (fuel,charge,expense,trip,odometer), year, q
      */
+    /** Eine Seite Fahrten mit months (km der Monate auf der Seite) und years (#160). */
+    public function getTripsPage(string $vehicleId, array $query = []): array
+    {
+        $query = array_filter($query, fn($v) => $v !== null && $v !== '');
+        return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/trips' . ($query ? '?' . http_build_query($query) : ''));
+    }
+
     public function getTimeline(string $vehicleId, array $query = []): array
     {
         $query = array_filter($query, fn($v) => $v !== null && $v !== '');

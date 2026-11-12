@@ -146,3 +146,34 @@ test('Eintragsliste /timeline: gemischt, gefiltert, gesucht, mit Monatssummen un
   const fremd = await newUser();
   assert.equal((await api('GET', `/vehicles/${v}/timeline`, { token: fremd })).status, 404);
 });
+
+test('Fahrten seitenweise mit Monaten (ganzer Monat, gefiltert) und Jahren (ohne Filter)', async () => {
+  const token = await newUser();
+  const v = (await api('POST', '/vehicles', { token, body: { name: 'Fahrten', fuelType: 'e10' } })).body.id;
+  const fahrt = (startedAt, odometerStart, odometerEnd, purpose) =>
+    api('POST', '/trips', { token, body: { vehicleId: v, startedAt, odometerStart, odometerEnd, purpose } });
+  await fahrt('2025-12-31T23:30:00Z', 100, 110, 'private'); // in Berlin schon 2026-01
+  await fahrt('2026-01-10T08:00:00Z', 110, 150, 'business');
+  await fahrt('2026-01-20T08:00:00Z', 150, 175.5, 'private');
+  await fahrt('2026-02-03T08:00:00Z', 175.5, 200, 'business');
+  await fahrt('2024-06-01T08:00:00Z', 50, 60, 'private');
+
+  let r = await api('GET', `/vehicles/${v}/trips?per_page=2`, { token });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.equal(r.body.pagination.total, 5);
+  assert.equal(r.body.data.length, 2);
+  assert.deepEqual(r.body.years, [2026, 2024]);
+  // Monate dieser Seite (Februar, Januar), Januar über den ganzen Monat inkl. der Fahrt auf der nächsten Seite
+  assert.deepEqual(r.body.months, [{ month: '2026-02', count: 1, km: 24.5 }, { month: '2026-01', count: 3, km: 75.5 }]);
+
+  // Filter gelten auch für die Monate, die Jahre bleiben ungefiltert
+  r = await api('GET', `/vehicles/${v}/trips?purpose=business&year=2026`, { token });
+  assert.equal(r.body.pagination.total, 2);
+  assert.deepEqual(r.body.months, [{ month: '2026-02', count: 1, km: 24.5 }, { month: '2026-01', count: 1, km: 40 }]);
+  assert.deepEqual(r.body.years, [2026, 2024]);
+
+  // Ohne Fahrten
+  const leer = (await api('POST', '/vehicles', { token, body: { name: 'Leer', fuelType: 'e10' } })).body.id;
+  r = await api('GET', `/vehicles/${leer}/trips`, { token });
+  assert.deepEqual([r.body.data, r.body.months, r.body.years], [[], [], []]);
+});

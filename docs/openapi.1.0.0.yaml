@@ -1887,6 +1887,19 @@ paths:
                       $ref: "#/components/schemas/Trip"
                   pagination:
                     $ref: "#/components/schemas/Pagination"
+                  months:
+                    type: array
+                    description: "Monate auf dieser Seite – Anzahl und km über den ganzen Monat, mit denselben Filtern (#160)"
+                    items:
+                      type: object
+                      properties:
+                        month: { type: string, example: "2026-03" }
+                        count: { type: integer }
+                        km: { type: number }
+                  years:
+                    type: array
+                    description: Alle Jahre mit Fahrten (ohne Filter), für die Jahresauswahl
+                    items: { type: integer }
         "400":
           description: invalid_year | invalid_purpose
         "404":

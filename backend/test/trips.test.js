@@ -98,9 +98,9 @@ test('Fahrten: anlegen, auflisten, filtern, ändern, löschen, Tachostand', asyn
   const t2 = await api('POST', '/trips', { token: u.token, body: { vehicleId: v, startedAt: '2025-12-24T10:00:00Z', odometerEnd: 9990, distanceKm: 15, purpose: 'private' } });
   assert.equal(t2.status, 201);
 
-  assert.equal((await api('GET', `/vehicles/${v}/trips`, { token: u.token })).body.length, 2);
-  assert.equal((await api('GET', `/vehicles/${v}/trips?year=2026`, { token: u.token })).body.length, 1);
-  assert.equal((await api('GET', `/vehicles/${v}/trips?purpose=private`, { token: u.token })).body[0].id, t2.body.id);
+  assert.equal((await api('GET', `/vehicles/${v}/trips`, { token: u.token })).body.data.length, 2);
+  assert.equal((await api('GET', `/vehicles/${v}/trips?year=2026`, { token: u.token })).body.data.length, 1);
+  assert.equal((await api('GET', `/vehicles/${v}/trips?purpose=private`, { token: u.token })).body.data[0].id, t2.body.id);
   assert.equal((await api('GET', `/vehicles/${v}/trips?purpose=urlaub`, { token: u.token })).status, 400);
 
   // Fahrten liefern den aktuellen Tachostand
@@ -183,7 +183,7 @@ test('Übernommene alte Fahrten stehen nicht doppelt in der Ausgabenliste', asyn
     `INSERT INTO trips (vehicle_id, user_id, started_at, odometer_end, distance_km, legacy_expense_id) VALUES ($1, $2, now(), 10042, 42, $3)`,
     [v, u.id, alt.body.id]
   );
-  const liste = (await api('GET', `/vehicles/${v}/entries`, { token: u.token })).body;
+  const liste = (await api('GET', `/vehicles/${v}/entries`, { token: u.token })).body.data;
   assert.ok(!liste.some((e) => e.id === alt.body.id));
-  assert.equal((await api('GET', `/vehicles/${v}/trips`, { token: u.token })).body.length, 1);
+  assert.equal((await api('GET', `/vehicles/${v}/trips`, { token: u.token })).body.data.length, 1);
 });

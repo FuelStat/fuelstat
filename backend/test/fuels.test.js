@@ -135,7 +135,7 @@ test('Fahrzeug: Sorten beim Anlegen und Bearbeiten', async () => {
   p = await api('PATCH', `/vehicles/${v.id}`, { token, body: { fuels: ['premium_diesel', 'diesel'] } });
   assert.deepEqual(p.body.fuels, ['premium_diesel', 'diesel']);
   assert.equal(p.body.default_fuel, 'diesel');
-  const liste = (await api('GET', '/vehicles', { token })).body.find((x) => x.id === v.id);
+  const liste = (await api('GET', '/vehicles', { token })).body.data.find((x) => x.id === v.id);
   assert.deepEqual(liste.fuels, ['premium_diesel', 'diesel']);
 });
 
@@ -163,7 +163,7 @@ test('Tankvorgang: Sorte, Einheit aus der Sorte, Standard ohne Sorte', async () 
   // Plug-in-Hybrid ohne Sorte, nur mit Einheit (alte Clients): Strom
   const phev = await newVehicle(token, { fuelType: 'phev' });
   assert.equal((await fillup(token, phev.id, { amount: 10, totalCostEur: 4, unit: 'kwh' })).fuel, 'electricity');
-  const list = (await api('GET', `/vehicles/${phev.id}/fillups`, { token })).body;
+  const list = (await api('GET', `/vehicles/${phev.id}/fillups`, { token })).body.data;
   assert.equal(list[0].fuel, 'electricity');
 });
 
@@ -225,6 +225,6 @@ test('Import: Sorte je Zeile, sonst Standard der Einheit', async () => {
     }
   });
   assert.equal(r.status, 201, JSON.stringify(r.body));
-  const list = (await api('GET', `/vehicles/${v.id}/fillups`, { token })).body.sort((a, b) => a.odometer_km - b.odometer_km);
+  const list = (await api('GET', `/vehicles/${v.id}/fillups`, { token })).body.data.sort((a, b) => a.odometer_km - b.odometer_km);
   assert.deepEqual(list.map((f) => f.fuel), ['premium_diesel', 'diesel', 'diesel']);
 });

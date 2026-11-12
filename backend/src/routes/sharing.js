@@ -2,6 +2,7 @@
 // /vehicles/:vehicleId/invitations/:invitationId, /invitations, /invitations/:invitationId/accept|decline
 // Fahrzeuge teilen (#53). Rollen und Zugriff: services/vehicleAccess.js, Ablauf: services/sharing.js.
 const express = require('express');
+const { pageOrReply, queryPage, pageOfArray } = require('../lib/pagination');
 const plans = require('../services/plans');
 const sharing = require('../services/sharing');
 const { pool } = require('../db');
@@ -114,8 +115,11 @@ router.delete('/vehicles/:vehicleId/members/:userId', auth, async (req, res) => 
 
 // Offene Einladungen an das eigene Konto
 router.get('/invitations', auth, async (req, res) => {
+  // Seitenweise (#160); offene Einladungen sind wenige, sie werden ganz geladen und dann geteilt
+  const p = pageOrReply(req, res);
+  if (!p) return;
   try {
-    res.json(await sharing.invitationsFor(pool, req.user.sub));
+    res.json(pageOfArray(await sharing.invitationsFor(pool, req.user.sub), p));
   } catch (e) {
     serverError(res, e);
   }

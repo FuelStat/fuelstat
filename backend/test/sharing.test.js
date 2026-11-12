@@ -76,23 +76,23 @@ test('Teilen: Rollen, Rechte und kein Zugriff für Fremde', async () => {
   assert.equal((await api('PATCH', `/fillups/${fA.id}`, { token: d.token, body: { station: 'x' } })).status, 404);
   assert.equal((await api('DELETE', `/fillups/${fA.id}`, { token: d.token })).status, 404);
   assert.equal((await api('POST', `/vehicles/${v}/invitations`, { token: d.token, body: { email: d.email } })).status, 404);
-  assert.ok(!(await api('GET', '/vehicles', { token: d.token })).body.some((x) => x.id === v));
+  assert.ok(!(await api('GET', '/vehicles', { token: d.token })).body.data.some((x) => x.id === v));
 
   // Einladung: der Eingeladene sieht sie, ein Fremder kann sie nicht annehmen
   const invB = await api('POST', `/vehicles/${v}/invitations`, { token: a.token, body: { email: b.email.toUpperCase(), role: 'editor' } });
   assert.equal(invB.status, 201, JSON.stringify(invB.body));
   assert.equal(invB.body.email, b.email, 'Adresse klein geschrieben');
   const offen = await api('GET', '/invitations', { token: b.token });
-  assert.equal(offen.body.length, 1);
-  assert.equal(offen.body[0].vehicle_name, 'Familienauto');
-  assert.equal((await api('GET', '/invitations', { token: d.token })).body.length, 0);
+  assert.equal(offen.body.data.length, 1);
+  assert.equal(offen.body.data[0].vehicle_name, 'Familienauto');
+  assert.equal((await api('GET', '/invitations', { token: d.token })).body.data.length, 0);
   assert.equal((await api('POST', `/invitations/${invB.body.id}/accept`, { token: d.token })).status, 404, 'fremde Einladung');
   assert.equal((await api('POST', `/invitations/${invB.body.id}/accept`, { token: b.token })).status, 200);
   assert.equal((await api('POST', `/invitations/${invB.body.id}/accept`, { token: b.token })).status, 410, 'nur einmal');
   await einladenUndAnnehmen(a, v, c, 'viewer');
 
   // Liste: geteiltes Fahrzeug mit Rolle und Besitzer
-  const listeB = (await api('GET', '/vehicles', { token: b.token })).body.find((x) => x.id === v);
+  const listeB = (await api('GET', '/vehicles', { token: b.token })).body.data.find((x) => x.id === v);
   assert.equal(listeB.role, 'editor');
   assert.equal(listeB.owner_name, a.email);
   assert.equal((await api('GET', `/vehicles/${v}`, { token: c.token })).body.role, 'viewer');
@@ -132,7 +132,7 @@ test('Teilen: Rollen, Rechte und kein Zugriff für Fremde', async () => {
   assert.equal((await api('GET', `/vehicles/${v}/members`, { token: a.token })).body.invitations.length, 1);
 
   // Statistik und Listen enthalten Einträge aller Mitglieder, mit Erfasser
-  const liste = (await api('GET', `/vehicles/${v}/fillups`, { token: a.token })).body;
+  const liste = (await api('GET', `/vehicles/${v}/fillups`, { token: a.token })).body.data;
   assert.equal(liste.length, 2);
   assert.equal(liste.find((f) => f.id === fB.body.id).created_by, b.id);
   assert.equal(liste.find((f) => f.id === fB.body.id).created_by_name, b.email);
@@ -147,7 +147,7 @@ test('Teilen: Rollen, Rechte und kein Zugriff für Fremde', async () => {
   assert.equal((await api('GET', `/vehicles/${v}/stats`, { token: c.token })).status, 404, 'verlassen: kein Zugriff mehr');
   assert.equal((await api('DELETE', `/vehicles/${v}/members/me`, { token: a.token })).body.error, 'owner_cannot_leave');
   // Einträge entfernter Mitglieder bleiben beim Fahrzeug
-  assert.equal((await api('GET', `/vehicles/${v}/fillups`, { token: a.token })).body.length, 3);
+  assert.equal((await api('GET', `/vehicles/${v}/fillups`, { token: a.token })).body.data.length, 3);
 });
 
 test('Einladungen: sich selbst, doppelt, abgelaufen, abgelehnt, zurückgezogen', async () => {
@@ -166,7 +166,7 @@ test('Einladungen: sich selbst, doppelt, abgelaufen, abgelehnt, zurückgezogen',
   // Abgelaufen
   const inv2 = (await api('POST', `/vehicles/${v}/invitations`, { token: a.token, body: { email: b.email, role: 'viewer' } })).body;
   await pool.query(`UPDATE vehicle_invitations SET expires_at = now() - interval '1 minute' WHERE id = $1`, [inv2.id]);
-  assert.equal((await api('GET', '/invitations', { token: b.token })).body.length, 0);
+  assert.equal((await api('GET', '/invitations', { token: b.token })).body.data.length, 0);
   assert.equal((await api('POST', `/invitations/${inv2.id}/accept`, { token: b.token })).status, 410);
 
   // Zurückgezogen
@@ -194,7 +194,7 @@ test('Konto eines Mitglieds löschen: seine Einträge bleiben beim Fahrzeug', as
   const eigenes = (await api('POST', '/vehicles', { token: b.token, body: { name: 'Eigenes', fuelType: 'e5' } })).body.id;
   await tanken(b.token, eigenes, 10);
   assert.equal((await api('DELETE', `/auth/users/${b.id}`, { token: b.token })).status, 204);
-  const liste = (await api('GET', `/vehicles/${v}/fillups`, { token: a.token })).body;
+  const liste = (await api('GET', `/vehicles/${v}/fillups`, { token: a.token })).body.data;
   assert.equal(liste.length, 1);
   assert.equal(liste[0].id, fB.id);
   assert.equal(liste[0].created_by, a.id, 'an den Besitzer übergeben');
@@ -209,7 +209,7 @@ test('Besitzer löscht das Fahrzeug: Mitglieder verlieren den Zugriff', async ()
   await einladenUndAnnehmen(a, v, b, 'editor');
   assert.equal((await api('DELETE', `/vehicles/${v}`, { token: a.token })).status, 204);
   assert.equal((await api('GET', `/vehicles/${v}`, { token: b.token })).status, 404);
-  assert.ok(!(await api('GET', '/vehicles', { token: b.token })).body.some((x) => x.id === v));
+  assert.ok(!(await api('GET', '/vehicles', { token: b.token })).body.data.some((x) => x.id === v));
 });
 
 test('Teilen ist eine Plus-Funktion des Besitzers', async () => {

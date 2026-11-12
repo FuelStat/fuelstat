@@ -14,20 +14,7 @@ try {
     die("Fahrzeug nicht gefunden.");
 }
 
-// Für Tabs: API-Fahrzeug in altes Format abbilden (marke/modell wo erwartet)
-$fahrzeug['marke'] = '';
-$fahrzeug['modell'] = $fahrzeug['name'] ?? '';
-
-// Mengeneinheit für alle Tabs (l, kWh oder kg)
-$einheitKurz = einheitKurz(getEinheitFuerKraftstoff($fahrzeug['fuel_type'] ?? null));
-// Begriffe für alle Reiter: Tankfüllung/Ladevorgang, Tankstelle/Ladestation usw.
-$fuelType = (string)($fahrzeug['fuel_type'] ?? 'other');
-$begriffe = verbrauchsBegriffe($fuelType);
-// Geteilte Fahrzeuge (#53): owner, editor (Mitfahrer) oder viewer (nur ansehen); die API setzt die Rechte durch
-$rolle = (string)($fahrzeug['role'] ?? 'owner');
-$istBesitzer = $rolle === 'owner';
-$darfErfassen = in_array($rolle, ['owner', 'editor'], true);
-$ichId = (string)($_SESSION['user_id'] ?? '');
+include '../includes/fahrzeug_kontext.php';
 ?>
 
 <div class="container mt-lg-3">
@@ -51,11 +38,15 @@ $ichId = (string)($_SESSION['user_id'] ?? '');
          sonst steht die Seite nach dem Laden ein Stück gescrollt, und iOS zeichnet Kopf- und App-Leiste weich (#97) -->
     <div class="tab-content" id="fahrzeugTabsContent">
         <div class="tab-pane fade" id="reiter-allgemein" role="tabpanel"><?php include '../tabs/allgemein.php'; ?></div>
-        <div class="tab-pane fade" id="reiter-eintraege" role="tabpanel"><?php include '../tabs/eintraege.php'; ?></div>
-        <div class="tab-pane fade" id="reiter-statistiken" role="tabpanel"><?php include '../tabs/statistiken.php'; ?></div>
-        <div class="tab-pane fade" id="reiter-ausgaben" role="tabpanel"><?php include '../tabs/ausgaben.php'; ?></div>
-        <div class="tab-pane fade" id="reiter-fahrten" role="tabpanel"><?php include '../tabs/fahrten.php'; ?></div>
-        <div class="tab-pane fade" id="reiter-einstellungen" role="tabpanel"><?php include '../tabs/einstellungen.php'; ?></div>
+        <?php // Die übrigen Reiter lädt die Seite erst beim Öffnen (pages/reiter.php, #160): sonst käme bei vielen
+              // Einträgen alles auf einmal (mehrere MB HTML) ?>
+        <?php foreach (['eintraege', 'statistiken', 'ausgaben', 'fahrten', 'einstellungen'] as $reiterName): ?>
+        <div class="tab-pane fade" id="reiter-<?= $reiterName ?>" role="tabpanel" data-reiter="<?= $reiterName ?>">
+            <div class="reiter-laden text-center text-body-secondary py-5" role="status">
+                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Wird geladen …
+            </div>
+        </div>
+        <?php endforeach; ?>
     </div>
 </div>
 
@@ -63,6 +54,59 @@ $ichId = (string)($_SESSION['user_id'] ?? '');
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   var reiter = document.getElementById('fahrzeugTabs');
+
+  // Reiter nachladen (#160): Inhalt von reiter.php einsetzen und seine Skripte der Reihe nach ausführen
+  // (per innerHTML eingefügte Skripte laufen sonst nicht). Externe Skripte wie Chart.js nur einmal laden.
+  var geladeneSkripte = new Set(Array.prototype.map.call(document.querySelectorAll('script[src]'), function (s) { return s.src.split('?')[0]; }));
+  function skripteAusfuehren(bereich) {
+    var kette = Promise.resolve();
+    Array.prototype.forEach.call(bereich.querySelectorAll('script'), function (alt) {
+      kette = kette.then(function () {
+        var quelle = alt.src ? alt.src.split('?')[0] : '';
+        if (quelle && geladeneSkripte.has(quelle)) { alt.remove(); return; }
+        return new Promise(function (fertig) {
+          var neu = document.createElement('script');
+          Array.prototype.forEach.call(alt.attributes, function (a) { neu.setAttribute(a.name, a.value); });
+          neu.textContent = alt.textContent;
+          if (quelle) {
+            geladeneSkripte.add(quelle);
+            neu.onload = fertig;
+            neu.onerror = fertig;
+          }
+          alt.replaceWith(neu);
+          if (!quelle) fertig();
+        });
+      });
+    });
+    return kette;
+  }
+  function ladeReiter(pane) {
+    if (!pane || !pane.dataset.reiter || pane.dataset.geladen) return;
+    pane.dataset.geladen = '1';
+    var parameter = new URLSearchParams(window.location.search);
+    parameter.set('reiter', pane.dataset.reiter);
+    fetch('reiter.php?' + parameter.toString(), { credentials: 'same-origin', headers: { 'Accept': 'text/html' } })
+      .then(function (antwort) {
+        // Abgemeldet: Seite neu laden, die leitet zur Anmeldung
+        if (antwort.status === 401) { window.location.reload(); throw new Error('abgemeldet'); }
+        if (!antwort.ok) throw new Error('Status ' + antwort.status);
+        return antwort.text();
+      })
+      .then(function (html) {
+        pane.innerHTML = html;
+        return skripteAusfuehren(pane);
+      })
+      .then(function () {
+        if (window.fuelstatDiagrammFarben) window.fuelstatDiagrammFarben();
+        pane.dispatchEvent(new CustomEvent('reiter-geladen', { bubbles: true }));
+      })
+      .catch(function () {
+        delete pane.dataset.geladen;
+        pane.innerHTML = '<div class="alert alert-warning mt-3" role="alert">Dieser Bereich konnte nicht geladen werden. '
+          + '<button type="button" class="btn btn-link alert-link p-0 align-baseline">Erneut versuchen</button></div>';
+        pane.querySelector('button').addEventListener('click', function () { ladeReiter(pane); });
+      });
+  }
 
   function zeige(hash) {
     var link = reiter.querySelector('.nav-link[href="' + hash + '"]') || reiter.querySelector('.nav-link[href="#allgemein"]');
@@ -76,6 +120,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   reiter.querySelectorAll('.nav-link').forEach(function (link) {
+    link.addEventListener('show.bs.tab', function () { ladeReiter(document.querySelector(link.getAttribute('data-bs-target'))); });
     link.addEventListener('click', function (e) {
       e.preventDefault();
       oeffne(link);

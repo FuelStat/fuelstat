@@ -1,6 +1,7 @@
 // Routen: /auth/login, /auth/login/mfa, /auth/mfa/disable, /auth/mfa/enable, /auth/mfa/setup, /auth/password, /auth/refresh, /auth/register, /auth/tokens, /auth/tokens/revoke
 // Aus backend/src/server.js ausgelagert (#110), Inhalt unverändert.
 const express = require('express');
+const { pageOrReply, queryPage, pageOfArray } = require('../lib/pagination');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { randomBytes } = require('crypto');
@@ -354,25 +355,16 @@ router.get('/auth/tokens', auth, async (req, res) => {
       ? String(req.query.userId).trim()
       : null;
 
+  // Seitenweise (#160)
+  const p = pageOrReply(req, res);
+  if (!p) return;
   try {
-    let r;
-    if (userId) {
-      r = await pool.query(
-        `SELECT jti, user_id, revoked_at, reason
-         FROM revoked_tokens
-         WHERE user_id = $1
-         ORDER BY revoked_at DESC`,
-        [userId]
-      );
-    } else {
-      r = await pool.query(
-        `SELECT jti, user_id, revoked_at, reason
-         FROM revoked_tokens
-         ORDER BY revoked_at DESC`
-      );
-    }
-
-    res.json(r.rows);
+    const filter = userId ? 'WHERE user_id = $1' : '';
+    res.json(await queryPage(pool, {
+      sql: `SELECT jti, user_id, revoked_at, reason FROM revoked_tokens ${filter} ORDER BY revoked_at DESC, jti`,
+      countSql: `SELECT COUNT(*)::int AS total FROM revoked_tokens ${filter}`,
+      params: userId ? [userId] : []
+    }, p));
   } catch (e) {
     serverError(res, e);
   }

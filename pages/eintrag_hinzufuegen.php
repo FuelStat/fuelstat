@@ -24,7 +24,8 @@ try {
     // Für die Schätzung des Tachostands (#41): Ø Verbrauch, beim Plug-in-Hybrid zu ungenau
     $schnittVerbrauch = ($vehicle['fuel_type'] ?? '') !== 'phev' ? ($stats['avgConsumption'] ?? null) : null;
     // Bisherige Orte (neueste zuerst) als Vorschläge, beim E-Auto mit dem zuletzt bezahlten kWh-Preis je Ort
-    $fillups = $api->getAllVehicleFillups($fahrzeug_id);
+    // Die neuesten 100 reichen für zuletzt genutzte Orte und Preise (#160)
+    $fillups = $api->getVehicleFillups($fahrzeug_id, 100);
     usort($fillups, fn($a, $b) => strcmp((string)($b['filled_at'] ?? ''), (string)($a['filled_at'] ?? '')));
     foreach ($fillups as $f) {
         $ort = trim((string)($f['station'] ?? ''));

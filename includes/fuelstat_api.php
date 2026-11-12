@@ -56,10 +56,11 @@ class FuelstatApi
     public function getTrip(string $tripId): array { return $this->request('GET', '/trips/' . rawurlencode($tripId)); }
     public function patchTrip(string $tripId, array $data): array { return $this->request('PATCH', '/trips/' . rawurlencode($tripId), $data); }
     public function deleteTrip(string $tripId): void { $this->request('DELETE', '/trips/' . rawurlencode($tripId)); }
+    /** Alle Fahrten (seitenweise geladen, #160) */
     public function getVehicleTrips(string $vehicleId, ?int $jahr = null, ?string $zweck = null): array
     {
         $query = http_build_query(array_filter(['year' => $jahr, 'purpose' => $zweck], fn($v) => $v !== null && $v !== ''));
-        return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/trips' . ($query !== '' ? '?' . $query : ''));
+        return $this->getAllPages('/vehicles/' . rawurlencode($vehicleId) . '/trips' . ($query !== '' ? '?' . $query : ''));
     }
     public function getTripSummary(string $vehicleId, ?int $jahr = null): array
     {
@@ -91,7 +92,7 @@ class FuelstatApi
     public function deleteVehicleInvitation(string $vehicleId, string $invitationId): void { $this->request('DELETE', '/vehicles/' . rawurlencode($vehicleId) . '/invitations/' . rawurlencode($invitationId)); }
     public function patchVehicleMember(string $vehicleId, string $userId, string $role): array { return $this->request('PATCH', '/vehicles/' . rawurlencode($vehicleId) . '/members/' . rawurlencode($userId), ['role' => $role]); }
     public function deleteVehicleMember(string $vehicleId, string $userId): void { $this->request('DELETE', '/vehicles/' . rawurlencode($vehicleId) . '/members/' . rawurlencode($userId)); }
-    public function getInvitations(): array { return $this->request('GET', '/invitations'); }
+    public function getInvitations(): array { return $this->getAllPages('/invitations'); }
     public function postInvitationAnswer(string $invitationId, bool $annehmen): array { return $this->request('POST', '/invitations/' . rawurlencode($invitationId) . '/' . ($annehmen ? 'accept' : 'decline'), []); }
 
     /** E-Mail-Bestätigung (#135): Token aus der Mail einlösen (ohne Anmeldung) bzw. Mail erneut senden */
@@ -107,7 +108,7 @@ class FuelstatApi
     public function postMfaDisable(string $password, string $code): array { return $this->request('POST', '/auth/mfa/disable', ['password' => $password, 'code' => $code]); }
     public function revokeToken(string $token): array { return $this->request('POST', '/auth/tokens/revoke', ['token' => $token, 'reason' => 'logout']); }
     public function revokeAllTokens(string $userId): array { return $this->request('POST', '/auth/users/' . rawurlencode($userId) . '/revoke-all', ['reason' => 'logout_all']); }
-    public function getUsers(): array { return $this->request('GET', '/auth/users'); }
+    public function getUsers(): array { return $this->getAllPages('/auth/users'); }
     public function deleteUser(string $userId): void { $this->request('DELETE', '/auth/users/' . rawurlencode($userId)); }
     public function uploadUserMedia(string $filePath, string $mimeType, string $fileName): array
     {
@@ -127,10 +128,11 @@ class FuelstatApi
 
     /** Kraftstoffsorten und Energiearten (#140), ohne Anmeldung */
     public function getFuels(): array { return $this->request('GET', '/fuels'); }
-    public function getVehicles(): array { return $this->request('GET', '/vehicles'); }
+    /** Alle Fahrzeuge des Kontos (seitenweise geladen, #160) */
+    public function getVehicles(): array { return $this->getAllPages('/vehicles'); }
     public function getVehicle(string $vehicleId): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId)); }
     public function postVehicle(array $data): array { return $this->request('POST', '/vehicles', $data); }
-    public function getVehicleMedia(string $vehicleId): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/media'); }
+    public function getVehicleMedia(string $vehicleId): array { return $this->getAllPages('/vehicles/' . rawurlencode($vehicleId) . '/media'); }
     public function deleteVehicleMedia(string $vehicleId, string $mediaId): void { $this->request('DELETE', '/vehicles/' . rawurlencode($vehicleId) . '/media/' . rawurlencode($mediaId)); }
     public function uploadVehicleMedia(string $vehicleId, string $filePath, string $mimeType, string $fileName): array
     {
@@ -140,7 +142,8 @@ class FuelstatApi
     }
     public function patchVehicle(string $vehicleId, array $data): array { return $this->request('PATCH', '/vehicles/' . rawurlencode($vehicleId), $data); }
     public function deleteVehicle(string $vehicleId): void { $this->request('DELETE', '/vehicles/' . rawurlencode($vehicleId)); }
-    public function getVehicleFillups(string $vehicleId, int $limit = 50): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/fillups?limit=' . $limit); }
+    /** Die neuesten $anzahl Tank-/Ladevorgänge (höchstens 100, eine Seite) */
+    public function getVehicleFillups(string $vehicleId, int $anzahl = 50): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/fillups?per_page=' . $anzahl)['data'] ?? []; }
     public function getFillup(string $fillupId): array { return $this->request('GET', '/fillups/' . rawurlencode($fillupId)); }
     public function postFillup(array $data): array { return $this->request('POST', '/fillups', $data); }
     public function patchFillup(string $fillupId, array $data): array { return $this->request('PATCH', '/fillups/' . rawurlencode($fillupId), $data); }
@@ -150,12 +153,22 @@ class FuelstatApi
     public function getVehicleConsumption(string $vehicleId): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/consumption'); }
     /** Kosten je Fahrzeug (#124): Summen, Kosten pro km, Monate; $jahr = null für den gesamten Zeitraum */
     public function getVehicleCosts(string $vehicleId, ?int $jahr = null): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/costs' . ($jahr !== null ? '?year=' . $jahr : '')); }
-    public function getVehicleEntries(string $vehicleId, int $limit = 50): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/entries?limit=' . $limit); }
+    public function getVehicleEntries(string $vehicleId, int $anzahl = 50): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/entries?per_page=' . $anzahl)['data'] ?? []; }
 
-    /** Alle Tankfüllungen eines Fahrzeugs (seitenweise geladen, ohne 200er-Grenze). */
+    /**
+     * Eine Seite der Eintragsliste (#160): Tank-/Ladevorgänge, Ausgaben und Fahrten gemischt, mit Monatssummen.
+     * @param array $query page, per_page, type (fuel,charge,expense,trip,odometer), year, q
+     */
+    public function getTimeline(string $vehicleId, array $query = []): array
+    {
+        $query = array_filter($query, fn($v) => $v !== null && $v !== '');
+        return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/timeline' . ($query ? '?' . http_build_query($query) : ''));
+    }
+
+    /** Alle Tankfüllungen eines Fahrzeugs (seitenweise geladen). */
     public function getAllVehicleFillups(string $vehicleId): array { return $this->getAllPages('/vehicles/' . rawurlencode($vehicleId) . '/fillups'); }
 
-    /** Alle Ausgaben eines Fahrzeugs (seitenweise geladen, ohne 200er-Grenze). */
+    /** Alle Ausgaben eines Fahrzeugs (seitenweise geladen). */
     public function getAllVehicleEntries(string $vehicleId): array { return $this->getAllPages('/vehicles/' . rawurlencode($vehicleId) . '/entries'); }
 
     /**
@@ -226,15 +239,23 @@ class FuelstatApi
         ];
     }
 
+    /** Pfad der ersten Seite, wie getAllPages() sie abfragt (für vorladen()) */
+    public static function ersteSeite(string $path): string
+    {
+        return $path . (str_contains($path, '?') ? '&' : '?') . 'per_page=100&page=1';
+    }
+
+    /** Alle Einträge einer Liste (#160: { data, pagination }), Seite für Seite zu je 100 */
     private function getAllPages(string $path): array
     {
         $alle = [];
-        $offset = 0;
+        $page = 1;
+        $trenner = str_contains($path, '?') ? '&' : '?';
         do {
-            $seite = $this->request('GET', $path . '?limit=200&offset=' . $offset);
-            $alle = array_merge($alle, $seite);
-            $offset += 200;
-        } while (count($seite) === 200);
+            $antwort = $this->request('GET', $path . $trenner . 'per_page=100&page=' . $page);
+            $alle = array_merge($alle, $antwort['data'] ?? []);
+            $page++;
+        } while (!empty($antwort['pagination']['has_more']) && $page <= 1000);
         return $alle;
     }
     public function postEntry(array $data): array { return $this->request('POST', '/entries', $data); }
@@ -262,7 +283,7 @@ class FuelstatApi
     public function putUserPlan(string $userId, string $plan, ?string $planUntil): array { return $this->request('PUT', '/auth/users/' . rawurlencode($userId) . '/plan', ['plan' => $plan, 'planUntil' => $planUntil]); }
     public function putPlans(array $userIds, string $plan, ?string $planUntil): array { return $this->request('PUT', '/auth/plans', ['userIds' => array_values($userIds), 'plan' => $plan, 'planUntil' => $planUntil]); }
     public function postFeedback(string $category, string $message, ?string $page): array { return $this->request('POST', '/feedback', ['category' => $category, 'message' => $message, 'page' => $page]); }
-    public function getFeedback(): array { return $this->request('GET', '/feedback'); }
+    public function getFeedback(): array { return $this->getAllPages('/feedback'); }
     public function patchFeedback(string $id, bool $done): array { return $this->request('PATCH', '/feedback/' . rawurlencode($id), ['done' => $done]); }
 
     private function request(string $method, string $path, ?array $payload = null, ?array $multipart = null): array

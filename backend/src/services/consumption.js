@@ -20,9 +20,10 @@ const energyCo2 = (energy) => ENERGIES[energy]?.co2 ?? null;
 
 const round = (x, n) => (x === null || x === undefined || !Number.isFinite(x) ? null : Math.round(x * 10 ** n) / 10 ** n);
 
-// Tag "JJJJ-MM-TT" in Europe/Berlin
+// Tag "JJJJ-MM-TT" in Europe/Berlin (Format einmal anlegen, siehe costs.monthOf)
+const TAG_FORMAT = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
 function dayOf(date) {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+  return TAG_FORMAT.format(date);
 }
 
 function rate(amount, km) {

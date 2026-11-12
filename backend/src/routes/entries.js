@@ -1,6 +1,7 @@
 // Routen: /entries, /entries/:entryId, /vehicles/:vehicleId/entries
 // Aus backend/src/server.js ausgelagert (#110), Inhalt unverändert.
 const express = require('express');
+const { pageOrReply, queryPage, pageOfArray } = require('../lib/pagination');
 const categories = require('../services/categories');
 const { pool } = require('../db');
 const { optionalNumber, serverError } = require('../lib/http');
@@ -215,15 +216,19 @@ router.delete('/entries/:entryId', auth, async (req, res) => {
 
 router.get('/vehicles/:vehicleId/entries', auth, async (req, res) => {
   const vehicleId = String(req.params.vehicleId || '').trim();
-  const limit = Math.min(200, Math.max(1, Number(req.query.limit || 50)));
-  const offset = Math.max(0, Math.floor(Number(req.query.offset || 0)) || 0);
+  // Seitenweise (#160)
+  const p = pageOrReply(req, res);
+  if (!p) return;
 
   try {
     // Zugriff (#53): Besitzer und Mitglieder sehen alle Einträge des Fahrzeugs
     if (!(await vehicleRole(pool, req.user.sub, vehicleId))) return res.status(404).json({ error: 'vehicle_not_found' });
 
-    const r = await pool.query(
-      `SELECT
+    // Alte "Fahrt"-Einträge, die ins Fahrtenbuch übernommen wurden (Migration 019, #52), nicht doppelt zeigen
+    const filter = `vehicle_id = $1
+         AND NOT (category = 'Fahrt' AND EXISTS (SELECT 1 FROM trips t WHERE t.legacy_expense_id = expenses.id))`;
+    res.json(await queryPage(pool, {
+      sql: `SELECT
          id,
          user_id,
          vehicle_id,
@@ -237,15 +242,11 @@ router.get('/vehicles/:vehicleId/entries', auth, async (req, res) => {
          user_id AS created_by,
          (SELECT COALESCE(u.username, u.email) FROM users u WHERE u.id = expenses.user_id) AS created_by_name
        FROM expenses
-       WHERE vehicle_id = $1
-         -- Alte "Fahrt"-Einträge, die ins Fahrtenbuch übernommen wurden (Migration 019, #52), nicht doppelt zeigen
-         AND NOT (category = 'Fahrt' AND EXISTS (SELECT 1 FROM trips t WHERE t.legacy_expense_id = expenses.id))
-       ORDER BY occurred_at DESC, created_at DESC
-       LIMIT $2 OFFSET $3`,
-      [vehicleId, limit, offset]
-    );
-
-    res.json(r.rows);
+       WHERE ${filter}
+       ORDER BY occurred_at DESC, created_at DESC, id DESC`,
+      countSql: `SELECT COUNT(*)::int AS total FROM expenses WHERE ${filter}`,
+      params: [vehicleId]
+    }, p));
   } catch (e) {
     serverError(res, e);
   }

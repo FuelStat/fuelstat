@@ -72,6 +72,16 @@
     input.value = <?= json_encode(function_exists('csrfToken') ? csrfToken() : '') ?>;
     form.appendChild(input);
   });
+  // Nachgeladene Inhalte (Reiter der Fahrzeugseite, #160): Token beim Absenden ergänzen
+  document.addEventListener('submit', function (e) {
+    var form = e.target;
+    if (!(form instanceof HTMLFormElement) || (form.getAttribute('method') || '').toLowerCase() !== 'post' || form.querySelector('input[name="csrf_token"]')) return;
+    var input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'csrf_token';
+    input.value = <?= json_encode(function_exists('csrfToken') ? csrfToken() : '') ?>;
+    form.appendChild(input);
+  }, true);
 </script>
 
 <!-- Darkmode-Umschalter und Diagrammfarben -->
@@ -150,6 +160,8 @@
 
     updateIcon();
     applyChartTheme();
+    // Für Diagramme in nachgeladenen Reitern (#160)
+    window.fuelstatDiagrammFarben = applyChartTheme;
   })();
 </script>
 

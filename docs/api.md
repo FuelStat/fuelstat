@@ -10,6 +10,8 @@ Maschinenlesbare Beschreibung: `docs/openapi.1.0.0.yaml`.
 
 Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Admin = nur `ADMIN_USER_IDS`, Selbst/Admin = eigenes Konto oder Admin.
 
+**Listen kommen seitenweise** (#160) als `{ "data": [...], "pagination": {...} }` mit `?page=` und `?per_page=` (Standard 25, höchstens 100), siehe [Listen seitenweise laden](#listen-seitenweise-laden).
+
 | Methode | Pfad | Auth | Zweck |
 |---|---|---|---|
 | GET | `/health` | – | Healthcheck, enthält `version`, `registration_enabled`, `beta_phase` und `terms_version` |
@@ -58,10 +60,11 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | POST | `/trips` | ✓ | Fahrt anlegen |
 | GET · PATCH · DELETE | `/trips/:tripId` | ✓ | Fahrt lesen, ändern, löschen |
 | POST | `/vehicles/:vehicleId/import` | ✓ | Massenimport (CSV) |
-| GET | `/vehicles/:vehicleId/fillups` | ✓ | Tank- und Ladevorgänge (`limit`, `offset`) |
+| GET | `/vehicles/:vehicleId/fillups` | ✓ | Tank- und Ladevorgänge, seitenweise |
 | POST | `/fillups` | ✓ | Tank- bzw. Ladevorgang anlegen |
 | GET · PATCH · DELETE | `/fillups/:fillupId` | ✓ | Lesen, ändern (nur 14 Tage), löschen |
-| GET | `/vehicles/:vehicleId/entries` | ✓ | Ausgaben (`limit`, `offset`); ins Fahrtenbuch übernommene alte Fahrten erscheinen nicht mehr |
+| GET | `/vehicles/:vehicleId/entries` | ✓ | Ausgaben, seitenweise; ins Fahrtenbuch übernommene alte Fahrten erscheinen nicht mehr |
+| GET | `/vehicles/:vehicleId/timeline` | ✓ | Eintragsliste: Tank-/Ladevorgänge, Ausgaben und Fahrten gemischt, seitenweise, mit Filter, Suche und Monatssummen (#160) |
 | POST | `/entries` | ✓ | Ausgabe anlegen |
 | GET · PATCH · DELETE | `/entries/:entryId` | ✓ | Ausgabe lesen, ändern, löschen |
 | GET | `/categories` | ✓ | Kategorien für Ausgaben (fest, Premium, eigene) |
@@ -350,7 +353,7 @@ Authorization: Bearer <jwt>
 
 ### GET /vehicles
 
-Listet alle Fahrzeuge des Users, sortiert nach `sort_order`, danach neueste zuerst. Felder wie bei `POST /vehicles`.
+Listet die Fahrzeuge des Users (eigene zuerst), sortiert nach `sort_order`, danach neueste zuerst; seitenweise wie alle Listen (`{ data, pagination }`). Felder wie bei `POST /vehicles`.
 
 ## Fillups (Auth required)
 
@@ -394,21 +397,22 @@ Authorization: Bearer <jwt>
 * 404: `vehicle_not_found`
 * 500: `server_error`
 
-### GET /vehicles/:vehicleId/fillups?limit=50
+### GET /vehicles/:vehicleId/fillups?page=1&per_page=50
 
-Listet Fillups zu einem Vehicle (nur wenn es dem User gehört).
+Listet die Tank- und Ladevorgänge eines Fahrzeugs (Besitzer und Mitglieder), neueste zuerst.
 
 **Header**
 Authorization: Bearer <jwt>
 
 **Query**
 
-* `limit` optional (default 50, min 1, max 200)
+* `page`, `per_page` optional (Standard 1 und 25, höchstens 100), siehe [Listen seitenweise laden](#listen-seitenweise-laden)
 
 **Response 200**
 
 ```json
-[
+{
+  "data": [
   {
     "id": "<uuid>",
     "odometer_km": 12845,
@@ -423,7 +427,9 @@ Authorization: Bearer <jwt>
     "skip_previous": false,
     "odometer_estimated": false
   }
-]
+  ],
+  "pagination": { "current_page": 1, "per_page": 50, "total": 148, "total_pages": 3, "has_more": true }
+}
 ```
 
 **Errors**
@@ -598,7 +604,29 @@ Fremde oder ungültige IDs liefern 404 `entry_not_found`.
 
 ## Listen seitenweise laden
 
-`GET /vehicles/:vehicleId/fillups` und `GET /vehicles/:vehicleId/entries` akzeptieren neben `limit` (max. 200) auch `offset`. Das PHP-Frontend lädt so alle Einträge.
+Alle Endpunkte, die eine Liste von Datensätzen liefern, kommen seitenweise (#160) – auch ohne Angabe:
+
+```json
+{
+  "data": [ ... ],
+  "pagination": { "current_page": 1, "per_page": 25, "total": 148, "total_pages": 6, "has_more": true }
+}
+```
+
+* `page` (ab 1, Standard 1) und `per_page` (Standard 25, höchstens 100; mehr wird begrenzt, `pagination.per_page` nennt die tatsächliche Größe). `limit` ist ein Alias für `per_page`. Ungültige Werte: 400 `invalid_page` bzw. `invalid_per_page`.
+* Die Reihenfolge ist eindeutig (zuletzt nach `id`), damit beim Blättern nichts doppelt kommt oder fehlt. Hinter der letzten Seite kommt `data: []` mit der Gesamtzahl.
+* Betroffen: `GET /vehicles`, `/vehicles/:id/fillups`, `/vehicles/:id/entries`, `/vehicles/:id/trips`, `/vehicles/:id/timeline`, `/vehicles/:id/media`, `/media`, `/invitations`, `/auth/tokens`, `/auth/users`, `/feedback`.
+* Nicht betroffen (keine Liste von Datensätzen bzw. berechnet und kurz): Einzelabrufe, `/stats`, `/consumption`, `/costs`, `/reminders`, `/categories`, `/vehicles/:id/members`, `/stations`, `/charging-stations`, `/trips/summary`, Plan-Verlauf.
+
+### GET /vehicles/:vehicleId/timeline
+
+Die **Eintragsliste** eines Fahrzeugs: Tank-/Ladevorgänge, Ausgaben und Fahrten gemischt, neueste zuerst – damit Clients für die Liste nicht alle Einträge laden und selbst zusammenführen.
+
+* Query: `page`, `per_page`, `type` (kommagetrennt: `fuel`, `charge`, `expense`, `trip`, `odometer`), `year` (Europe/Berlin), `q` (Suche in Ort, Beschreibung, Kategorie, Start und Ziel; `%` und `_` gelten wörtlich)
+* `data[]`: `type` (`fillup`, `entry`, `trip` – zum Bearbeiten über den jeweiligen Endpunkt), `kind`, `id`, `at`, `category`, `cost`, `countsAsCost`, `amount`, `unit`, `fuel`, `odometer_km`, `odometer_estimated`, `is_full`, `skip_previous`, `place`, `description`, Fahrten zusätzlich `purpose`, `distance_km`, `start_place`, `end_place`; `consumption` (Verbrauch pro 100 km des Abschnitts, den eine volle Füllung abschließt; `null` bei nebenbei getankten Energiearten, #140); `created_by`, `created_by_name`
+* `months`: Summen der Monate auf dieser Seite – über den **ganzen** Monat und mit denselben Filtern (`{ month, count, total }`; Fahrten und km-Notizen zählen nicht als Kosten)
+* `years`, `kinds`: Jahre und Anzahl je Art **ohne** Filter, für Jahresauswahl und Filter-Chips
+* Fehler: 400 `invalid_type`, `invalid_year`, `invalid_page`, `invalid_per_page`; 404 `vehicle_not_found`
 
 ## Passwort und 2FA (Auth required)
 

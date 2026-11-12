@@ -568,15 +568,23 @@ paths:
           schema:
             type: string
             format: uuid
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/RevokedToken"
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RevokedToken"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
               example:
                 - jti: "e253e319-17ae-4378-b68e-b07784cd4f39"
                   user_id: "46c597e1-0f50-4bd7-a02b-088c91842c76"
@@ -630,15 +638,24 @@ paths:
       summary: Get Users (list)
       operationId: getUsers
       description: "Nur für Admins (ADMIN_USER_IDS)."
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/User"
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/User"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
               example:
                 - id: "97f6407a-b317-4715-ae74-f03885125c88"
                   email: "mario@test.local"
@@ -1048,6 +1065,9 @@ paths:
       tags: [Vehicles]
       summary: Get Vehicles (list)
       operationId: getVehicles
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
       responses:
         "200":
           description: OK
@@ -1282,15 +1302,24 @@ paths:
       tags: [Sharing]
       summary: Open invitations to the own (confirmed) e-mail address
       operationId: getInvitations
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/IncomingInvitation"
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/IncomingInvitation"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -1379,8 +1408,8 @@ paths:
       operationId: getVehicleFillups
       parameters:
         - $ref: "#/components/parameters/VehicleId"
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
       responses:
         "200":
           description: OK
@@ -1538,8 +1567,8 @@ paths:
       operationId: getVehicleEntries
       parameters:
         - $ref: "#/components/parameters/VehicleId"
-        - $ref: "#/components/parameters/Limit"
-        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
       responses:
         "200":
           description: OK
@@ -1783,6 +1812,55 @@ paths:
         "404":
           description: trip_not_found
 
+  /api/v1/vehicles/{vehicleId}/timeline:
+    get:
+      tags: [Entries]
+      summary: Entry list of a vehicle – fill-ups, expenses and trips mixed, paginated (#160)
+      description: >
+        Neueste zuerst (Zeitpunkt, dann Erfassung, dann id). Filter nach Art, Jahr (Europe/Berlin) und Suchtext (Ort,
+        Beschreibung, Kategorie, Start und Ziel; % und _ gelten wörtlich). months enthält die Summen der Monate auf
+        dieser Seite – über den ganzen Monat, mit denselben Filtern. years und kinds gelten ohne Filter (für
+        Jahresauswahl und Filter-Chips).
+      operationId: getVehicleTimeline
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - { name: type, in: query, required: false, description: "Kommagetrennt: fuel, charge, expense, trip, odometer", schema: { type: string, example: "fuel,charge" } }
+        - { name: year, in: query, required: false, schema: { type: integer, minimum: 1900, maximum: 2100 } }
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 100 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TimelineItem"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+                  months:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        month: { type: string, example: "2026-01" }
+                        count: { type: integer }
+                        total: { type: number, description: "Kosten (ohne Fahrten und km-Notizen)" }
+                  years: { type: array, items: { type: integer } }
+                  kinds:
+                    type: object
+                    description: "Anzahl je Art, z. B. { fuel: 120, charge: 880 }"
+                    additionalProperties: { type: integer }
+        "400":
+          description: invalid_page | invalid_per_page | invalid_type | invalid_year
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/vehicles/{vehicleId}/trips:
     get:
       tags: [Trips]
@@ -1792,17 +1870,23 @@ paths:
         - $ref: "#/components/parameters/VehicleId"
         - { name: year, in: query, required: false, schema: { type: integer, minimum: 1900, maximum: 2100 }, description: "Jahr in Europe/Berlin" }
         - { name: purpose, in: query, required: false, schema: { type: string, enum: [private, business, commute] } }
-        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500, default: 500 } }
-        - $ref: "#/components/parameters/Offset"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Trip"
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Trip"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
         "400":
           description: invalid_year | invalid_purpose
         "404":
@@ -2317,15 +2401,24 @@ paths:
       tags: [Media]
       summary: List own uploaded images
       operationId: listUserMedia
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Media"
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Media"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -2394,15 +2487,23 @@ paths:
       operationId: listVehicleMedia
       parameters:
         - $ref: "#/components/parameters/VehicleId"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Media"
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Media"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -2478,9 +2579,12 @@ paths:
       tags: [Feedback]
       summary: List feedback (admin only, open first)
       operationId: getFeedback
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
       responses:
         "200":
-          description: "Liste mit id, category, message, page, user_agent, done, created_at, user_email, username, beta_tester"
+          description: "Eine Seite (#160): data mit id, category, message, page, user_agent, done, created_at, user_email, username, beta_tester; pagination"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -2547,24 +2651,25 @@ components:
       schema:
         type: string
         format: uuid
-    Limit:
-      name: limit
+    Page:
+      name: page
       in: query
       required: false
+      description: Seite, ab 1 (#160). Hinter der letzten Seite kommt eine leere Liste mit der Gesamtzahl.
       schema:
         type: integer
         minimum: 1
-        maximum: 200
-        default: 50
-    Offset:
-      name: offset
+        default: 1
+    PerPage:
+      name: per_page
       in: query
       required: false
-      description: Anzahl zu überspringender Einträge (für seitenweises Laden)
+      description: "Einträge je Seite (#160); limit ist ein Alias. Mehr als 100 werden auf 100 begrenzt."
       schema:
         type: integer
-        minimum: 0
-        default: 0
+        minimum: 1
+        maximum: 100
+        default: 25
     EntryId:
       name: entryId
       in: path
@@ -3342,10 +3447,57 @@ components:
           format: date-time
       required: [id, name, fuel_type]
 
+    Pagination:
+      type: object
+      description: Angaben zur Seite (#160)
+      required: [current_page, per_page, total, total_pages, has_more]
+      properties:
+        current_page: { type: integer, example: 1 }
+        per_page: { type: integer, example: 25 }
+        total: { type: integer, example: 148 }
+        total_pages: { type: integer, example: 6 }
+        has_more: { type: boolean, example: true }
+
+    TimelineItem:
+      type: object
+      description: Zeile der Eintragsliste (#160) – Tank-/Ladevorgang, Ausgabe oder Fahrt
+      properties:
+        type: { type: string, enum: [fillup, entry, trip], description: "Quelle: /fillups, /entries bzw. /trips (zum Bearbeiten)" }
+        kind: { type: string, enum: [fuel, charge, expense, trip, odometer] }
+        id: { type: string, format: uuid }
+        at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        category: { type: string, description: "Kategorie-Schlüssel; Tank-/Ladevorgänge Tankfuellung, Fahrten Fahrt" }
+        cost: { type: number, nullable: true }
+        countsAsCost: { type: boolean, description: "zählt bei den Kosten (nicht Fahrt und Kilometerstand)" }
+        amount: { type: number, nullable: true, description: Menge (nur Tank-/Ladevorgänge) }
+        unit: { type: string, nullable: true, enum: [l, kwh, kg, null] }
+        fuel: { type: string, nullable: true, description: Sorte (#140) }
+        odometer_km: { type: integer, nullable: true, description: "Tachostand (Fahrten: am Ende)" }
+        odometer_estimated: { type: boolean }
+        is_full: { type: boolean, nullable: true }
+        skip_previous: { type: boolean, nullable: true }
+        place: { type: string, nullable: true, description: Tankstelle bzw. Anbieter }
+        description: { type: string, nullable: true, description: "Beschreibung bzw. Notiz der Fahrt" }
+        purpose: { type: string, nullable: true, enum: [private, business, commute, null] }
+        distance_km: { type: number, nullable: true }
+        start_place: { type: string, nullable: true }
+        end_place: { type: string, nullable: true }
+        consumption: { type: number, nullable: true, description: "Verbrauch pro 100 km des Abschnitts, den diese volle Füllung abschließt; null bei nebenbei getankten Energiearten" }
+        created_by: { type: string, format: uuid }
+        created_by_name: { type: string, nullable: true }
+
     VehicleListResponse:
-      type: array
-      items:
-        $ref: "#/components/schemas/Vehicle"
+      description: Eine Seite (#160)
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Vehicle"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
 
     FillupUnit:
       type: string
@@ -3508,9 +3660,16 @@ components:
       required: [id, vehicle_id, odometer_km, unit, amount, total_cost_eur, filled_at, created_at, is_full, skip_previous]
 
     FillupListResponse:
-      type: array
-      items:
-        $ref: "#/components/schemas/Fillup"
+      description: Eine Seite (#160)
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Fillup"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
 
     VehicleStatsSegment:
       type: object
@@ -3805,9 +3964,16 @@ components:
         monthlyReport: { type: boolean }
 
     EntryListResponse:
-      type: array
-      items:
-        $ref: "#/components/schemas/Entry"
+      description: Eine Seite (#160)
+      type: object
+      required: [data, pagination]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Entry"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
 
     RevokeTokenRequest:
       type: object

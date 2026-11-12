@@ -287,7 +287,7 @@ test('Verbrauch (#82): Einträge ohne bzw. mit geschätztem Tachostand, Nachtrag
   assert.ok(nah(l.years[0].cost, 240));
 
   // 5. Nachtragen teilt den Abschnitt wieder auf
-  const ohne = (await api('GET', `/vehicles/${v}/fillups`, { token: u.token })).body.find((f) => f.odometer_km === null);
+  const ohne = (await api('GET', `/vehicles/${v}/fillups`, { token: u.token })).body.data.find((f) => f.odometer_km === null);
   assert.equal((await api('PATCH', `/fillups/${ohne.id}`, { token: u.token, body: { odometerKm: 1450 } })).status, 200);
   l = (await verbrauchVon(u.token, v)).byUnit.l;
   assert.deepEqual(l.segments.map((s) => s.date), ['2025-03-10', '2025-03-20']);
@@ -537,7 +537,7 @@ test('Import: Probelauf, Duplikate, Warnungen', async () => {
   assert.deepEqual(probe.body.duplicates, [{ type: 'fillup', index: 0 }]);
   // Der Ausreißer (Zeile 2) macht auch den Vorgänger verdächtig: dieselbe Logik wie im Formular
   assert.deepEqual(probe.body.warnings.map((w) => [w.type, w.index, w.code]), [['fillup', 1, 'higher_than_next'], ['fillup', 2, 'lower_than_previous']]);
-  assert.equal((await api('GET', `/vehicles/${v}/fillups`, { token: u.token })).body.length, 1, 'Probelauf schreibt nichts');
+  assert.equal((await api('GET', `/vehicles/${v}/fillups`, { token: u.token })).body.data.length, 1, 'Probelauf schreibt nichts');
 
   const echt = await api('POST', `/vehicles/${v}/import`, { token: u.token, body: daten });
   assert.equal(echt.status, 201);

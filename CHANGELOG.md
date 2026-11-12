@@ -6,6 +6,8 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-12
+
 ### Neu
 - **Mehrere Kraftstoffe je Fahrzeug** (#140): Unter „Antriebsart“ → „Erweitert“ wählst du, was ein Fahrzeug tankt bzw. lädt, z. B. Benzin und Autogas, Diesel und Premium-Diesel oder E5 und E10; einer davon ist der Standard. Beim Tanken wählst du die Sorte (bei nur einer Sorte bleibt alles wie bisher), die Tankstellensuche zeigt den Preis dieser Sorte. Verbrauch wird je Energieart gerechnet – E5, E10 und Super Plus zusammen als Benzin, Benzin und Autogas getrennt –, nur nebenbei getanktes Benzin beim Autogas-Auto zählt nicht als eigener Verbrauch. Die Statistik zeigt Preise je Sorte und den Mehrpreis von Premium-Sorten. Bestehende Fahrzeuge und Einträge bekommen ihre Sorte automatisch. CSV-Export und -Import mit Spalte „Sorte“.
 
@@ -167,7 +169,8 @@ Erste Version mit Versionsnummer: alles, was Fuelstat bis zu diesem Stand kann.
 - Einmalig vorhandene Bilder umstellen: `sudo docker compose exec api node scripts/bilder-optimieren.js`
 - nginx: `/uploads/` sperren, `FUELSTAT_API_BASE_URL` direkt auf `127.0.0.1:3000` setzen (`docs/installation.md`)
 
-[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/FuelStat/fuelstat/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/FuelStat/fuelstat/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/FuelStat/fuelstat/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/FuelStat/fuelstat/compare/v0.9.0...v0.9.1

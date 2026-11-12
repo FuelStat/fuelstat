@@ -161,7 +161,7 @@ $zeigeListe = function () use ($zeigeMonate, $eintraege, $weitere, $jahr, $filte
     <?php else: ?>
       <p class="visually-hidden" aria-live="polite"><?= (int)($liste['pagination']['total'] ?? 0) ?> Einträge</p>
       <div class="eintrag-monate"><?php $zeigeMonate(); ?></div>
-      <div class="text-center mb-4">
+      <div class="liste-mehr">
         <button type="button" class="btn btn-secondary" id="mehrEintraege" <?= $weitere ? '' : 'hidden' ?>>Weitere Einträge anzeigen</button>
       </div>
     <?php endif;

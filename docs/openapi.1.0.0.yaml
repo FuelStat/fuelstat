@@ -425,7 +425,15 @@ paths:
       operationId: postAuthRefresh
       responses:
         "200":
-          description: "OK ({ token })"
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  token: { type: string }
+                required: [token]
         "400":
           description: "use_session_refresh: Token einer Gerätesitzung (Apps verlängern über POST /auth/session/refresh)"
         "401":
@@ -2055,6 +2063,49 @@ paths:
       responses:
         "200":
           description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [groups, categories, custom]
+                properties:
+                  groups:
+                    type: array
+                    items:
+                      type: object
+                      required: [key, name, icon, color]
+                      properties:
+                        key: { type: string }
+                        name: { type: string }
+                        icon: { type: string }
+                        color: { type: string }
+                  categories:
+                    type: array
+                    items:
+                      type: object
+                      required: [key, name, icon, color, group, form, countsAsCost, plan, custom, selectable, available]
+                      properties:
+                        key: { type: string, description: "Schlüssel für category in /entries" }
+                        name: { type: string }
+                        icon: { type: string }
+                        color: { type: string }
+                        group: { type: string }
+                        form: { type: string, description: "fillup, expense, odometer oder trip" }
+                        countsAsCost: { type: boolean }
+                        plan: { type: string }
+                        custom: { type: boolean }
+                        selectable: { type: boolean }
+                        available: { type: boolean }
+                  custom:
+                    type: object
+                    required: [max, used, canCreate]
+                    properties:
+                      max: { type: integer, nullable: true }
+                      used: { type: integer }
+                      canCreate: { type: boolean }
+                      icons: { type: array, items: { type: string } }
+                      colors: { type: array, items: { type: string } }
+                      nameMaxLength: { type: integer }
         "304":
           description: Not Modified (If-None-Match)
         "401":
@@ -2679,7 +2730,17 @@ paths:
               required: [category, message]
       responses:
         "201":
-          description: "Gespeichert ({ id, saved: true, mailed })"
+          description: Gespeichert
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [id, saved, mailed]
+                properties:
+                  id: { type: string, format: uuid }
+                  saved: { type: boolean }
+                  mailed: { type: boolean, description: Benachrichtigung an den Betreiber verschickt }
         "400":
           description: invalid_category | invalid_message | invalid_page
         "401":
@@ -3035,7 +3096,26 @@ components:
           type: string
           nullable: true
           description: Gültige Fassung der Nutzungsbedingungen (TERMS_VERSION, #135); null = keine Zustimmung nötig
-      required: [status, timestamp, service, version]
+        apps:
+          type: object
+          additionalProperties: false
+          description: >
+            Mindest- und empfohlene App-Version je Plattform (#118). minimum_version: ältere Apps verstehen die API
+            nicht mehr und bekommen auf jede Anfrage (außer /health) 426 app_update_required, wenn sie den Header
+            X-Fuelstat-Client schicken. recommended_version: nutzt alle Funktionen dieser API-Version (Hinweis „Update
+            verfügbar“). null = keine Vorgabe.
+          properties:
+            ios: { $ref: "#/components/schemas/AppVersionInfo" }
+            android: { $ref: "#/components/schemas/AppVersionInfo" }
+      required: [status, timestamp, service, version, apps]
+
+    AppVersionInfo:
+      type: object
+      additionalProperties: false
+      properties:
+        minimum_version: { type: string, nullable: true, example: "0.2.0" }
+        recommended_version: { type: string, nullable: true, example: "0.3.0" }
+      required: [minimum_version, recommended_version]
 
     DbPingResponse:
       type: object

@@ -9,6 +9,8 @@ const media = require('./services/media');
 const { CORS_ORIGINS } = require('./config');
 const { apiLimiter } = require('./middleware/rateLimits');
 const { uploadErrorHandler } = require('./middleware/upload');
+const { bodyErrorHandler, notFound } = require('./middleware/errors');
+const { requireSupportedApp } = require('./lib/appVersions');
 
 const app = express();
 
@@ -27,7 +29,7 @@ app.use((req, res, next) => {
   if (!origin || !CORS_ORIGINS.includes(origin)) return next();
   res.set({
     'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Fuelstat-Client',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE',
     Vary: 'Origin'
   });
@@ -35,6 +37,8 @@ app.use((req, res, next) => {
 });
 // 2 MB erlaubt größere CSV-Importe (Frontend sendet max. 500 Zeilen pro Anfrage)
 app.use(express.json({ limit: '2mb' }));
+// Zu alte App-Versionen (Header X-Fuelstat-Client) bekommen 426 app_update_required (#118)
+app.use(requireSupportedApp());
 
 // Bildadressen in allen Antworten signieren (#103): intern "/uploads/<datei>", nach außen "/api/v1/files/<datei>?exp=…&sig=…"
 app.use((req, res, next) => {
@@ -63,6 +67,8 @@ app.use('/api/v1', require('./routes/stations')); // Tankstellen und Ladestation
 app.use('/api/v1', require('./routes/media')); // Profil- und Fahrzeugbilder
 app.use('/api/v1', require('./routes/feedback'));
 
+app.use(bodyErrorHandler);
 app.use(uploadErrorHandler);
+app.use(notFound);
 
 module.exports = { app };

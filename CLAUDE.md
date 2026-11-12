@@ -18,7 +18,7 @@ nichts vergessen wird:
 API-Änderungen, die Apps anpassen müssen). Die geplanten Versionen sind die Milestones.
 
 1. **Laufend:** Jeder PR mit sichtbarer Änderung trägt sie in `CHANGELOG.md` unter
-   `## [Unreleased]` ein (Kategorien: Neu, Verbessert, Behoben, Sicherheit, Technik; dazu
+   `## [Unreleased]` ein (Kategorien: Neu, Verbessert, Behoben, Sicherheit, Abgekündigt, Technik; dazu
    „Hinweise zum Update“, wenn beim Ausrollen etwas zu tun ist).
 2. **Release vorbereiten** in einem eigenen PR:
 
@@ -70,7 +70,8 @@ Vor dem PR prüfen und am Ende einer Aufgabe daran erinnern, was davon fehlt:
 - **Neue oder geänderte API-Endpunkte:** `docs/api.md` (Übersichtstabelle und eigener Abschnitt)
   und `docs/openapi.1.0.0.yaml` angepasst (neue Felder auch in den Schemas, die `additionalProperties: false`
   haben); unter `/api/v1` abwärtskompatibel (Ausnahme während der Beta siehe Regeln). Die CI prüft mit `tests/openapi_abgleich.py`, dass jede Route
-  in der OpenAPI steht.
+  in der OpenAPI steht. Endpunkte, die Apps nutzen, stehen im Vertragstest `backend/test/contract.test.js`
+  (prüft Antworten gegen die OpenAPI); Regeln und Mindest-App-Version siehe `docs/api.md` („API-Vertrag“).
 - **Datenbankschema:** neue Migration `backend/database/postgres_0NN_name.sql` (in einer
   Transaktion, mehrfach ausführbar: `IF NOT EXISTS` u. Ä.), dieselbe Änderung in
   `postgres_init.sql` für Neuinstallationen, Zeile in der Migrationstabelle in `docs/betrieb.md`

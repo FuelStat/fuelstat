@@ -14,7 +14,7 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 
 | Methode | Pfad | Auth | Zweck |
 |---|---|---|---|
-| GET | `/health` | – | Healthcheck, enthält `version`, `registration_enabled`, `beta_phase` und `terms_version` |
+| GET | `/health` | – | Healthcheck, enthält `version`, `registration_enabled`, `beta_phase`, `terms_version` und `apps` (Mindest-App-Version, #118) |
 | GET | `/db-ping` | – | Datenbank erreichbar? |
 | GET | `/whoami` | ✓ | Eigenes Konto inkl. `is_admin`, `beta_tester`, Tarif und Rechte, `email_verified`, `pending_invitations`, `terms` |
 | POST | `/auth/register` | – | Konto anlegen, liefert Token |
@@ -280,9 +280,19 @@ Healthcheck, ohne Auth.
 {
   "status": "healthy",
   "timestamp": "2025-12-23T09:00:00.000Z",
-  "service": "fuelstat-api-v2"
+  "service": "fuelstat-api-v2",
+  "version": "0.12.0",
+  "registration_enabled": true,
+  "beta_phase": true,
+  "terms_version": "2026-11-09",
+  "apps": {
+    "ios": { "minimum_version": null, "recommended_version": null },
+    "android": { "minimum_version": null, "recommended_version": null }
+  }
 }
 ```
+
+`apps` siehe [Mindest-App-Version](#mindest-app-version).
 
 ### GET /db-ping
 
@@ -805,13 +815,57 @@ Ladestationen im Umkreis von [Open Charge Map](https://openchargemap.org) (Lizen
 
 Fehler: 400 `invalid_coordinates` bzw. `invalid_radius`, 429 `too_many_requests`, 502 `charging_stations_unavailable` (Open Charge Map nicht erreichbar), 503 `charging_stations_not_configured` (kein Key gesetzt).
 
-## Common error format
+## API-Vertrag (#118)
+
+Ab der ersten App-Version laufen Clients bei Nutzern, die nicht sofort aktualisieren. `/api/v1` ist deshalb ein Versprechen.
+
+**Erlaubt unter `/api/v1`** (abwärtskompatibel):
+
+* neue Endpunkte, neue Felder in Antworten, neue optionale Parameter und Felder in Anfragen
+* neue Fehlercodes; Clients behandeln unbekannte Codes wie einen allgemeinen Fehler und zeigen `message`, falls vorhanden
+* neue Werte in Aufzählungen, wo die Doku es ankündigt (z. B. Kategorien, Sorten); Clients zeigen Unbekanntes neutral an
+
+**Nicht erlaubt** – nur über eine neue Version (`/api/v2`), die `/api/v1` eine Weile parallel weiterlaufen lässt:
+
+* Felder oder Endpunkte entfernen oder umbenennen, Typen ändern (z. B. Zahl ↔ Text), optionale Felder zu Pflichtfeldern machen
+* die Bedeutung eines Felds oder Statuscodes ändern
+
+**Pflichten der Clients:** unbekannte Felder ignorieren, mit `null` bei als `nullable` beschriebenen Feldern rechnen, Listen über `pagination.has_more` blättern statt Längen anzunehmen.
+
+**Während der Beta (bis 1.0.0)** dürfen veraltete Felder und Endpunkte entfallen, wenn Web-App und iOS-App sie nicht mehr nutzen oder im selben Zug angepasst werden. Dann wird die **Mindest-App-Version** angehoben (siehe unten), und das CHANGELOG nennt es unter „Hinweise zum Update“.
+
+**Prüfung:** `backend/test/contract.test.js` spielt den Ablauf der App durch (Registrieren, Anmelden mit Gerät, Fahrzeug, Einträge, Statistik, Listen …) und prüft jede Antwort gegen `docs/openapi.1.0.0.yaml`. Wer einen Endpunkt ändert, den Apps nutzen, ergänzt ihn dort. `tests/openapi_abgleich.py` stellt sicher, dass jede Route in der OpenAPI steht.
+
+### Fehlerformat
+
+Jede Fehlerantwort (Status 400–599) ist JSON mit einem festen Code in `error`, je nach Fehler mit weiteren Feldern:
 
 ```json
-{ "error": "some_error_code" }
+{ "error": "plan_required", "message": "…", "feature": "maxVehicles", "limit": 1, "plan": "free" }
 ```
 
-Interne Fehler (500) enthalten keine Details mehr; sie stehen nur im Log der API.
+* `error`: fester Schlüssel für Clients (englisch, `snake_case`); er ändert sich nicht.
+* `message`: lesbarer Hinweis auf Deutsch, wo vorhanden – zum Anzeigen, nicht zum Auswerten.
+* `detail`: technischer Zusatz, wo vorhanden.
+* Allgemein: 400 `invalid_json` (Anfragekörper kein JSON), 413 `payload_too_large`, 401 `missing_token` / `invalid_token` / `token_revoked` / `session_revoked`, 404 `not_found` (auch unbekannte Pfade), 426 `app_update_required`, 429 `too_many_requests` bzw. `too_many_attempts`, 500 `server_error` (ohne Details, die stehen nur im Log der API).
+
+### Mindest-App-Version
+
+Apps schicken bei jeder Anfrage `X-Fuelstat-Client: ios/0.2.0` (Plattform `ios` oder `android`, Version `x.y.z`, optional dahinter die Build-Nummer). `GET /health` liefert je Plattform:
+
+```json
+{ "apps": { "ios": { "minimum_version": "0.2.0", "recommended_version": "0.3.0" }, "android": { "minimum_version": null, "recommended_version": null } } }
+```
+
+* `minimum_version`: Ältere Apps verstehen diese API nicht mehr. Sie bekommen auf jede Anfrage außer `/health` 426 `app_update_required` (mit `minimum_version` und `recommended_version`) und sollten zum Update auffordern.
+* `recommended_version`: Diese App-Version nutzt alle Funktionen dieser API-Version. Ältere Apps funktionieren, können aber auf ein Update hinweisen.
+* `null`: keine Vorgabe. Die Werte stehen im Code (`backend/src/lib/appVersions.js`), weil die API ihre Brüche kennt; sie werden mit dem Release angehoben, das ältere Apps bricht.
+
+### Abkündigen (Deprecation)
+
+1. Feld oder Endpunkt in der OpenAPI mit `deprecated: true` und in dieser Doku als „veraltet“ markieren, mit dem Ersatz.
+2. Im CHANGELOG unter **Abgekündigt** eintragen, mit der Version, ab der es entfallen darf.
+3. Entfernen frühestens, wenn Web-App und aktuelle App es nicht mehr nutzen und die Mindest-App-Version das abdeckt – während der Beta im nächsten Minor-Release, ab 1.0.0 erst mit `/api/v2`.
 
 ## Quick curl examples
 

@@ -6,6 +6,8 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-11-13
+
 ### Neu
 - **Push-Benachrichtigungen** (#136): Termine, „Kilometerstand nachtragen“ und den Monatsbericht gibt es jetzt auch als Push-Benachrichtigung der installierten Web-App – auf Android, am Computer und auf dem iPhone/iPad ab iOS 16.4 (dort nach „Zum Home-Bildschirm“). Unter „Benachrichtigungen“ wählst du je Anlass E-Mail, Push oder beides, aktivierst Push auf dem Gerät mit einem Klick und schickst eine Testnachricht. Ein Tipp auf die Nachricht öffnet die passende Seite; anstehende Termine zeigt das App-Symbol als Zahl.
 - **Hinweis „Lange kein Eintrag“** (#136): Wurde für ein Fahrzeug 30 Tage nichts erfasst, kommt auf Wunsch eine Erinnerung per E-Mail oder Push.
@@ -213,7 +215,8 @@ Erste Version mit Versionsnummer: alles, was Fuelstat bis zu diesem Stand kann.
 - Einmalig vorhandene Bilder umstellen: `sudo docker compose exec api node scripts/bilder-optimieren.js`
 - nginx: `/uploads/` sperren, `FUELSTAT_API_BASE_URL` direkt auf `127.0.0.1:3000` setzen (`docs/installation.md`)
 
-[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v0.12.1...HEAD
+[0.12.1]: https://github.com/FuelStat/fuelstat/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/FuelStat/fuelstat/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/FuelStat/fuelstat/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/FuelStat/fuelstat/compare/v0.9.1...v0.10.0

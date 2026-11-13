@@ -262,6 +262,23 @@ CREATE TABLE IF NOT EXISTS push_devices (
 
 CREATE INDEX IF NOT EXISTS idx_push_devices_user ON push_devices(user_id);
 
+-- Passkeys (WebAuthn, #2, Migration 024): nur der öffentliche Schlüssel wird gespeichert
+CREATE TABLE IF NOT EXISTS user_passkeys (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  credential_id text NOT NULL UNIQUE,
+  public_key bytea NOT NULL,
+  counter bigint NOT NULL DEFAULT 0,
+  transports text[] NOT NULL DEFAULT '{}',
+  device_type text NULL,
+  backed_up boolean NOT NULL DEFAULT false,
+  name text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  last_used_at timestamptz NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_passkeys_user ON user_passkeys(user_id);
+
 -- Feedback der Benutzer (bleibt beim Löschen des Kontos erhalten)
 CREATE TABLE IF NOT EXISTS feedback (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

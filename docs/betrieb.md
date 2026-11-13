@@ -102,7 +102,7 @@ Hinweis: Das PHP-Frontend liegt im Repository und nutzt den neuen Code schon ab 
 
 ## Datenbank-Migrationen
 
-Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält bereits alles bis einschließlich 023. Bestehende Installationen spielen alle noch fehlenden Migrationen der Reihe nach ein.
+Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält bereits alles bis einschließlich 024. Bestehende Installationen spielen alle noch fehlenden Migrationen der Reihe nach ein.
 
 Migrationen werden entfernt, sobald alle bekannten Installationen sie eingespielt haben (während der Beta: tanken.1emc.de). Zuletzt entfernt: 002 bis 020, enthalten in `postgres_init.sql`. Eine Installation vor Version 0.11.0 lässt sich deshalb nicht mehr direkt aktualisieren; sie spielt zuerst Version 0.11.0 ein (`sudo infra/ausrollen.sh 0.11.0`, die Migrationen stehen im Tag).
 
@@ -111,6 +111,7 @@ Migrationen werden entfernt, sobald alle bekannten Installationen sie eingespiel
 | `postgres_021_fuels.sql` | Mehrere Kraftstoffe je Fahrzeug: Sorten am Fahrzeug und je Tank-/Ladevorgang, Bestandsdaten aus Antriebsart und Einheit (#140) |
 | `postgres_022_device_sessions.sql` | Gerätesitzungen der Apps: Refresh-Tokens je Gerät (nur als Hash), Geräteliste (#117) |
 | `postgres_023_push.sql` | Push-Benachrichtigungen: Geräte (`push_devices`), Kanäle je Anlass, Versandprotokoll für Push (#136) |
+| `postgres_024_passkeys.sql` | Passkeys (WebAuthn): öffentliche Schlüssel je Benutzer (`user_passkeys`, #2) |
 
 Alle Migrationen laufen in einer Transaktion und lassen sich gefahrlos ein zweites Mal ausführen. Mit `infra/ausrollen.sh` passiert das automatisch; von Hand wie unter [Aktualisieren](#von-hand-oder-ohne-registry), Schritt 4, z. B. `< ../backend/database/postgres_021_fuels.sql`.
 

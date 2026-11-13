@@ -14,12 +14,18 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 
 | Methode | Pfad | Auth | Zweck |
 |---|---|---|---|
-| GET | `/health` | – | Healthcheck, enthält `version`, `registration_enabled`, `beta_phase`, `terms_version` und `apps` (Mindest-App-Version, #118) |
+| GET | `/health` | – | Healthcheck, enthält `version`, `registration_enabled`, `beta_phase`, `terms_version`, `apps` (Mindest-App-Version, #118) und `passkeys_enabled` (#2) |
 | GET | `/db-ping` | – | Datenbank erreichbar? |
 | GET | `/whoami` | ✓ | Eigenes Konto inkl. `is_admin`, `beta_tester`, Tarif und Rechte, `email_verified`, `pending_invitations`, `terms` |
 | POST | `/auth/register` | – | Konto anlegen, liefert Token |
 | POST | `/auth/login` | – | Anmelden (bei 2FA: `mfa_required` + `mfaToken`) |
 | POST | `/auth/login/mfa` | – | Zweiter Schritt mit 2FA-Code |
+| POST | `/auth/passkeys/login/options` | – | Anmelden mit Passkey, Schritt 1: WebAuthn-Optionen (#2) |
+| POST | `/auth/passkeys/login` | – | Anmelden mit Passkey, Schritt 2: liefert Token wie `/auth/login` |
+| GET | `/auth/passkeys` | ✓ | Eigene Passkeys |
+| POST | `/auth/passkeys/register/options` | ✓ | Passkey anlegen, Schritt 1 (aktuelles Passwort nötig) |
+| POST | `/auth/passkeys/register` | ✓ | Passkey anlegen, Schritt 2 |
+| PATCH · DELETE | `/auth/passkeys/:passkeyId` | ✓ | Passkey umbenennen bzw. entfernen |
 | POST | `/auth/verify-email` | – | E-Mail-Adresse mit dem Token aus der Mail bestätigen (#135) |
 | POST | `/auth/resend-verification` | ✓ | Bestätigungsmail erneut senden |
 | POST | `/auth/accept-terms` | ✓ | Nutzungsbedingungen zustimmen (`version`) |
@@ -295,11 +301,12 @@ Healthcheck, ohne Auth.
   "apps": {
     "ios": { "minimum_version": "0.2.0", "recommended_version": "0.2.0" },
     "android": { "minimum_version": null, "recommended_version": null }
-  }
+  },
+  "passkeys_enabled": true
 }
 ```
 
-`apps` siehe [Mindest-App-Version](#mindest-app-version).
+`apps` siehe [Mindest-App-Version](#mindest-app-version), `passkeys_enabled` siehe [Passkeys](#passkeys-2).
 
 ### GET /db-ping
 
@@ -680,6 +687,26 @@ Bei aktivem 2FA antwortet `POST /auth/login` ohne `code` mit 401 `{ "error": "mf
 **Registrierung:** Mit `REGISTRATION_ENABLED=false` antwortet `POST /auth/register` mit 403 `registration_disabled`. TOTP: 30 Sekunden, 6 Stellen, SHA1 (kompatibel mit Google Authenticator, Aegis, 1Password usw.).
 
 `GET /whoami` liefert zusätzlich `is_admin`.
+
+## Passkeys (#2)
+
+Anmelden mit Face ID, Fingerabdruck, Windows Hello oder Sicherheitsschlüssel (WebAuthn) – ohne E-Mail, Passwort und 2FA-Code. Die API speichert nur den öffentlichen Schlüssel; Nutzerprüfung am Gerät ist Pflicht, deshalb ersetzt ein Passkey Passwort **und** 2FA. Das Passwort bleibt als Rückfallweg. Ein externer Dienst ist nicht beteiligt (`@simplewebauthn/server`).
+
+**Einrichtung:** Ein Passkey gehört zu einer Domain (Relying Party ID). Standard ist der Host aus `APP_URL`, erlaubte Herkunft dessen Origin. Abweichend `WEBAUTHN_RP_ID` und `WEBAUTHN_ORIGINS` (kommagetrennt) in `infra/.env`. Nur über HTTPS (Ausnahme `http://localhost`), keine IP-Adressen. Ohne gültige Angaben ist `passkeys_enabled` in `/health` `false`, und alle Passkey-Endpunkte antworten mit 400 `passkeys_not_configured`. **Ändert sich die Domain, funktionieren vorhandene Passkeys nicht mehr.**
+
+**Anlegen** (angemeldet):
+
+1. `POST /auth/passkeys/register/options` `{ "currentPassword" }` → `{ "options", "challengeId" }`. `options` ist `PublicKeyCredentialCreationOptionsJSON` für `navigator.credentials.create()` (auffindbarer Passkey, `userVerification: required`, bereits eingerichtete Passkeys in `excludeCredentials`). Das Passwort ist nötig, damit ein entwendetes Token allein keinen dauerhaften Zugang schafft. Fehler: 401 `invalid_current_password`, 409 `too_many_passkeys` (höchstens 20), 429 `too_many_attempts`.
+2. `POST /auth/passkeys/register` `{ "challengeId", "response", "name" }` → 201 Passkey. `response` ist `RegistrationResponseJSON` (z. B. `PublicKeyCredential.toJSON()`). Ohne `name` heißt er „Passkey N“. Fehler: 400 `invalid_challenge` (unbekannt, abgelaufen oder schon verwendet; 5 Minuten gültig), `invalid_passkey_response`, 409 `passkey_exists`.
+
+**Anmelden** (öffentlich):
+
+1. `POST /auth/passkeys/login/options` → `{ "options", "challengeId" }` für `navigator.credentials.get()`, ohne `allowCredentials`: Der Browser bietet alle Passkeys für diese Domain an. Für Autofill im E-Mail-Feld (`autocomplete="username webauthn"`) mit `mediation: "conditional"`.
+2. `POST /auth/passkeys/login` `{ "challengeId", "response", "device" }` → wie `POST /auth/login` (`token`, `user`; mit `device` aus einer App zusätzlich Gerätesitzung, #117). Fehler: 400 `invalid_challenge`, 401 `unknown_passkey` (auf dem Server gelöscht), 401 `invalid_passkey_response`. Fehlversuche zählen wie beim Login je IP-Adresse (429 nach 50).
+
+**Verwalten:** `GET /auth/passkeys` (seitenweise; `id`, `name`, `device_type`, `backed_up` = synchronisiert, `transports`, `created_at`, `last_used_at`; kein Schlüssel), `PATCH /auth/passkeys/:passkeyId` `{ "name" }`, `DELETE /auth/passkeys/:passkeyId` (204). Fehler: 404 `passkey_not_found`, 400 `invalid_name`.
+
+**Apps:** Native Passkeys auf iOS brauchen Associated Domains (`webcredentials:`), also das kostenpflichtige Apple-Programm; bis dahin nutzt die iOS-App Passwort und 2FA.
 
 ## Tachostand-Prüfung
 

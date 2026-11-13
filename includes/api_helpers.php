@@ -67,6 +67,26 @@ function nutzungsbedingungenVersion(): ?string
     return $wert;
 }
 
+/**
+ * Geht auf diesem Server die Anmeldung mit Passkey (#2)? (passkeys_enabled aus /health, 10 Minuten zwischengespeichert)
+ */
+function passkeysAktiv(): bool
+{
+    $cache = $_SESSION['passkeys_cache'] ?? null;
+    if (is_array($cache) && $cache['bis'] > time()) {
+        return $cache['wert'];
+    }
+    try {
+        $wert = (getApiClient(null)->getHealth()['passkeys_enabled'] ?? false) === true;
+    } catch (Throwable $e) {
+        return false;
+    }
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        $_SESSION['passkeys_cache'] = ['wert' => $wert, 'bis' => time() + 600];
+    }
+    return $wert;
+}
+
 /** "Stand" der Nutzungsbedingungen: Version im Format JJJJ-MM-TT als Datum, sonst die Version selbst */
 function nutzungsbedingungenStand(?string $version): string
 {

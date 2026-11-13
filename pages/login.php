@@ -23,6 +23,8 @@ if (isset($_GET['abbrechen'])) {
     $pending = null;
 }
 $show_mfa_form = $pending !== null;
+// Anmelden mit Passkey (#2), wenn die API es kann (HTTPS-Adresse eingerichtet)
+$passkeys = passkeysAktiv();
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -147,7 +149,7 @@ try {
                             <label for="email" class="form-label">E-Mail</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fas fa-envelope"></i></span>
-                                <input type="email" class="form-control" id="email" name="email" autocomplete="username"
+                                <input type="email" class="form-control" id="email" name="email" autocomplete="<?= $passkeys ? 'username webauthn' : 'username' ?>"
                                        placeholder="name@example.de" required>
                             </div>
                         </div>
@@ -166,6 +168,18 @@ try {
                             </button>
                         </div>
                     </form>
+                    <?php if ($passkeys): ?>
+                    <?php // Passkey (#2): erscheint per Skript nur, wenn der Browser WebAuthn kann ?>
+                    <div id="passkeyLogin" class="d-none mt-3" data-csrf="<?= htmlspecialchars(csrfToken()) ?>">
+                        <div class="d-flex align-items-center gap-2 my-3 fs-label" aria-hidden="true"><hr class="flex-grow-1 my-0">oder<hr class="flex-grow-1 my-0"></div>
+                        <div class="d-grid">
+                            <button type="button" id="passkeyAnmelden" class="btn btn-outline-primary">
+                                <i class="fas fa-fingerprint me-2" aria-hidden="true"></i>Mit Passkey anmelden
+                            </button>
+                        </div>
+                        <div id="passkeyMeldung" class="alert alert-danger mt-3 mb-0 d-none" role="alert"></div>
+                    </div>
+                    <?php endif; ?>
                     <?php endif; ?>
 
                     <div class="text-center mt-4">
@@ -196,4 +210,8 @@ document.querySelectorAll('form[method="post"]').forEach(form => {
     });
 });
 </script>
+<?php if ($passkeys && !$show_mfa_form): ?>
+<script src="<?= htmlspecialchars(assetUrl($baseUrl, 'vendor/simplewebauthn/simplewebauthn-browser.umd.min.js')) ?>"></script>
+<script src="<?= htmlspecialchars(assetUrl($baseUrl, 'js/passkey.js')) ?>"></script>
+<?php endif; ?>
 <?php include '../includes/footer.php'; ?>

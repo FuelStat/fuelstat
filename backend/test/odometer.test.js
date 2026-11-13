@@ -40,6 +40,14 @@ test('ohne Tachostand (#41) wird nichts geprüft', () => {
   assert.deepEqual(odometerWarnings(punkte, { date: '2026-02-15', km: null }), []);
 });
 
-test('Einträge am selben Tag zählen weder als früher noch als später', () => {
-  assert.deepEqual(odometerWarnings(punkte, { date: '2026-02-01', km: 10900 }), []);
+test('Einträge am selben Tag werden nach Uhrzeit verglichen', () => {
+  // Gleicher Zeitpunkt: der vorhandene Eintrag gilt als früher (der neue wird danach erfasst)
+  assert.deepEqual(codes(odometerWarnings(punkte, { date: '2026-02-01', km: 10900 })), ['lower_than_previous']);
+  // Morgens 12.000 km, abends 11.500 km: Warnung
+  const tag = [{ date: '2026-05-10', at: '2026-05-10T07:00:00Z', km: 12000 }];
+  assert.deepEqual(codes(odometerWarnings(tag, { date: '2026-05-10T18:00:00Z', km: 11500 })), ['lower_than_previous']);
+  // Nachgetragen für morgens, abends schon 12.000 km: höher als der spätere Eintrag
+  const abends = [{ date: '2026-05-10', at: '2026-05-10T18:00:00Z', km: 12000 }];
+  assert.deepEqual(codes(odometerWarnings(abends, { date: '2026-05-10T07:00:00Z', km: 12100 })), ['higher_than_next']);
+  assert.deepEqual(odometerWarnings(abends, { date: '2026-05-10T07:00:00Z', km: 11900 }), []);
 });

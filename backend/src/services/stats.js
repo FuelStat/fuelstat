@@ -1,4 +1,5 @@
 // backend/src/services/stats.js
+const { currentOdometer } = require('./odometer');
 const { canAccessVehicle } = require('./vehicleAccess');
 const { energySql, vehicleFuels, energyOf, unitOf, ENERGIES, ENERGY_ORDER, MINOR_SHARE } = require('./fuels');
 
@@ -62,18 +63,13 @@ async function getVehicleStats(pool, userId, vehicleId) {
 
   // Geschätzte Tachostände (#41) sind nur Platzhalter und zählen nirgends mit
   const odo = await pool.query(
-    // Aktueller Tachostand: höchster echter Wert aus Tank-/Ladevorgängen und Ausgaben (inkl. "km notieren", #42)
-    `SELECT GREATEST(
-              MAX(odometer_km) FILTER (WHERE NOT odometer_estimated),
-              (SELECT MAX(odometer_km) FROM expenses WHERE vehicle_id=$1),
-              (SELECT MAX(odometer_end) FROM trips WHERE vehicle_id=$1)
-            ) AS max_odo,
-            COUNT(*) FILTER (WHERE odometer_km IS NULL OR odometer_estimated)::int AS missing,
+    `SELECT COUNT(*) FILTER (WHERE odometer_km IS NULL OR odometer_estimated)::int AS missing,
             MIN(odometer_km) FILTER (WHERE NOT odometer_estimated) AS first_odo
      FROM fillups WHERE vehicle_id=$1`,
     [vehicleId]
   );
-  const currentOdo = odo.rows[0]?.max_odo ?? null;
+  // Aktueller Tachostand: jüngster echter Wert, nicht der höchste (services/odometer.js)
+  const currentOdo = await currentOdometer(pool, vehicleId);
   const missingOdometer = odo.rows[0]?.missing ?? 0;
 
   // Fahrleistung (#82): seit Anschaffung (Tachostand beim Anlegen), sonst seit dem ersten echten Tachostand

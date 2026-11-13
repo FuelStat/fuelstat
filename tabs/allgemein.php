@@ -9,9 +9,6 @@ $avgPrice = $stats['avgPricePerLiter'] ?? null;
 $fahrleistung = getFahrleistungFromApi($stats);
 $faelligkeiten = getFaelligkeitenFromApi($api, $fahrzeug_id);
 
-$letzterReifen = getLetzterEintragApi($api, $fahrzeug_id, 'Reifen');
-$letzteWartung = getLetzterEintragApi($api, $fahrzeug_id, 'Wartung');
-$letzterTUV = getLetzterEintragApi($api, $fahrzeug_id, 'TUV');
 
 $fuel_type = $fahrzeug['fuel_type'] ?? $fahrzeug['kraftstoff'] ?? '';
 $kraftstoffTexte = getKraftstoffOptionen();
@@ -32,10 +29,17 @@ $fahrzeugDetails = array_filter([
 $verbrauchJeEinheit = count($stats['units'] ?? []) > 1 ? $stats['units'] : [];
 uksort($verbrauchJeEinheit, fn($a, $b) => array_search($a, ['l', 'kwh', 'kg']) <=> array_search($b, ['l', 'kwh', 'kg']));
 
-// Termine: dringendste zuerst, danach Reifen (ohne Fälligkeit)
+// Termine: dringendste zuerst, Reifen (nur Info, ohne Fälligkeit) zuletzt; alles aus /reminders (API-first)
 $statusReihenfolge = ['ueberfaellig' => 0, 'bald' => 1, 'ok' => 2, 'unbekannt' => 3];
-usort($faelligkeiten, fn($a, $b) => [$statusReihenfolge[$a['status']] ?? 9, $a['tage'] ?? PHP_INT_MAX] <=> [$statusReihenfolge[$b['status']] ?? 9, $b['tage'] ?? PHP_INT_MAX]);
-$letzteEintraege = ['Wartung' => $letzteWartung, 'TUV' => $letzterTUV];
+usort($faelligkeiten, fn($a, $b) => [$a['art'] === 'info', $statusReihenfolge[$a['status']] ?? 9, $a['tage'] ?? PHP_INT_MAX] <=> [$b['art'] === 'info', $statusReihenfolge[$b['status']] ?? 9, $b['tage'] ?? PHP_INT_MAX]);
+// Tachostand und Beschreibung des letzten Eintrags, z. B. „zuletzt 12.03.2026 bei 61.200 km · Ölwechsel“
+$zuletzt = function (array $f, string $wort = 'zuletzt'): string {
+    $teile = [$wort . ' ' . date('d.m.Y', strtotime($f['letzte'])) . (!empty($f['letzte_km']) ? ' bei ' . number_format((int)$f['letzte_km'], 0, ',', '.') . ' km' : '')];
+    if (!empty($f['letzte_beschreibung'])) {
+        $teile[] = $f['letzte_beschreibung'];
+    }
+    return htmlspecialchars(implode(' · ', $teile));
+};
 // Kachel "Ø Verbrauch": Durchschnitt über alle Abschnitte, darunter der letzte Abschnitt im Vergleich dazu
 $schnitt = $stats['avgConsumption'] ?? null;
 $aktuell = $trend['current'] ?? null;
@@ -139,7 +143,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                 <?php endif; ?>
             </div>
 
-            <!-- Termine: Fälligkeiten und letzte Wartung, TÜV und Reifen in einer Karte -->
+            <!-- Termine: Fälligkeiten und letzter Reifenwechsel aus /reminders in einer Karte -->
             <div class="card mt-3" id="termine">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h2 class="mb-0">Nächste Termine</h2>
@@ -153,18 +157,23 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                         $text = isset($f['tage']) && !empty($f['faellig_datum'])
                             ? terminAbstand((int)$f['tage'])
                             : (['ueberfaellig' => 'überfällig', 'bald' => 'bald fällig', 'ok' => 'in Ordnung'][$f['status']] ?? 'Datum fehlt');
-                        $letzter = $letzteEintraege[$f['kategorie']] ?? null;
+                        $info = $f['art'] === 'info';
                     ?>
                     <li class="list-group-item termin-zeile">
                         <?= symbolKreis(getCategoryIcon($f['kategorie']), 'var(--fs-brand)') ?>
                         <div class="termin-text">
                             <div class="fs-headline"><?= htmlspecialchars($f['titel']) ?></div>
                             <div class="fs-label">
-                                <?php if ($f['faellig_datum']): ?>
+                                <?php if ($info): ?>
+                                    <?php if (!empty($f['letzte'])): ?>
+                                        <?= $zuletzt($f, 'letzter Wechsel am') ?>
+                                    <?php else: ?>
+                                        <a class="tipp-link" href="<?= htmlspecialchars($eintragUrl) ?>&kategorie=<?= urlencode($f['kategorie']) ?>">Reifenwechsel erfassen</a>
+                                    <?php endif; ?>
+                                <?php elseif ($f['faellig_datum']): ?>
                                     fällig am <?= date('d.m.Y', strtotime($f['faellig_datum'])) ?><?php if ($f['faellig_km']): ?> oder bei <?= number_format($f['faellig_km'], 0, ',', '.') ?> km<?php endif; ?>
                                     <?php if (!empty($f['letzte'])): ?>
-                                        <br>zuletzt <?= date('d.m.Y', strtotime($f['letzte'])) ?><?php if ($letzter && !empty($letzter['tachostand'])): ?> bei <?= number_format((int)$letzter['tachostand'], 0, ',', '.') ?> km<?php endif; ?>
-                                        <?php if ($letzter && !empty($letzter['beschreibung'])): ?> · <?= htmlspecialchars($letzter['beschreibung']) ?><?php endif; ?>
+                                        <br><?= $zuletzt($f) ?>
                                     <?php elseif (($f['quelle'] ?? null) === 'erstzulassung'): ?>
                                         <br>berechnet aus der Erstzulassung
                                     <?php elseif (($f['quelle'] ?? null) === 'faelligkeitsmonat'): ?>
@@ -175,23 +184,9 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                                 <?php endif; ?>
                             </div>
                         </div>
-                        <?= statusBadge((string)$f['status'], $text, 'ms-auto') ?>
+                        <?php if (!$info): ?><?= statusBadge((string)$f['status'], $text, 'ms-auto') ?><?php endif; ?>
                     </li>
                     <?php endforeach; ?>
-                    <li class="list-group-item d-flex align-items-center gap-3">
-                        <?= symbolKreis(getCategoryIcon('Reifen'), 'var(--fs-brand)') ?>
-                        <div class="flex-grow-1 min-w-0">
-                            <div class="fs-headline"><?= getKategorieName('Reifen') ?></div>
-                            <div class="fs-label">
-                                <?php if ($letzterReifen): ?>
-                                    letzter Wechsel am <?= date('d.m.Y', strtotime($letzterReifen['datum'])) ?><?php if (!empty($letzterReifen['tachostand'])): ?> bei <?= number_format((int)$letzterReifen['tachostand'], 0, ',', '.') ?> km<?php endif; ?>
-                                    <?php if (!empty($letzterReifen['beschreibung'])): ?> · <?= htmlspecialchars($letzterReifen['beschreibung']) ?><?php endif; ?>
-                                <?php else: ?>
-                                    <a class="tipp-link" href="<?= htmlspecialchars($eintragUrl) ?>&kategorie=Reifen">Reifenwechsel erfassen</a>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </li>
                 </ul>
             </div>
 

@@ -6,6 +6,19 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+### Behoben
+- **Tachostand-Prüfung** (#170): Zwei Einträge am selben Tag werden jetzt verglichen, z. B. morgens 12.000 km und abends 11.500 km ergibt eine Warnung. Der aktuelle Tachostand ist der jüngste Wert statt des höchsten; ein Tippfehler nach oben bleibt nicht mehr dauerhaft stehen und verfälscht Fahrleistung und km-Fälligkeiten nicht mehr.
+- **TÜV aus der Erstzulassung** (#171): Ohne TÜV-Eintrag wird nur der erste TÜV (36 Monate nach Erstzulassung) berechnet, solange er bevorsteht. Bei älteren Fahrzeugen heißt es jetzt „Letzten Termin erfassen“ statt eines geratenen Datums.
+
+### Verbessert
+- **Reifen unter „Nächste Termine“** (#172): Der letzte Reifenwechsel kommt jetzt aus der API (`/reminders`, Zeile `Reifen`), ebenso Tachostand und Beschreibung des letzten Termins. Die Fahrzeugseite lädt dafür nicht mehr alle Ausgaben dreimal.
+
+### Technik
+- **Mindestversion der iOS-App 0.2.0** (#118): `/health` meldet für iOS `minimum_version` und `recommended_version` 0.2.0. Ältere App-Versionen (0.1.x) verstehen die Listen in Seiten (#160) nicht und bekommen 426 `app_update_required`.
+
+### Hinweise zum Update
+- Erst ausrollen, wenn die iOS-App 0.2.0 auf allen genutzten Geräten installiert ist: App-Versionen darunter erhalten danach nur noch „Update nötig“.
+
 ## [0.12.1] - 2026-11-13
 
 ### Neu

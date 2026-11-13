@@ -247,28 +247,6 @@ function getFahrleistungFromApi(array $stats): ?array
     return ['km' => (int)$d['km'], 'basis' => ($d['since'] ?? '') === 'purchase' ? 'seit Anschaffung' : 'seit dem ersten Eintrag'];
 }
 
-/**
- * Letzten Eintrag einer Kategorie für ein Fahrzeug (aus API Entries).
- */
-function getLetzterEintragApi($api, string $vehicleId, string $category): ?array
-{
-    try {
-        $entries = $api->getAllVehicleEntries($vehicleId);
-        foreach ($entries as $e) {
-            if (isset($e['category']) && strcasecmp($e['category'], $category) === 0) {
-                return [
-                    'datum' => $e['occurred_at'] ?? '',
-                    'tachostand' => $e['odometer_km'] ?? null,
-                    'kosten' => $e['amount_eur'] ?? 0,
-                    'beschreibung' => $e['description'] ?? '',
-                ];
-            }
-        }
-    } catch (Throwable $e) {
-    }
-    return null;
-}
-
 /** Tachostand vorhanden und nicht nur geschätzt (#41)? */
 function hatEchtenTachostand(array $row): bool
 {
@@ -597,6 +575,9 @@ function getFaelligkeitenFromApi($api, string $vehicleId): array
         'status' => $r['status'],
         'tage' => $r['days'],
         'quelle' => $r['source'] ?? null, // eintrag | erstzulassung | faelligkeitsmonat (#45)
+        'art' => $r['kind'] ?? 'due', // due: Termin mit Fälligkeit, info: nur letzter Eintrag (Reifen)
+        'letzte_km' => $r['last_odometer_km'] ?? null,
+        'letzte_beschreibung' => $r['last_description'] ?? null,
     ], $liste);
 }
 

@@ -205,7 +205,9 @@ Ohne Standard-Mailserver (siehe E-Mail-Benachrichtigungen) oder mit `EMAIL_VERIF
 
 `POST /auth/forgot-password` `{ "email" }` antwortet **immer** sofort mit 202 `{ "accepted": true }` – auch wenn es kein Konto mit dieser Adresse gibt, damit weder Antwort noch Antwortzeit Konten verraten. Gibt es das Konto, geht eine Mail mit einem Link an die Konto-Adresse (`{APP_URL}/pages/passwort_zuruecksetzen.php?token=…`, ohne `APP_URL` nur der Code). Der Link gilt eine Stunde und nur einmal; ein neuer Link entwertet den alten; in der Datenbank liegt nur der Hash. Höchstens 3 Mails je Konto und Stunde, 10 Anfragen je IP in 15 Minuten. Ohne Standard-Mailserver: 503 `mail_not_configured`.
 
-`POST /auth/reset-password` `{ "token", "password" }` setzt das neue Passwort (mindestens 8 Zeichen), meldet auf **allen Geräten** ab (bisherige Tokens: 401) und bestätigt die E-Mail-Adresse, weil der Link das Postfach beweist. Eine aktive 2FA bleibt aktiv. Fehler: 400 `invalid_token`, `token_expired`, `password_too_short`.
+`POST /auth/reset-password` `{ "token", "password" }` setzt das neue Passwort (mindestens 8 Zeichen), meldet das betroffene Konto auf **allen Geräten** ab (bisherige Tokens: 401) und bestätigt die E-Mail-Adresse, weil der Link das Postfach beweist. Eine aktive 2FA bleibt aktiv. Antwort `{ "reset": true, "email": "…" }` – `email` ist das zurückgesetzte Konto, damit Web und App es mit dem angemeldeten vergleichen können (eine Sitzung eines anderen Kontos bleibt bestehen, #175). Fehler: 400 `invalid_token`, `token_expired`, `password_too_short`.
+
+**Links in Mails aus der App (#175):** Kommt die auslösende Anfrage (`/auth/register`, `/auth/resend-verification`, `/auth/forgot-password`, E-Mail-Änderung über `PATCH /auth/users/:id`) mit dem Header `X-Fuelstat-Client` aus einer App, bekommt der `https://`-Link in der Mail zusätzlich `&quelle=app`. Die Web-Seite bietet dann auf iPhone/iPad „Zurück zur Fuelstat-App“ (`fuelstat://email-bestaetigt?server=…`) bzw. „In der Fuelstat-App fortsetzen“ (`fuelstat://reset-password?token=…&server=…`) an; ohne `quelle=app` bleibt alles wie im Web.
 
 ## Nutzungsbedingungen (#135)
 

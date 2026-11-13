@@ -1,8 +1,11 @@
 <?php
-// Neues Passwort festlegen (#141): Link aus der Mail (?token=…) oder Code von Hand. Danach ist man auf allen Geräten
-// abgemeldet und meldet sich mit dem neuen Passwort an (bei aktiver 2FA weiterhin mit Code).
+// Neues Passwort festlegen (#141): Link aus der Mail (?token=…) oder Code von Hand. Danach ist das betroffene Konto auf
+// allen Geräten abgemeldet und meldet sich mit dem neuen Passwort an (bei aktiver 2FA weiterhin mit Code).
+// Ist in diesem Browser ein anderes Konto angemeldet, bleibt es angemeldet (#175). Kommt der Link aus einer Mail, die
+// die iOS-App ausgelöst hat (quelle=app), gibt es auf iPhone/iPad zusätzlich „In der Fuelstat-App fortsetzen“.
 include '../includes/session.php';
 require_once __DIR__ . '/../includes/api_helpers.php';
+require_once __DIR__ . '/../includes/basis_url.php';
 
 $token = trim((string)($_POST['token'] ?? $_GET['token'] ?? ''));
 $fehler = '';
@@ -17,11 +20,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $fehler = 'Die Passwörter stimmen nicht überein.';
     } else {
         try {
-            getApiClient(null)->postResetPassword($token, $neu);
-            // Eine bestehende Sitzung in diesem Browser gehört zu einem jetzt widerrufenen Token
-            clearApiToken();
-            $_SESSION['success_message'] = 'Dein Passwort ist geändert. Du wurdest auf allen Geräten abgemeldet – bitte melde dich neu an.';
-            header('Location: login.php');
+            $r = getApiClient(null)->postResetPassword($token, $neu);
+            $konto = (string)($r['email'] ?? '');
+            // Eine Sitzung in diesem Browser endet nur, wenn sie zum zurückgesetzten Konto gehört (die API hat dessen
+            // Tokens widerrufen: /whoami antwortet 401). Ein anderes Konto bleibt angemeldet (#175).
+            $bleibt = null;
+            if (isApiAuthenticated()) {
+                try {
+                    $bleibt = (string)(getApiClient()->getWhoAmI()['email'] ?? '');
+                } catch (FuelstatApiException $e) {
+                    if ($e->getCode() === 401) {
+                        clearApiToken();
+                    } else {
+                        $bleibt = '';
+                    }
+                }
+            }
+            if ($bleibt !== null) {
+                $_SESSION['success_message'] = 'Das Passwort' . ($konto !== '' ? ' für ' . $konto : '') . ' ist geändert; dieses Konto wurde auf allen Geräten abgemeldet.'
+                    . ($bleibt !== '' ? ' Du bleibst hier als ' . $bleibt . ' angemeldet.' : '');
+                header('Location: ../index.php');
+            } else {
+                $_SESSION['success_message'] = 'Dein Passwort' . ($konto !== '' ? ' für ' . $konto : '') . ' ist geändert. Du wurdest auf allen Geräten abgemeldet – bitte melde dich neu an.';
+                header('Location: login.php');
+            }
             exit;
         } catch (Throwable $e) {
             $fehler = [
@@ -43,6 +65,12 @@ include '../includes/header.php';
         <?php if ($fehler): ?>
           <div class="alert alert-danger" role="alert"><?= htmlspecialchars($fehler) ?>
             <?php if (str_contains($fehler, 'neuen an')): ?><a href="passwort_vergessen.php" class="alert-link">Neuen Link anfordern</a><?php endif; ?>
+          </div>
+        <?php endif; ?>
+        <?php if (isset($_GET['token']) && $_GET['token'] !== '' && ($knopf = appKnopf('reset-password', 'In der Fuelstat-App fortsetzen', ['token' => $token])) !== ''): ?>
+          <div class="mb-3">
+            <?= $knopf ?>
+            <p class="fs-label mt-2 mb-0 d-none" data-nur-ios>Oder hier im Browser ein neues Passwort festlegen:</p>
           </div>
         <?php endif; ?>
         <form method="post">

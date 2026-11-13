@@ -16,9 +16,11 @@ const MIN_PASSWORD = 8;
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hashToken = (token) => crypto.createHash('sha256').update(String(token)).digest('hex');
 
-function resetMail(token, appUrl = process.env.APP_URL) {
+// app: Anfrage kam aus einer App (Header X-Fuelstat-Client, #175). Der Link bleibt https, bekommt aber quelle=app,
+// damit die Seite auf iPhone/iPad „In der Fuelstat-App fortsetzen“ anbieten kann.
+function resetMail(token, appUrl = process.env.APP_URL, { app = false } = {}) {
   const base = appUrl ? String(appUrl).replace(/\/+$/, '') : null;
-  const link = base ? `${base}/pages/passwort_zuruecksetzen.php?token=${encodeURIComponent(token)}` : null;
+  const link = base ? `${base}/pages/passwort_zuruecksetzen.php?token=${encodeURIComponent(token)}${app ? '&quelle=app' : ''}` : null;
   const subject = 'Fuelstat: Passwort zurücksetzen';
   const weg = link
     ? `Neues Passwort festlegen (gültig ${TOKEN_MINUTES} Minuten):\n${link}`
@@ -37,7 +39,7 @@ function resetMail(token, appUrl = process.env.APP_URL) {
  * Link anfordern. Liefert immer dasselbe Ergebnis nach außen; intern 'sent', 'unknown', 'limited' (für Tests/Logs).
  * @throws Error mit code 'mail_not_configured', wenn kein Standard-Mailserver eingerichtet ist
  */
-async function requestReset(db, email, { sender = sendUserMail } = {}) {
+async function requestReset(db, email, { sender = sendUserMail, app = false } = {}) {
   const defaults = await loadDefaultSmtp(db);
   if (!defaults) {
     const e = new Error('mail_not_configured');
@@ -60,13 +62,13 @@ async function requestReset(db, email, { sender = sendUserMail } = {}) {
     `INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($1, $2, now() + make_interval(mins => $3))`,
     [userId, hashToken(token), TOKEN_MINUTES]
   );
-  await sender(withDefaultSmtp({ user_id: userId, account_email: u.rows[0].email }, defaults), resetMail(token));
+  await sender(withDefaultSmtp({ user_id: userId, account_email: u.rows[0].email }, defaults), resetMail(token, undefined, { app }));
   return 'sent';
 }
 
 /**
  * Neues Passwort setzen.
- * @returns {{ userId } | { error: 'invalid_token' | 'token_expired' | 'password_too_short' }}
+ * @returns {{ userId, email } | { error: 'invalid_token' | 'token_expired' | 'password_too_short' }}
  */
 async function resetPassword(pool, token, password) {
   const t = String(token || '').trim();
@@ -91,15 +93,15 @@ async function resetPassword(pool, token, password) {
     }
     const hash = await bcrypt.hash(pw, 12);
     await client.query('UPDATE password_resets SET used_at = now() WHERE user_id = $1 AND used_at IS NULL', [row.user_id]);
-    await client.query(
+    const u = await client.query(
       `UPDATE users SET password_hash = $2, email_verified_at = COALESCE(email_verified_at, now()), updated_at = now()
-        WHERE id = $1`,
+        WHERE id = $1 RETURNING email`,
       [row.user_id, hash]
     );
     // Auf allen Geräten abmelden: wer das alte Passwort kannte, soll mit alten Tokens nichts mehr anfangen können
     await revokeAllForUser(client, row.user_id, 'password_reset');
     await client.query('COMMIT');
-    return { userId: row.user_id };
+    return { userId: row.user_id, email: u.rows[0].email };
   } catch (e) {
     await client.query('ROLLBACK').catch(() => {});
     throw e;

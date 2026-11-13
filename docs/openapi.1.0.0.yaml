@@ -382,7 +382,16 @@ paths:
               required: [token, password]
       responses:
         "200":
-          description: "OK ({ reset: true })"
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [reset, email]
+                properties:
+                  reset: { type: boolean }
+                  email: { type: string, format: email, description: "Konto, dessen Passwort geändert wurde (#175) – zum Vergleich mit dem angemeldeten Konto" }
         "400":
           description: invalid_token (falsch oder schon benutzt) | token_expired | password_too_short
 

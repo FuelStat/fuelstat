@@ -16,6 +16,7 @@ const passwordReset = require('../services/passwordReset');
 const { loadDefaultSmtp } = require('../services/mail');
 const { passwordResetLimiter } = require('../middleware/rateLimits');
 const deviceSessions = require('../services/deviceSessions');
+const { fromApp } = require('../lib/appVersions');
 
 const router = express.Router();
 
@@ -77,7 +78,7 @@ router.post('/auth/register', async (req, res) => {
     if (bestaetigen) {
       // Ein Fehler beim Versand verhindert die Registrierung nicht; die Mail lässt sich erneut anfordern
       try {
-        await emailVerification.sendVerification(pool, user.id, user.email);
+        await emailVerification.sendVerification(pool, user.id, user.email, { app: fromApp(req) });
       } catch (e) {
         console.error('[register] Bestätigungsmail fehlgeschlagen:', e.code || e.message);
       }
@@ -109,7 +110,7 @@ router.post('/auth/forgot-password', passwordResetLimiter, async (req, res) => {
   try {
     if (!(await loadDefaultSmtp(pool))) return res.status(503).json({ error: 'mail_not_configured' });
     res.status(202).json({ accepted: true });
-    passwordReset.requestReset(pool, email).catch((e) => console.error('[forgot-password] Versand fehlgeschlagen:', e.code || e.message));
+    passwordReset.requestReset(pool, email, { app: fromApp(req) }).catch((e) => console.error('[forgot-password] Versand fehlgeschlagen:', e.code || e.message));
   } catch (e) {
     serverError(res, e);
   }
@@ -121,7 +122,8 @@ router.post('/auth/reset-password', async (req, res) => {
   try {
     const r = await passwordReset.resetPassword(pool, req.body?.token, req.body?.password);
     if (r.error) return res.status(400).json({ error: r.error });
-    res.json({ reset: true });
+    // E-Mail des Kontos (#175): Web und App sehen, welches Konto betroffen ist, und vergleichen es mit dem angemeldeten
+    res.json({ reset: true, email: r.email });
   } catch (e) {
     serverError(res, e);
   }
@@ -159,7 +161,7 @@ router.post('/auth/resend-verification', auth, async (req, res) => {
       });
     }
     const an = u.pending_email || u.email;
-    await emailVerification.sendVerification(pool, req.user.sub, an, { change: Boolean(u.pending_email) });
+    await emailVerification.sendVerification(pool, req.user.sub, an, { change: Boolean(u.pending_email), app: fromApp(req) });
     res.json({ sent: true, email: an });
   } catch (e) {
     if (e.code === 'mail_not_configured') return res.status(503).json({ error: 'mail_not_configured' });

@@ -14,6 +14,7 @@ const emailVerification = require('../services/emailVerification');
 const sharing = require('../services/sharing');
 
 const deviceSessions = require('../services/deviceSessions');
+const { fromApp } = require('../lib/appVersions');
 const router = express.Router();
 
 // List all users (Admin-Endpoint)
@@ -234,7 +235,7 @@ router.patch('/auth/users/:userId', auth, requireSelfOrAdmin, async (req, res) =
 
     if (bestaetigungAn) {
       try {
-        await emailVerification.sendVerification(pool, userId, bestaetigungAn, { change: true });
+        await emailVerification.sendVerification(pool, userId, bestaetigungAn, { change: true, app: fromApp(req) });
       } catch (e) {
         console.error('[users] Bestätigungsmail für neue Adresse fehlgeschlagen:', e.code || e.message);
       }

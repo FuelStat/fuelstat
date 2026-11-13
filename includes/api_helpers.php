@@ -793,3 +793,22 @@ function tarifNamen(): array
 {
     return ['free' => 'Free', 'plus' => 'Plus', 'fleet' => 'Flotte'];
 }
+
+/**
+ * Knopf zurück in die iOS-App (#175), nur wenn der Link aus einer Mail mit quelle=app kommt. Er erscheint per Skript
+ * nur auf iPhone/iPad (eine Webseite kann nicht prüfen, ob die App installiert ist; ein fuelstat://-Link ohne App
+ * ergäbe in Safari eine Fehlermeldung). $pfad z. B. 'email-bestaetigt' oder 'reset-password', $query zusätzliche Werte.
+ */
+function appKnopf(string $pfad, string $text, array $query = [], string $klassen = 'btn btn-primary w-100'): string
+{
+    if (($_GET['quelle'] ?? '') !== 'app') {
+        return '';
+    }
+    global $baseUrl;
+    $ziel = 'fuelstat://' . $pfad . '?' . http_build_query($query + ['server' => rtrim((string)$baseUrl, '/')]);
+    return '<a class="' . htmlspecialchars($klassen) . ' d-none" data-nur-ios href="' . htmlspecialchars($ziel) . '">'
+        . '<i class="fas fa-mobile-screen" aria-hidden="true"></i>' . htmlspecialchars($text) . '</a>'
+        . '<script>(function(){var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);'
+        . 'if(!ios)return;var zeigen=function(){document.querySelectorAll("[data-nur-ios]").forEach(function(a){a.classList.remove("d-none");});};'
+        . 'if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",zeigen);else zeigen();})();</script>';
+}

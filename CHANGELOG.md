@@ -8,6 +8,13 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ### Verbessert
 - **Neue Startseite** (#158): Start zeigt jetzt wie in der iOS-App ein Fahrzeug – das zuletzt genutzte bzw. gewählte – mit großem Foto, Kennzeichen und Tachostand, drei Kennzahlen (Ø Verbrauch, Kosten je km, Kosten diesen Monat), den nächsten drei Terminen und den letzten fünf Einträgen. Oben wechselst du das Fahrzeug; alle Fahrzeuge als Karten (mit „Ordnen“) findest du unter „Fahrzeuge“ → „Alle Fahrzeuge“.
+- **Mail-Links aus der iOS-App** (#175): Bestätigungs- und Passwort-Mails, die du in der App angefordert hast, bieten auf iPhone und iPad zusätzlich „Zurück zur Fuelstat-App“ bzw. „In der Fuelstat-App fortsetzen“. Im Browser geht beides weiterhin.
+
+### Behoben
+- **Passwort zurücksetzen meldet kein fremdes Konto mehr ab** (#175): Setzt du im Browser das Passwort eines anderen Kontos zurück, als dort angemeldet ist, bleibst du angemeldet; die Meldung nennt beide Konten. Nur das zurückgesetzte Konto wird auf allen Geräten abgemeldet.
+
+### Technik
+- `POST /api/v1/auth/reset-password` antwortet zusätzlich mit `email` des zurückgesetzten Kontos. Links in Mails, die eine App angefordert hat (Kopfzeile `X-Fuelstat-Client`), tragen `&quelle=app` (#175).
 
 ## [0.12.2] - 2026-11-13
 

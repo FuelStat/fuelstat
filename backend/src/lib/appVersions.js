@@ -52,4 +52,7 @@ function requireSupportedApp(versions = APP_VERSIONS) {
   };
 }
 
-module.exports = { APP_VERSIONS, appVersionsForHealth, compareVersions, parseClient, requireSupportedApp };
+/** Kam die Anfrage aus einer App (Header X-Fuelstat-Client)? Für Links in Mails (#175) */
+const fromApp = (req) => parseClient(req.header('X-Fuelstat-Client')) !== null;
+
+module.exports = { APP_VERSIONS, appVersionsForHealth, compareVersions, fromApp, parseClient, requireSupportedApp };

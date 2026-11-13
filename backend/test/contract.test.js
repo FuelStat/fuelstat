@@ -97,6 +97,8 @@ function responseSchema(method, template, status) {
   const op = doc.paths['/api/v1' + template]?.[method.toLowerCase()];
   assert.ok(op, `${method} ${template} fehlt in der OpenAPI`);
   let r = op.responses?.[String(status)];
+  // 426 gilt für alle Endpunkte (components/responses/AppUpdateRequired)
+  if (!r && status === 426) r = { $ref: '#/components/responses/AppUpdateRequired' };
   assert.ok(r, `${method} ${template}: Status ${status} fehlt in der OpenAPI`);
   if (r.$ref) r = doc.components.responses[r.$ref.split('/').pop()];
   return r.content?.['application/json']?.schema || null;
@@ -134,7 +136,13 @@ test('Antworten passen zur OpenAPI (Ablauf wie in der App)', async () => {
   const tageZurueck = (n) => new Date(Date.now() - n * 86400000).toISOString();
   const device = { name: 'iPhone Vertrag', platform: 'ios', appVersion: '0.2.0' };
   const email = `vertrag-${unique()}@example.test`;
-  await vertrag('GET', '/health', {}, { status: 200 });
+  const health = await vertrag('GET', '/health', {}, { status: 200 });
+  // Mindestversion iOS (lib/appVersions.js): 0.1.x bekommt 426, /health aber immer
+  assert.deepEqual(health.body.apps.ios, { minimum_version: '0.2.0', recommended_version: '0.2.0' });
+  const alt = await vertrag('GET', '/fuels', {}, { client: 'ios/0.1.0 (3)', status: 426 });
+  assert.equal(alt.body.minimum_version, '0.2.0');
+  await vertrag('GET', '/health', {}, { client: 'ios/0.1.0', status: 200 });
+  await vertrag('GET', '/fuels', {}, { client: 'ios/0.2.0 (7)', status: 200 });
   const reg = await vertrag('POST', '/auth/register', {}, { body: { email, password: 'Passwort123', device }, status: 201 });
   await pool.query('UPDATE users SET email_verified_at = now() WHERE id = $1', [reg.body.user.id]);
   await vertrag('POST', '/auth/login', {}, { body: { email, password: 'falsch123' }, status: 401 });

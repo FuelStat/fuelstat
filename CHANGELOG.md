@@ -6,6 +6,12 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+### Technik
+- **Mindestversion der iOS-App 0.2.0** (#118): `/health` meldet für iOS `minimum_version` und `recommended_version` 0.2.0. Ältere App-Versionen (0.1.x) verstehen die Listen in Seiten (#160) nicht und bekommen 426 `app_update_required`.
+
+### Hinweise zum Update
+- Erst ausrollen, wenn die iOS-App 0.2.0 auf allen genutzten Geräten installiert ist: App-Versionen darunter erhalten danach nur noch „Update nötig“.
+
 ## [0.12.1] - 2026-11-13
 
 ### Neu

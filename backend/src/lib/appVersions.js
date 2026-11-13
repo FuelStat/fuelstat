@@ -7,7 +7,8 @@
 // minimum, antwortet die API mit 426 app_update_required; /health beantwortet sie immer, damit die App den Hinweis
 // zeigen kann.
 const APP_VERSIONS = {
-  ios: { minimum: null, recommended: null },
+  // iOS 0.2.0: erste Version mit Listen in Seiten (#160) und Gerätesitzungen (#117); 0.1.0 versteht die API nicht mehr
+  ios: { minimum: '0.2.0', recommended: '0.2.0' },
   android: { minimum: null, recommended: null }
 };
 

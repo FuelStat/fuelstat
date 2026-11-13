@@ -3076,6 +3076,21 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
           example:
             error: forbidden
+    AppUpdateRequired:
+      description: >
+        Gilt für jeden Endpunkt außer /health (#118): Apps mit Header X-Fuelstat-Client, deren Version unter
+        apps.<plattform>.minimum_version aus /health liegt, bekommen 426 app_update_required mit minimum_version und
+        recommended_version.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error, minimum_version]
+            properties:
+              error: { type: string, enum: [app_update_required] }
+              message: { type: string }
+              minimum_version: { type: string, example: "0.2.0" }
+              recommended_version: { type: string, nullable: true }
     Unauthorized:
       description: Unauthorized
       content:

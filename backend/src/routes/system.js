@@ -9,6 +9,7 @@ const { pool } = require('../db');
 const { serverError } = require('../lib/http');
 const { auth, isAdmin } = require('../middleware/auth');
 const { appVersionsForHealth } = require('../lib/appVersions');
+const passkeys = require('../services/passkeys');
 
 const router = express.Router();
 
@@ -24,7 +25,9 @@ router.get('/health', (req, res) => {
     // Gültige Fassung der Nutzungsbedingungen (#135); null = keine Zustimmung nötig
     terms_version: termsVersion(),
     // Mindest- und empfohlene App-Version je Plattform (#118); null = keine Vorgabe
-    apps: appVersionsForHealth()
+    apps: appVersionsForHealth(),
+    // Anmelden mit Passkey möglich (#2): WebAuthn braucht eine HTTPS-Adresse (APP_URL bzw. WEBAUTHN_*)
+    passkeys_enabled: Boolean(passkeys.config())
   });
 });
 

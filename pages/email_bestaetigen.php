@@ -3,6 +3,7 @@
 // Der Link funktioniert auch ohne Anmeldung (z. B. auf einem anderen Gerät geöffnet): Das Token selbst ist der Nachweis.
 include '../includes/session.php';
 require_once __DIR__ . '/../includes/api_helpers.php';
+require_once __DIR__ . '/../includes/basis_url.php';
 
 $fehler = '';
 $erfolg = '';
@@ -64,7 +65,9 @@ include '../includes/header.php';
           <?php endif; ?>
 
           <?php if ($erfolg && !isset($_POST['aktion'])): ?>
-            <a class="btn btn-primary" href="<?= htmlspecialchars($baseUrl) ?><?= $angemeldetHier ? 'index.php' : 'pages/login.php' ?>"><?= $angemeldetHier ? 'Weiter zu Fuelstat' : 'Zur Anmeldung' ?></a>
+            <?php // Bestätigung aus der iOS-App angestoßen (#175): zurück in die App, auf iPhone/iPad ?>
+            <?php if (($knopf = appKnopf('email-bestaetigt', 'Zurück zur Fuelstat-App', [], 'btn btn-primary mb-2')) !== ''): ?><div><?= $knopf ?></div><?php endif; ?>
+            <a class="btn <?= $knopf !== '' ? 'btn-outline-primary' : 'btn-primary' ?>" href="<?= htmlspecialchars($baseUrl) ?><?= $angemeldetHier ? 'index.php' : 'pages/login.php' ?>"><?= $angemeldetHier ? 'Weiter zu Fuelstat' : 'Zur Anmeldung' ?></a>
           <?php else: ?>
             <p class="text-body-secondary">Wir haben dir eine Mail mit einem Link geschickt. Öffne den Link oder gib den Code aus der Mail hier ein.</p>
             <form method="post" class="mb-4">

@@ -24,9 +24,10 @@ async function required(pool) {
   return enabled() && Boolean(await loadDefaultSmtp(pool));
 }
 
-function verificationMail(email, token, { change = false, appUrl = process.env.APP_URL } = {}) {
+// app: Anlass kam aus einer App (#175) – der https-Link bekommt quelle=app (Knopf „Zurück zur Fuelstat-App“)
+function verificationMail(email, token, { change = false, appUrl = process.env.APP_URL, app = false } = {}) {
   const base = appUrl ? String(appUrl).replace(/\/+$/, '') : null;
-  const link = base ? `${base}/pages/email_bestaetigen.php?token=${encodeURIComponent(token)}` : null;
+  const link = base ? `${base}/pages/email_bestaetigen.php?token=${encodeURIComponent(token)}${app ? '&quelle=app' : ''}` : null;
   const subject = change ? 'Fuelstat: neue E-Mail-Adresse bestätigen' : 'Fuelstat: E-Mail-Adresse bestätigen';
   const anlass = change
     ? `du möchtest die E-Mail-Adresse deines Fuelstat-Kontos auf ${email} ändern.`
@@ -63,7 +64,7 @@ async function resendBlocked(pool, userId) {
  * Ältere, noch nicht benutzte Tokens des Kontos verfallen dabei.
  * @throws Error mit code 'mail_not_configured', wenn kein Standard-Mailserver eingerichtet ist
  */
-async function sendVerification(pool, userId, email, { change = false, sender = sendUserMail } = {}) {
+async function sendVerification(pool, userId, email, { change = false, sender = sendUserMail, app = false } = {}) {
   const defaults = await loadDefaultSmtp(pool);
   if (!defaults) {
     const e = new Error('mail_not_configured');
@@ -79,7 +80,7 @@ async function sendVerification(pool, userId, email, { change = false, sender = 
   );
   // Empfänger ist immer die zu bestätigende Adresse (withDefaultSmtp setzt to_address = account_email)
   const settings = withDefaultSmtp({ user_id: userId, account_email: email }, defaults);
-  await sender(settings, verificationMail(email, token, { change }));
+  await sender(settings, verificationMail(email, token, { change, app }));
   return token;
 }
 

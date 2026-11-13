@@ -284,6 +284,14 @@ class FuelstatApi
     public function getWhoAmI(): array { return $this->request('GET', '/whoami'); }
     public function postAuthRefresh(): array { return $this->request('POST', '/auth/refresh', []); }
     public function getHealth(): array { return $this->request('GET', '/health'); }
+    // Passkeys (#2). WebAuthn-Antworten des Browsers als stdClass durchreichen, damit leere Objekte {} bleiben.
+    public function getPasskeys(): array { return $this->getAllPages('/auth/passkeys'); }
+    public function postPasskeyRegisterOptions(string $currentPassword): array { return $this->request('POST', '/auth/passkeys/register/options', ['currentPassword' => $currentPassword]); }
+    public function postPasskeyRegister(string $challengeId, object $response, ?string $name): array { return $this->request('POST', '/auth/passkeys/register', ['challengeId' => $challengeId, 'response' => $response, 'name' => $name]); }
+    public function patchPasskey(string $id, string $name): array { return $this->request('PATCH', '/auth/passkeys/' . rawurlencode($id), ['name' => $name]); }
+    public function deletePasskey(string $id): void { $this->request('DELETE', '/auth/passkeys/' . rawurlencode($id)); }
+    public function postPasskeyLoginOptions(): array { return $this->request('POST', '/auth/passkeys/login/options', []); }
+    public function postPasskeyLogin(string $challengeId, object $response): array { return $this->request('POST', '/auth/passkeys/login', ['challengeId' => $challengeId, 'response' => $response]); }
     public function getVehicleReminders(string $vehicleId): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/reminders'); }
     public function getMailSettings(): array { return $this->request('GET', '/auth/mail-settings'); }
     public function putMailSettings(array $data): array { return $this->request('PUT', '/auth/mail-settings', $data); }

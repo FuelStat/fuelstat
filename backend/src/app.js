@@ -51,6 +51,7 @@ app.use((req, res, next) => {
 // Leser und für das Code-Scanning (CodeQL) erkennbar, dass alle Routen hinter dem Rate-Limit oben liegen.
 app.use('/api/v1', require('./routes/system')); // health, whoami, db-ping
 app.use('/api/v1', require('./routes/auth')); // Registrierung, Login, 2FA, Passwort, Token
+app.use('/api/v1', require('./routes/passkeys')); // Passkeys (WebAuthn, #2)
 app.use('/api/v1', require('./routes/sessions')); // Gerätesitzungen der Apps (#117)
 app.use('/api/v1', require('./routes/users')); // Konten, Tarife, Beta (Admin bzw. eigenes Konto)
 app.use('/api/v1', require('./routes/mailSettings')); // E-Mail-Einstellungen, Test- und Sofortversand

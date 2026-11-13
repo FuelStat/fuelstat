@@ -67,12 +67,13 @@ function tokenAus(adresse) {
   return m[1];
 }
 
-async function api(method, path, { token, body } = {}) {
+async function api(method, path, { token, body, client } = {}) {
   const res = await fetch(base + path, {
     method,
     headers: {
       ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
-      ...(token ? { authorization: `Bearer ${token}` } : {})
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...(client ? { 'x-fuelstat-client': client } : {})
     },
     body: body !== undefined ? JSON.stringify(body) : undefined
   });
@@ -278,6 +279,7 @@ test('Passwort vergessen: gleiche Antwort für alle, Link setzt Passwort und mel
     await new Promise((r) => setTimeout(r, 1100)); // revoked_after liegt sekundengenau hinter dem alten Token
     const ok = await api('POST', '/auth/reset-password', { body: { token, password: 'NeuesPasswort1' } });
     assert.equal(ok.status, 200, JSON.stringify(ok.body));
+    assert.deepEqual(ok.body, { reset: true, email: u.email }, 'Antwort nennt das Konto (#175)');
     // Nur einmal, alte Tokens abgemeldet, neues Passwort gilt, Adresse bestätigt
     assert.equal((await api('POST', '/auth/reset-password', { body: { token, password: 'NochEinsNeu1' } })).body.error, 'invalid_token');
     assert.equal((await api('GET', '/whoami', { token: u.token })).status, 401, 'alte Anmeldung widerrufen');
@@ -311,4 +313,30 @@ test('Passwort vergessen: abgelaufen, höchstens 3 Mails je Stunde, neuer Link e
   assert.equal(viertes.status, 202);
   await warte(500);
   assert.equal(postfach.length, n, 'keine weitere Mail');
+});
+
+test('Mail-Links (#175): mit quelle=app nur, wenn die Anfrage aus der App kommt', async () => {
+  const { resetMail } = require('../src/services/passwordReset');
+  const url = 'https://fuelstat.example.test/';
+  assert.match(resetMail('abc123', url).text, /passwort_zuruecksetzen\.php\?token=abc123\n/);
+  assert.match(resetMail('abc123', url, { app: true }).text, /passwort_zuruecksetzen\.php\?token=abc123&quelle=app/);
+  assert.match(resetMail('abc123', url, { app: true }).html, /token=abc123&amp;quelle=app/);
+  assert.match(emailVerification.verificationMail('a@b.de', 'xyz', { appUrl: url }).text, /email_bestaetigen\.php\?token=xyz\n/);
+  assert.match(emailVerification.verificationMail('a@b.de', 'xyz', { appUrl: url, app: true }).text, /email_bestaetigen\.php\?token=xyz&quelle=app/);
+
+  // Ende zu Ende: Passwort vergessen aus der App bzw. aus dem Web
+  process.env.APP_URL = 'https://fuelstat.example.test';
+  try {
+    const u = await registrieren();
+    const neueMail = async (client) => {
+      const vorher = postfach.length;
+      await api('POST', '/auth/forgot-password', { body: { email: u.email }, client });
+      for (let i = 0; i < 50 && !postfach.slice(vorher).some((m) => m.includes(u.email) && m.includes('Passwort')); i++) await warte(50);
+      return postfach.slice(vorher).find((m) => m.includes(u.email)).replace(/=\r\n/g, '').replace(/=3D/g, '=');
+    };
+    assert.match(await neueMail('ios/0.2.0 (7)'), /quelle=app/);
+    assert.doesNotMatch(await neueMail(undefined), /quelle=app/);
+  } finally {
+    delete process.env.APP_URL;
+  }
 });

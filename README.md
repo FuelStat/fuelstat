@@ -99,6 +99,7 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 - Registrierung mit Bestätigung der E-Mail-Adresse und Zustimmung zu den Nutzungsbedingungen
 - Anmeldung
 - Optionale Zwei-Faktor-Authentifizierung
+- Anmelden mit Passkey (Face ID, Fingerabdruck, Windows Hello, Sicherheitsschlüssel), auch per Autofill
 - Benutzerprofil mit Profilbild
 - Passwortänderung, „Passwort vergessen“ per Mail und Abmeldung auf allen Geräten
 - Kontolöschung
@@ -353,7 +354,7 @@ Sicherheit und Datenschutz sind wichtige Bestandteile von Fuelstat.
 
 Zu den vorhandenen Schutzmaßnahmen gehören:
 
-- Passwortbasierte Authentifizierung und optionale Zwei-Faktor-Authentifizierung
+- Passwortbasierte Authentifizierung, optionale Zwei-Faktor-Authentifizierung und Passkeys (WebAuthn, nur öffentliche Schlüssel gespeichert)
 - JWT-basierte API-Authentifizierung
 - HttpOnly- und SameSite-geschützte Cookies
 - CSRF-Schutz für Formulare

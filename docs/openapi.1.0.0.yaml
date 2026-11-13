@@ -382,7 +382,16 @@ paths:
               required: [token, password]
       responses:
         "200":
-          description: "OK ({ reset: true })"
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [reset, email]
+                properties:
+                  reset: { type: boolean }
+                  email: { type: string, format: email, description: "Konto, dessen Passwort geändert wurde (#175) – zum Vergleich mit dem angemeldeten Konto" }
         "400":
           description: invalid_token (falsch oder schon benutzt) | token_expired | password_too_short
 
@@ -624,6 +633,198 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/ServerError"
+
+  /api/v1/auth/passkeys:
+    get:
+      tags: [Users]
+      summary: Own passkeys, paginated (#2)
+      description: Ohne Schlüssel; gespeichert ist ohnehin nur der öffentliche Schlüssel.
+      operationId: getPasskeys
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Eine Seite (#160)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Passkey"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/passkeys/register/options:
+    post:
+      tags: [Users]
+      summary: Start adding a passkey (current password required)
+      description: >
+        Liefert die Optionen für navigator.credentials.create() (PublicKeyCredentialCreationOptionsJSON) und eine
+        challengeId für den zweiten Schritt (5 Minuten gültig, einmal verwendbar). Das aktuelle Passwort ist nötig,
+        weil ein Passkey Passwort und 2FA ersetzt. Höchstens 20 Passkeys je Konto.
+      operationId: postPasskeyRegisterOptions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword]
+              properties:
+                currentPassword: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyOptionsResponse"
+        "400":
+          description: passkeys_not_configured
+        "401":
+          description: invalid_current_password (oder Token ungültig)
+        "409":
+          description: too_many_passkeys
+        "429":
+          description: too_many_attempts
+
+  /api/v1/auth/passkeys/register:
+    post:
+      tags: [Users]
+      summary: Finish adding a passkey
+      description: Antwort von navigator.credentials.create() (RegistrationResponseJSON) prüfen und speichern.
+      operationId: postPasskeyRegister
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challengeId, response]
+              properties:
+                challengeId: { type: string }
+                response: { type: object, description: RegistrationResponseJSON }
+                name: { type: string, maxLength: 100, example: "iPhone", description: "Ohne Angabe „Passkey N“" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Passkey"
+        "400":
+          description: invalid_challenge | invalid_passkey_response | passkeys_not_configured
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: passkey_exists | too_many_passkeys
+
+  /api/v1/auth/passkeys/{passkeyId}:
+    parameters:
+      - name: passkeyId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [Users]
+      summary: Rename a passkey
+      operationId: patchPasskey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 100 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Passkey"
+        "400":
+          description: invalid_name
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: passkey_not_found
+    delete:
+      tags: [Users]
+      summary: Delete a passkey
+      operationId: deletePasskey
+      responses:
+        "204":
+          description: Gelöscht
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: passkey_not_found
+
+  /api/v1/auth/passkeys/login/options:
+    post:
+      tags: [Auth]
+      summary: Start signing in with a passkey (public)
+      description: >
+        Optionen für navigator.credentials.get() ohne allowCredentials (auffindbare Passkeys, keine E-Mail nötig;
+        auch für Autofill mit mediation "conditional") und eine challengeId.
+      operationId: postPasskeyLoginOptions
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyOptionsResponse"
+        "400":
+          description: passkeys_not_configured
+        "429":
+          description: too_many_attempts
+
+  /api/v1/auth/passkeys/login:
+    post:
+      tags: [Auth]
+      summary: Sign in with a passkey (public)
+      description: >
+        Antwort von navigator.credentials.get() (AuthenticationResponseJSON) prüfen. Antwort wie POST /auth/login;
+        ein Passkey ersetzt Passwort und 2FA (Nutzerprüfung per Face ID, Fingerabdruck oder PIN ist Pflicht).
+        Apps schicken wie beim Login `device` mit und bekommen eine Gerätesitzung (#117).
+      operationId: postPasskeyLogin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challengeId, response]
+              properties:
+                challengeId: { type: string }
+                response: { type: object, description: AuthenticationResponseJSON }
+                device: { $ref: "#/components/schemas/DeviceInfo" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: invalid_challenge | invalid_passkey_response | passkeys_not_configured | invalid_device
+        "401":
+          description: unknown_passkey | invalid_passkey_response
+        "429":
+          description: too_many_attempts
 
   /api/v1/auth/tokens/revoke:
     post:
@@ -3323,6 +3524,9 @@ components:
           properties:
             ios: { $ref: "#/components/schemas/AppVersionInfo" }
             android: { $ref: "#/components/schemas/AppVersionInfo" }
+        passkeys_enabled:
+          type: boolean
+          description: Anmelden mit Passkey möglich (#2); braucht eine HTTPS-Adresse (APP_URL bzw. WEBAUTHN_RP_ID/WEBAUTHN_ORIGINS)
       required: [status, timestamp, service, version, apps]
 
     AppVersionInfo:
@@ -3935,6 +4139,26 @@ components:
       properties:
         email: { type: boolean }
         push: { type: boolean }
+
+    Passkey:
+      type: object
+      additionalProperties: false
+      required: [id, name, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: "iPhone" }
+        device_type: { type: string, nullable: true, enum: [singleDevice, multiDevice, null] }
+        backed_up: { type: boolean, description: "Synchronisiert (iCloud-Schlüsselbund, Google-Passwortmanager …)" }
+        transports: { type: array, items: { type: string }, example: [internal, hybrid] }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: string, format: date-time, nullable: true }
+
+    PasskeyOptionsResponse:
+      type: object
+      required: [options, challengeId]
+      properties:
+        options: { type: object, description: "PublicKeyCredentialCreationOptionsJSON bzw. PublicKeyCredentialRequestOptionsJSON" }
+        challengeId: { type: string }
 
     PushDevice:
       type: object

@@ -59,24 +59,27 @@ router.put('/auth/mail-settings', auth, requireVerified('mail'), async (req, res
   const emailOk = (v) => v === null || (v.length <= 254 && /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/.test(v));
   const fromAddress = optionalText(b.fromAddress) ?? null;
   const toAddress = optionalText(b.toAddress) ?? null;
-  const reminderDays = optionalNumber(b.reminderDays) ?? 30;
+  // Ohne Angabe bleibt der Vorlauf, wie er ist (wird auch unter /notifications/preferences gesetzt, #136)
+  const reminderDays = b.reminderDays === undefined ? null : (optionalNumber(b.reminderDays) ?? 30);
 
   if (host !== null && (host.length > 253 || !/^[a-z0-9.-]+$/i.test(host))) return res.status(400).json({ error: 'invalid_smtpHost' });
   if (host !== null && !ALLOWED_PORTS.includes(port)) return res.status(400).json({ error: 'invalid_smtpPort', allowed: ALLOWED_PORTS });
   if (!['tls', 'starttls', 'none'].includes(security)) return res.status(400).json({ error: 'invalid_smtpSecurity' });
   if (!emailOk(fromAddress)) return res.status(400).json({ error: 'invalid_fromAddress' });
   if (!emailOk(toAddress)) return res.status(400).json({ error: 'invalid_toAddress' });
-  if (!Number.isInteger(reminderDays) || reminderDays < 1 || reminderDays > 180) return res.status(400).json({ error: 'invalid_reminderDays' });
+  if (reminderDays !== null && (!Number.isInteger(reminderDays) || reminderDays < 1 || reminderDays > 180)) return res.status(400).json({ error: 'invalid_reminderDays' });
 
   try {
     const defaults = await loadDefaultSmtp(pool);
     if ((b.remindersEnabled || b.monthlyReport) && host === null && !defaults) return res.status(400).json({ error: 'mail_not_configured' });
+    // Ohne Angabe bleiben Termine und Monatsbericht, wie sie sind (die Kanäle je Anlass stehen in /notifications/preferences, #136)
+    const flag = (v) => (v === undefined ? null : Boolean(v));
     if (host !== null) await resolveSmtpHost(host);
 
     // Passwort: nur ändern, wenn ein neues gesendet wird; clearPassword löscht es
     let passwordSql = 'smtp_password_enc';
     const values = [req.user.sub, host, host ? port : null, security, optionalText(b.smtpUser) ?? null, fromAddress, toAddress,
-      Boolean(b.remindersEnabled), reminderDays, Boolean(b.monthlyReport)];
+      flag(b.remindersEnabled), reminderDays, flag(b.monthlyReport)];
     if (b.smtpPassword) {
       values.push(encryptSecret(b.smtpPassword));
       passwordSql = `$${values.length}`;
@@ -87,12 +90,12 @@ router.put('/auth/mail-settings', auth, requireVerified('mail'), async (req, res
     const r = await pool.query(
       `INSERT INTO user_mail_settings (user_id, smtp_host, smtp_port, smtp_security, smtp_user, from_address, to_address,
                                        reminders_enabled, reminder_days, monthly_report, smtp_password_enc)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, ${passwordSql === 'smtp_password_enc' ? 'NULL' : passwordSql})
+       VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, false), COALESCE($9, 30), COALESCE($10, false), ${passwordSql === 'smtp_password_enc' ? 'NULL' : passwordSql})
        ON CONFLICT (user_id) DO UPDATE SET
          smtp_host = EXCLUDED.smtp_host, smtp_port = EXCLUDED.smtp_port, smtp_security = EXCLUDED.smtp_security,
          smtp_user = EXCLUDED.smtp_user, from_address = EXCLUDED.from_address, to_address = EXCLUDED.to_address,
-         reminders_enabled = EXCLUDED.reminders_enabled, reminder_days = EXCLUDED.reminder_days,
-         monthly_report = EXCLUDED.monthly_report,
+         reminders_enabled = COALESCE($8, user_mail_settings.reminders_enabled), reminder_days = COALESCE($9, user_mail_settings.reminder_days),
+         monthly_report = COALESCE($10, user_mail_settings.monthly_report),
          smtp_password_enc = ${passwordSql === 'smtp_password_enc' ? 'user_mail_settings.smtp_password_enc' : passwordSql},
          updated_at = now()
        RETURNING *`,

@@ -81,6 +81,8 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 - Erinnerung an fehlende Tachostände nach Tank- oder Ladevorgängen
 - Monatlicher Bericht mit Kosten, Fahrleistung, Verbrauch und anstehenden Terminen
 - Versand über den Betreiber-Mailserver oder einen eigenen SMTP-Server
+- Push-Benachrichtigungen in der installierten Web-App (Android, iPhone ab iOS 16.4, Desktop) – je Anlass E-Mail, Push oder beides
+- Hinweis, wenn für ein Fahrzeug länger nichts erfasst wurde
 
 ### Import, Export und Datenaustausch
 

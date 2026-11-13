@@ -1,5 +1,5 @@
 <?php
-// E-Mail-Benachrichtigungen: eigener SMTP-Zugang, Erinnerungen an Termine, Monatsbericht
+// Benachrichtigungen (#136): je Anlass E-Mail und/oder Push, Push auf diesem Gerät, eigener SMTP-Zugang
 include '../includes/session.php';
 require_once __DIR__ . '/../includes/api_helpers.php';
 if (!isApiAuthenticated()) {
@@ -19,6 +19,14 @@ $meldungen = [
     'invalid_fromAddress' => 'Die Absender-Adresse ist ungültig.',
     'invalid_toAddress' => 'Die Empfänger-Adresse ist ungültig.',
     'invalid_reminderDays' => 'Die Vorlaufzeit muss zwischen 1 und 180 Tagen liegen.',
+    'push_not_configured' => 'Push-Benachrichtigungen sind auf diesem Server nicht eingerichtet.',
+];
+// Anlässe in der Reihenfolge der Seite (Schlüssel wie in der API)
+$anlaesse = [
+    'reminders' => ['fa-calendar-check', 'Termine', 'TÜV, Wartung, Versicherung und Steuer – vorher und noch einmal, wenn überfällig'],
+    'odometer' => ['fa-gauge-high', 'Kilometerstand nachtragen', 'Wenn bei einer Tankfüllung der Kilometerstand fehlt'],
+    'report' => ['fa-chart-line', 'Monatsbericht', 'Am Monatsanfang: Kosten, Strecke und Verbrauch je Fahrzeug'],
+    'inactive' => ['fa-hourglass-half', 'Lange kein Eintrag', 'Wenn für ein Fahrzeug 30 Tage nichts erfasst wurde'],
 ];
 $fehlertext = function (Throwable $e) use ($meldungen) {
     $code = $e->getMessage();
@@ -32,7 +40,17 @@ $fehlertext = function (Throwable $e) use ($meldungen) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $aktion = $_POST['aktion'] ?? 'speichern';
     try {
-        if ($aktion === 'speichern') {
+        if ($aktion === 'kanaele') {
+            $occ = [];
+            foreach (array_keys($anlaesse) as $a) {
+                $occ[$a] = ['email' => !empty($_POST['email'][$a]), 'push' => !empty($_POST['push'][$a])];
+            }
+            $api->putNotificationPreferences(['occasions' => $occ, 'reminder_days' => (int)($_POST['reminder_days'] ?? 30)]);
+            $_SESSION['success_message'] = 'Benachrichtigungen gespeichert.';
+        } elseif ($aktion === 'geraet_entfernen') {
+            $api->deletePushDevice((string)($_POST['geraet'] ?? ''));
+            $_SESSION['success_message'] = 'Das Gerät bekommt keine Push-Benachrichtigungen mehr.';
+        } elseif ($aktion === 'speichern') {
             $daten = [
                 'smtpHost' => trim($_POST['smtp_host'] ?? ''),
                 'smtpPort' => trim($_POST['smtp_port'] ?? '') === '' ? null : (int)$_POST['smtp_port'],
@@ -40,9 +58,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'smtpUser' => trim($_POST['smtp_user'] ?? ''),
                 'fromAddress' => trim($_POST['from_address'] ?? ''),
                 'toAddress' => trim($_POST['to_address'] ?? ''),
-                'remindersEnabled' => !empty($_POST['reminders_enabled']),
-                'reminderDays' => (int)($_POST['reminder_days'] ?? 30),
-                'monthlyReport' => !empty($_POST['monthly_report']),
             ];
             if (($_POST['smtp_password'] ?? '') !== '') {
                 $daten['smtpPassword'] = $_POST['smtp_password'];
@@ -76,11 +91,9 @@ try {
 }
 // Bei Fehlern die eingegebenen Werte behalten
 if ($error && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['aktion'] ?? '') === 'speichern') {
-    foreach (['smtp_host', 'smtp_port', 'smtp_security', 'smtp_user', 'from_address', 'to_address', 'reminder_days'] as $k) {
+    foreach (['smtp_host', 'smtp_port', 'smtp_security', 'smtp_user', 'from_address', 'to_address'] as $k) {
         $s[$k] = $_POST[$k] ?? '';
     }
-    $s['reminders_enabled'] = !empty($_POST['reminders_enabled']);
-    $s['monthly_report'] = !empty($_POST['monthly_report']);
 }
 $wert = fn($k) => htmlspecialchars((string)($s[$k] ?? ''));
 $eigenerServer = !empty($s['smtp_host']);
@@ -90,6 +103,22 @@ try {
     $ich = $api->getWhoAmI();
 } catch (Throwable $e) {
     $ich = [];
+}
+try {
+    $prefs = $api->getNotificationPreferences();
+} catch (Throwable $e) {
+    $prefs = ['occasions' => [], 'reminder_days' => 30, 'email_available' => $konfiguriert, 'push_available' => false];
+}
+$pushDa = !empty($prefs['push_available']);
+$pushConfig = [];
+$geraete = [];
+if ($pushDa) {
+    try {
+        $pushConfig = $api->getPushConfig();
+        $geraete = $api->getPushDevices();
+    } catch (Throwable $e) {
+        error_log('[Benachrichtigungen] Push: ' . $e->getMessage());
+    }
 }
 // Der Admin-Mailserver dient allen anderen als Standard: das hier deutlich machen
 $istStandardGeber = !empty($ich['is_admin']) && $eigenerServer;
@@ -106,27 +135,100 @@ include '../includes/header.php';
                 <div class="alert alert-warning"><strong>Letzter automatischer Versand fehlgeschlagen:</strong> <?= htmlspecialchars($s['last_error']) ?></div>
             <?php endif; ?>
 
-            <form method="post" class="card shadow mb-4">
+            <!-- Je Anlass E-Mail und/oder Push (#136) -->
+            <form method="post" class="card mb-4">
+                <div class="card-body p-4">
+                    <input type="hidden" name="aktion" value="kanaele">
+                    <h2 class="h4 mb-1"><i class="fas fa-bell me-2 text-primary" aria-hidden="true"></i>Benachrichtigungen</h2>
+                    <p class="fs-label mb-3">Wähle je Anlass, ob du eine E-Mail, eine Push-Benachrichtigung oder beides bekommst.</p>
+                    <ul class="list-group mb-3">
+                        <?php foreach ($anlaesse as $a => [$icon, $titel, $text]):
+                            $o = $prefs['occasions'][$a] ?? ['email' => false, 'push' => false]; ?>
+                        <li class="list-group-item py-3">
+                            <div class="d-flex flex-wrap align-items-center gap-3">
+                                <div class="flex-grow-1 min-w-0" style="flex-basis: 16rem">
+                                    <div class="fw-semibold"><i class="fas <?= $icon ?> fa-fw me-1 text-primary" aria-hidden="true"></i><?= $titel ?></div>
+                                    <div class="fs-label"><?= $text ?></div>
+                                    <?php if ($a === 'reminders'): ?>
+                                    <div class="d-flex align-items-center gap-2 mt-2">
+                                        <label class="fs-label" for="reminder_days">Erinnern</label>
+                                        <input type="number" class="form-control" style="width:5.5rem" id="reminder_days" name="reminder_days" min="1" max="180" value="<?= (int)($prefs['reminder_days'] ?? 30) ?>">
+                                        <span class="fs-label">Tage vorher</span>
+                                    </div>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="d-flex gap-3 flex-shrink-0">
+                                    <div class="form-check form-switch m-0">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="email_<?= $a ?>" name="email[<?= $a ?>]" value="1" <?= !empty($o['email']) ? 'checked' : '' ?> <?= !empty($prefs['email_available']) ? '' : 'disabled' ?>>
+                                        <label class="form-check-label" for="email_<?= $a ?>">E-Mail<span class="visually-hidden">: <?= $titel ?></span></label>
+                                    </div>
+                                    <div class="form-check form-switch m-0">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="push_<?= $a ?>" name="push[<?= $a ?>]" value="1" <?= !empty($o['push']) ? 'checked' : '' ?> <?= $pushDa ? '' : 'disabled' ?>>
+                                        <label class="form-check-label" for="push_<?= $a ?>">Push<span class="visually-hidden">: <?= $titel ?></span></label>
+                                    </div>
+                                </div>
+                            </div>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <?php if (!$pushDa): ?>
+                    <p class="fs-label">Push-Benachrichtigungen sind auf diesem Server nicht eingerichtet.</p>
+                    <?php elseif (!$geraete): ?>
+                    <p class="fs-label"><i class="fas fa-circle-info me-1" aria-hidden="true"></i>Push kommt erst, wenn du es unten auf mindestens einem Gerät aktivierst.</p>
+                    <?php endif; ?>
+                    <?php if (empty($prefs['email_available'])): ?>
+                    <p class="fs-label">Für E-Mails trage unten zuerst einen Mailserver ein.</p>
+                    <?php endif; ?>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save" aria-hidden="true"></i>Speichern</button>
+                </div>
+            </form>
+
+            <?php if ($pushDa): ?>
+            <!-- Push auf diesem Gerät: Erlaubnis nur nach Klick, auf iOS erst nach „Zum Home-Bildschirm“ -->
+            <div class="card mb-4" id="pushBereich" data-vapid="<?= htmlspecialchars((string)($pushConfig['vapidPublicKey'] ?? '')) ?>" data-csrf="<?= htmlspecialchars(csrfToken()) ?>">
+                <div class="card-body p-4">
+                    <h2 class="h4 mb-1"><i class="fas fa-mobile-screen me-2 text-primary" aria-hidden="true"></i>Push auf diesem Gerät</h2>
+                    <p class="fs-label mb-3" id="pushStatus" role="status" aria-live="polite">Wird geprüft …</p>
+                    <div class="alert alert-info d-none" id="pushIosHinweis">
+                        <strong>Auf dem iPhone und iPad zuerst zum Home-Bildschirm hinzufügen:</strong> In Safari auf
+                        <i class="fas fa-arrow-up-from-bracket" aria-hidden="true"></i><span class="visually-hidden">Teilen</span> tippen,
+                        „Zum Home-Bildschirm“ wählen und Fuelstat von dort öffnen. Dann lassen sich Push-Benachrichtigungen hier aktivieren (ab iOS 16.4).
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-primary d-none" id="pushAn"><i class="fas fa-bell" aria-hidden="true"></i>Benachrichtigungen aktivieren</button>
+                        <button type="button" class="btn btn-secondary d-none" id="pushTest"><i class="fas fa-paper-plane" aria-hidden="true"></i>Testnachricht senden</button>
+                        <button type="button" class="btn btn-secondary d-none" id="pushAus"><i class="fas fa-bell-slash" aria-hidden="true"></i>Auf diesem Gerät abschalten</button>
+                    </div>
+                    <?php if ($geraete): ?>
+                    <h3 class="h6 mt-4 mb-2">Geräte mit Push</h3>
+                    <ul class="list-group">
+                        <?php foreach ($geraete as $g):
+                            $zuletzt = !empty($g['last_used_at']) ? (new DateTime($g['last_used_at']))->setTimezone(new DateTimeZone('Europe/Berlin'))->format('d.m.Y, H:i') : '–'; ?>
+                        <li class="list-group-item d-flex align-items-center gap-3">
+                            <i class="fas fa-bell fa-fw" aria-hidden="true"></i>
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="text-truncate"><?= htmlspecialchars((string)($g['name'] ?? 'Gerät')) ?></div>
+                                <div class="fs-label">zuletzt <?= $zuletzt ?><?= !empty($g['last_error']) ? ' · Fehler: ' . htmlspecialchars((string)$g['last_error']) : '' ?></div>
+                            </div>
+                            <form method="post" class="flex-shrink-0">
+                                <input type="hidden" name="aktion" value="geraet_entfernen">
+                                <input type="hidden" name="geraet" value="<?= htmlspecialchars((string)$g['id']) ?>">
+                                <button type="submit" class="btn btn-sm btn-secondary" aria-label="<?= htmlspecialchars('Push für „' . ($g['name'] ?? 'Gerät') . '“ abschalten') ?>">Entfernen</button>
+                            </form>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <form method="post" class="card mb-4">
                 <div class="card-body p-4">
                     <input type="hidden" name="aktion" value="speichern">
-                    <h3 class="h4 mb-3"><i class="fas fa-envelope me-2 text-primary"></i>E-Mail-Benachrichtigungen</h3>
+                    <h2 class="h4 mb-3"><i class="fas fa-envelope me-2 text-primary" aria-hidden="true"></i>E-Mail</h2>
 
-                    <h5 class="mt-3">Was soll verschickt werden?</h5>
-                    <div class="form-check form-switch mb-2">
-                        <input class="form-check-input" type="checkbox" role="switch" id="reminders_enabled" name="reminders_enabled" value="1" <?= !empty($s['reminders_enabled']) ? 'checked' : '' ?>>
-                        <label class="form-check-label" for="reminders_enabled">Erinnerungen an TÜV, Wartung, Versicherung und Steuer</label>
-                    </div>
-                    <div class="row align-items-center mb-2 ms-4">
-                        <label class="col-auto col-form-label" for="reminder_days">Erinnern</label>
-                        <div class="col-auto"><input type="number" class="form-control" style="width:6rem" id="reminder_days" name="reminder_days" min="1" max="180" value="<?= $wert('reminder_days') ?: 30 ?>"></div>
-                        <div class="col-auto">Tage vorher (und noch einmal, wenn ein Termin überfällig ist)</div>
-                    </div>
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" role="switch" id="monthly_report" name="monthly_report" value="1" <?= !empty($s['monthly_report']) ? 'checked' : '' ?>>
-                        <label class="form-check-label" for="monthly_report">Monatsbericht am Monatsanfang (Kosten, Strecke, Verbrauch je Fahrzeug)</label>
-                    </div>
-
-                    <h5 class="mt-4">Mailserver (SMTP)</h5>
+                    <h3 class="h5">Mailserver (SMTP)</h3>
                     <?php if ($istStandardGeber): ?>
                         <div class="alert alert-info small"><i class="fas fa-server me-2"></i>Dein Mailserver ist der <strong>Standard für alle Benutzer</strong> ohne eigenen Server. Er verschickt deren Erinnerungen an ihre Konto-Adresse und das Feedback an deinen Empfänger.</div>
                     <?php elseif ($standardServer && !$eigenerServer): ?>
@@ -195,9 +297,9 @@ include '../includes/header.php';
                 </div>
             </form>
 
-            <div class="card shadow mb-4">
+            <div class="card mb-4">
                 <div class="card-body p-4">
-                    <h5>Ausprobieren</h5>
+                    <h2 class="h5">E-Mail ausprobieren</h2>
                     <div class="d-flex flex-wrap gap-2">
                         <?php foreach (['test' => ['fa-paper-plane', 'Test-Mail senden'], 'erinnerungen' => ['fa-bell', 'Fällige Termine jetzt senden'], 'bericht' => ['fa-chart-line', 'Monatsbericht (Vormonat) jetzt senden']] as $aktion => [$icon, $text]): ?>
                         <form method="post">
@@ -214,4 +316,7 @@ include '../includes/header.php';
         </div>
     </div>
 </div>
+<?php if ($pushDa): ?>
+<script src="<?= htmlspecialchars(assetUrl($baseUrl, 'js/push.js')) ?>"></script>
+<?php endif; ?>
 <?php include '../includes/footer.php'; ?>

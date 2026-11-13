@@ -100,3 +100,19 @@ curl -sk -D - -o /dev/null --resolve fuelstat.example.de:443:127.0.0.1 "https://
    ```
 
 3. Die API neu starten: `sudo docker compose up -d`. Danach erscheinen Benutzerverwaltung und Feedback-Eingang im Profilmenü. Der SMTP-Zugang des ersten Admins dient als Standard-Mailserver für alle Benutzer ohne eigenen.
+
+## 5. Push-Benachrichtigungen (optional)
+
+Erinnerungen und Monatsbericht kommen auf Wunsch auch als Push-Benachrichtigung der installierten Web-App: auf
+Android, am Computer und auf dem iPhone/iPad ab iOS 16.4 (dort erst nach „Zum Home-Bildschirm“). Dafür braucht der
+Server ein VAPID-Schlüsselpaar, das nur in `infra/.env` liegt:
+
+```bash
+cd infra
+sudo docker compose exec api node scripts/vapid-schluessel.js
+```
+
+Die drei Zeilen (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` mit deiner Kontaktadresse) in `infra/.env`
+eintragen und die API neu starten (`sudo docker compose up -d`). Danach zeigt die Seite „Benachrichtigungen“ den Knopf
+„Benachrichtigungen aktivieren“. Die Schlüssel nicht wechseln: Ein neues Paar macht alle Push-Abos ungültig.
+Die API muss die Push-Dienste von Google, Apple, Mozilla und Microsoft per HTTPS erreichen können.

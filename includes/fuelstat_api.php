@@ -289,6 +289,16 @@ class FuelstatApi
     public function putMailSettings(array $data): array { return $this->request('PUT', '/auth/mail-settings', $data); }
     public function postMailTest(): array { return $this->request('POST', '/auth/mail-settings/test', []); }
     public function postMailSendNow(string $type): array { return $this->request('POST', '/auth/mail-settings/send-now', ['type' => $type]); }
+
+    // Push und Kanäle je Anlass (#136)
+    public function getPushConfig(): array { return $this->request('GET', '/push/config'); }
+    public function getPushDevices(): array { return $this->getAllPages('/push/devices'); }
+    public function postPushDevice(array $abo): array { return $this->request('POST', '/push/devices', $abo); }
+    public function deletePushDevice(string $id): void { $this->request('DELETE', '/push/devices/' . rawurlencode($id)); }
+    public function deletePushDeviceByEndpoint(string $endpoint): void { $this->request('DELETE', '/push/devices', ['endpoint' => $endpoint]); }
+    public function postPushTest(): array { return $this->request('POST', '/push/test', []); }
+    public function getNotificationPreferences(): array { return $this->request('GET', '/notifications/preferences'); }
+    public function putNotificationPreferences(array $data): array { return $this->request('PUT', '/notifications/preferences', $data); }
     public function putUserBeta(string $userId, bool $betaTester): array { return $this->request('PUT', '/auth/users/' . rawurlencode($userId) . '/beta', ['betaTester' => $betaTester]); }
     public function putUserPlan(string $userId, string $plan, ?string $planUntil): array { return $this->request('PUT', '/auth/users/' . rawurlencode($userId) . '/plan', ['plan' => $plan, 'planUntil' => $planUntil]); }
     public function putPlans(array $userIds, string $plan, ?string $planUntil): array { return $this->request('PUT', '/auth/plans', ['userIds' => array_values($userIds), 'plan' => $plan, 'planUntil' => $planUntil]); }

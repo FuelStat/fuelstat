@@ -223,6 +223,13 @@ CREATE TABLE IF NOT EXISTS user_mail_settings (
   reminders_enabled boolean NOT NULL DEFAULT false,
   reminder_days integer NOT NULL DEFAULT 30 CHECK (reminder_days BETWEEN 1 AND 180),
   monthly_report boolean NOT NULL DEFAULT false,
+  -- Kanäle je Anlass (#136); E-Mail für Termine und Monatsbericht: reminders_enabled bzw. monthly_report
+  odometer_mail boolean NOT NULL DEFAULT false,
+  inactive_mail boolean NOT NULL DEFAULT false,
+  push_reminders boolean NOT NULL DEFAULT false,
+  push_odometer boolean NOT NULL DEFAULT false,
+  push_report boolean NOT NULL DEFAULT false,
+  push_inactive boolean NOT NULL DEFAULT false,
   last_sent_at timestamptz NULL,
   last_error text NULL,
   updated_at timestamptz NOT NULL DEFAULT now()
@@ -232,11 +239,28 @@ CREATE TABLE IF NOT EXISTS user_mail_settings (
 CREATE TABLE IF NOT EXISTS mail_log (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  kind text NOT NULL CHECK (kind IN ('reminder', 'report', 'odometer')),
+  kind text NOT NULL CONSTRAINT mail_log_kind_check CHECK (kind IN (
+    'reminder', 'report', 'odometer', 'inactive', 'push:reminder', 'push:report', 'push:odometer', 'push:inactive')),
   ref text NOT NULL,
   sent_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (user_id, kind, ref)
 );
+
+-- Geräte für Push (#136): Web Push (PWA) heute, APNs/FCM für native Apps später
+CREATE TABLE IF NOT EXISTS push_devices (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind text NOT NULL CHECK (kind IN ('webpush', 'apns', 'fcm')),
+  endpoint text NOT NULL UNIQUE,           -- Web Push: Adresse des Push-Dienstes; APNs/FCM: Geräte-Token
+  p256dh text NULL,                        -- Web Push: öffentlicher Schlüssel des Browsers
+  auth text NULL,                          -- Web Push: Auth-Geheimnis des Browsers
+  name text NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  last_used_at timestamptz NOT NULL DEFAULT now(),
+  last_error text NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_devices_user ON push_devices(user_id);
 
 -- Feedback der Benutzer (bleibt beim Löschen des Kontos erhalten)
 CREATE TABLE IF NOT EXISTS feedback (

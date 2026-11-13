@@ -66,6 +66,7 @@ app.use('/api/v1', require('./routes/statistics')); // Kennzahlen, Verbrauch, Ko
 app.use('/api/v1', require('./routes/stations')); // Tankstellen und Ladestationen
 app.use('/api/v1', require('./routes/media')); // Profil- und Fahrzeugbilder
 app.use('/api/v1', require('./routes/feedback'));
+app.use('/api/v1', require('./routes/push')); // Push-Geräte und Kanäle je Anlass (#136)
 
 app.use(bodyErrorHandler);
 app.use(uploadErrorHandler);

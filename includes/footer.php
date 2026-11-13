@@ -215,6 +215,10 @@
 
 <!-- Service Worker for PWA -->
 <script>
+  // Zahl auf dem App-Symbol (Push, #136) gilt als gesehen, sobald die App offen ist
+  if ('clearAppBadge' in navigator && document.visibilityState === 'visible') {
+    navigator.clearAppBadge().catch(function () {});
+  }
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('<?php echo htmlspecialchars($baseUrl); ?>service-worker.js', { scope: '<?php echo htmlspecialchars($basePath === '/' ? '/' : $basePath . '/'); ?>' }).then(registration => {

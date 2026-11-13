@@ -170,6 +170,9 @@ test('Antworten passen zur OpenAPI (Ablauf wie in der App)', async () => {
   await vertrag('GET', '/vehicles/{vehicleId}/members', { vehicleId }, { token, status: 200 });
   await vertrag('GET', '/vehicles/{vehicleId}/media', { vehicleId }, { token, status: 200 });
   await vertrag('GET', '/invitations', {}, { token, status: 200 });
+  await vertrag('GET', '/notifications/preferences', {}, { token, status: 200 });
+  await vertrag('GET', '/push/config', {}, { token, status: 200 });
+  await vertrag('GET', '/push/devices', {}, { token, status: 200 });
   await vertrag('POST', '/feedback', {}, { token, body: { category: 'idee', message: 'Vertragstest', page: 'iOS-App 0.2.0' }, status: 201 });
 
   // Fehler: immer JSON mit error

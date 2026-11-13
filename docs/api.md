@@ -42,6 +42,11 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | POST | `/auth/tokens/revoke` | ✓ | Ein Token sperren (Abmelden) |
 | GET · PUT | `/auth/mail-settings` | ✓ | E-Mail-Einstellungen |
 | POST | `/auth/mail-settings/test` · `/send-now` | ✓ | Test-Mail, Erinnerungen bzw. Bericht sofort |
+| GET · PUT | `/notifications/preferences` | ✓ | Kanäle je Anlass (E-Mail, Push), Vorlauf für Termine (#136) |
+| GET | `/push/config` | ✓ | Push auf diesem Server aktiv? Öffentlicher VAPID-Schlüssel |
+| GET · POST · DELETE | `/push/devices` | ✓ | Geräte für Push: auflisten, anmelden, per Adresse abmelden |
+| DELETE | `/push/devices/:deviceId` | ✓ | Gerät abmelden |
+| POST | `/push/test` | ✓ | Testnachricht an die eigenen Geräte |
 | GET · POST | `/vehicles` | ✓ | Fahrzeuge auflisten, anlegen |
 | GET | `/fuels` | – | Kraftstoffsorten und Energiearten, Vorschlag je Antriebsart (#140) |
 | GET · PATCH · DELETE | `/vehicles/:vehicleId` | ✓ | Fahrzeug lesen, ändern, löschen (samt Einträgen) |
@@ -722,11 +727,11 @@ Verglichen wird mit allen echten Tachoständen des Fahrzeugs (Tankfüllungen, La
 ## E-Mail-Benachrichtigungen (Auth required)
 
 * `GET /auth/mail-settings` – Einstellungen; das Passwort wird nie zurückgegeben, nur `has_password`
-* `PUT /auth/mail-settings` – `smtpHost`, `smtpPort` (25, 465, 587, 2525), `smtpSecurity` (`tls`, `starttls`, `none`), `smtpUser`, `smtpPassword` (nur senden, wenn es sich ändert), `clearPassword`, `fromAddress`, `toAddress`, `remindersEnabled`, `reminderDays` (1–180), `monthlyReport`
+* `PUT /auth/mail-settings` – `smtpHost`, `smtpPort` (25, 465, 587, 2525), `smtpSecurity` (`tls`, `starttls`, `none`), `smtpUser`, `smtpPassword` (nur senden, wenn es sich ändert), `clearPassword`, `fromAddress`, `toAddress`; optional `remindersEnabled`, `reminderDays` (1–180), `monthlyReport` – fehlen sie, bleiben sie unverändert (Kanäle je Anlass über `/notifications/preferences`, #136)
 * `POST /auth/mail-settings/test` – Test-Mail
 * `POST /auth/mail-settings/send-now` `{ "type": "reminders" | "report" }` – sofort senden (Bericht für den Vormonat)
 
-Mit `remindersEnabled` kommt außerdem einmal je Eintrag die Erinnerung „Kilometerstand nachtragen“: für Tank- und Ladevorgänge der letzten 14 Tage ohne echten Tachostand, frühestens 3 Stunden nach dem Erfassen (`mail_log.kind = 'odometer'`). Ist `APP_URL` gesetzt, enthält sie einen Link direkt zum Nachtragen.
+Die Erinnerung „Kilometerstand nachtragen“ kommt einmal je Eintrag: für Tank- und Ladevorgänge der letzten 14 Tage ohne echten Tachostand, frühestens 3 Stunden nach dem Erfassen (`mail_log.kind = 'odometer'`). Ist `APP_URL` gesetzt, enthält die Mail einen Link direkt zum Nachtragen. Ob sie per E-Mail und/oder Push kommt, steht seit #136 in `/notifications/preferences` (bisher hing sie an `remindersEnabled`; bestehende Einstellungen wurden übernommen).
 
 Ohne eigenen `smtpHost` wird der Standard-Mailserver verwendet (SMTP-Zugang von `MAIL_DEFAULT_USER_ID` bzw. des ersten Admins). Die Mails gehen dann immer an die Konto-Adresse; `to_address` wird ignoriert. `GET` liefert dazu `default_available`, `default_from` und `uses_default`. Test-Mail und Sofortversand über den Standard-Server: höchstens 5 in 15 Minuten (`429 too_many_attempts`).
 
@@ -749,6 +754,26 @@ Umgebungsvariablen des Backends:
 * `MAIL_ENCRYPTION_KEY` – Schlüssel für die SMTP-Passwörter (Standard: aus `JWT_SECRET` abgeleitet; wer `JWT_SECRET` ändert, muss dann die SMTP-Passwörter neu eingeben)
 * `ALLOW_PRIVATE_SMTP=true` – Mailserver mit internen Adressen erlauben (z. B. eigener Server im selben Netz)
 * `NOTIFICATIONS_ENABLED=false` – automatischen Versand abschalten
+
+## Benachrichtigungen und Push (#136)
+
+**Anlässe:** `reminders` (Termine bald fällig bzw. überfällig), `odometer` (Kilometerstand nachtragen), `report` (Monatsbericht des Vormonats), `inactive` (für ein Fahrzeug 30 Tage nichts erfasst; je Pause nur einmal). Je Anlass gibt es die Kanäle `email` und `push`; beide, einer oder keiner.
+
+* `GET /notifications/preferences` → `{ occasions: { reminders: { email, push }, odometer: {…}, report: {…}, inactive: {…} }, reminder_days, email_available, push_available, push_devices }`
+* `PUT /notifications/preferences` `{ "occasions": { "reminders": { "push": true } }, "reminder_days": 21 }` – nur, was mitkommt, ändert sich. Fehler: 400 `invalid_occasions`, `invalid_reminderDays`, `mail_not_configured` (E-Mail ohne Mailserver), `push_not_configured` (Push ohne VAPID-Schlüssel auf dem Server)
+* `GET /push/config` → `{ enabled, vapidPublicKey }` – Schlüssel für `pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })`
+* `POST /push/devices` `{ "kind": "webpush", "endpoint", "keys": { "p256dh", "auth" }, "name": "iPhone (App)" }` – das Ergebnis von `PushSubscription.toJSON()` plus Name. Dieselbe Adresse aktualisiert das Gerät (auch nach einem Kontowechsel). Nur Adressen der Push-Dienste von Google, Apple, Mozilla und Microsoft (`https`), höchstens 20 Geräte je Konto. Fehler: 400 `push_not_configured`, `invalid_endpoint`, `invalid_keys`, `unsupported_kind` (APNs/FCM folgen mit den nativen Apps), 409 `too_many_devices`
+* `GET /push/devices` (seitenweise) → `id`, `kind`, `name`, `created_at`, `last_used_at` (letzte Zustellung), `last_error` (z. B. `HTTP 403 BadJwtToken`); Adresse und Schlüssel kommen nie zurück
+* `DELETE /push/devices/:deviceId` bzw. `DELETE /push/devices` `{ "endpoint" }` (aus dem Browser, der seine id nicht kennt) → 204, sonst 404 `device_not_found`
+* `POST /push/test` → `{ sent, failed, removed }`; 409 `no_push_devices`, höchstens 5 in 15 Minuten
+
+**Nachricht** (Payload, Ende-zu-Ende verschlüsselt nach RFC 8291): `{ title, body, url, tag, badge? }`. `url` ist relativ zur Web-App (z. B. `pages/fahrzeug_detail.php?id=…`), `tag` fasst Nachrichten desselben Anlasses zusammen, `badge` ist die Zahl fürs App-Symbol (Termine). Der Service Worker zeigt die Nachricht und öffnet beim Tippen die Seite.
+
+**Versand** (wie die Mails stündlich, `services/notifier.js` mit `services/push.js`): je Anlass eigenes Versandprotokoll (`mail_log.kind` mit `push:` davor), damit E-Mail und Push unabhängig genau einmal kommen. Je Anlass `TTL` (Termine 3 Tage, Kilometerstand 2, Monatsbericht 7, lange kein Eintrag 3, Test 1 Stunde), `Urgency` (überfällige Termine `high`, Bericht und „lange kein Eintrag“ `low`, sonst `normal`) und `Topic` (= `tag`). Der VAPID-JWT wird je Push-Dienst höchstens alle 6 Stunden neu signiert (gültig 12 Stunden; Apple: nicht öfter als stündlich). 404/410 löschen das Gerät; 403 (z. B. `BadJwtToken`, `VapidPkHashMismatch`), 413 und andere Fehler stehen in `last_error`. Kommt bei keinem Gerät etwas an (z. B. 429/503), wird der Anlass beim nächsten Lauf wiederholt.
+
+**Konfiguration:** `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (mailto: oder https, Standard `APP_URL`) in `infra/.env`; erzeugen mit `docker compose exec api node scripts/vapid-schluessel.js`. Ohne Schlüssel ist Push aus (`push_available: false`).
+
+**Native Apps:** `push_devices.kind` kennt schon `apns` und `fcm`; die Apps melden ihr Geräte-Token später über denselben Endpunkt an.
 
 ## Bilder (Auth required)
 

@@ -1,11 +1,23 @@
 // backend/src/services/notifier.js
-// Erinnerungs-Mails und Monatsberichte. Läuft stündlich (startNotifier) und lässt sich manuell auslösen.
+// Benachrichtigungen per E-Mail und Push (#136): Termine, Kilometerstand nachtragen, Monatsbericht und lange kein
+// Eintrag. Je Anlass wählt der Benutzer die Kanäle; jeder Kanal hat sein eigenes Versandprotokoll (mail_log, für Push
+// mit "push:" davor), damit nichts doppelt kommt. Läuft stündlich (startNotifier) und lässt sich manuell auslösen.
 const { getVehicleReminders } = require('./reminders');
 const { getVehicleStats } = require('./stats');
 const { energySql, ENERGIES, ENERGY_ORDER } = require('./fuels');
 const { sendUserMail, loadDefaultSmtp, withDefaultSmtp } = require('./mail');
 const categories = require('./categories');
 const { accessibleVehicles } = require('./vehicleAccess');
+const push = require('./push');
+
+// Anlässe und ihre Kanäle (Spalten in user_mail_settings). E-Mail für Termine und Monatsbericht heißt aus
+// Kompatibilität weiter reminders_enabled bzw. monthly_report.
+const OCCASIONS = ['reminders', 'odometer', 'report', 'inactive'];
+const MAIL_FLAG = { reminders: 'reminders_enabled', odometer: 'odometer_mail', report: 'monthly_report', inactive: 'inactive_mail' };
+const PUSH_FLAG = { reminders: 'push_reminders', odometer: 'push_odometer', report: 'push_report', inactive: 'push_inactive' };
+const LOG_KIND = { reminders: 'reminder', odometer: 'odometer', report: 'report', inactive: 'inactive' };
+// „Lange kein Eintrag“: so viele Tage ohne Tankfüllung, Ausgabe oder Fahrt
+const INACTIVE_DAYS = 30;
 
 const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 const UNITS = { l: 'l', kwh: 'kWh', kg: 'kg' };
@@ -44,16 +56,18 @@ async function collectDueReminders(pool, settings) {
     const reminders = await getVehicleReminders(pool, settings.user_id, v.id, settings.reminder_days);
     for (const r of reminders) {
       if (r.status === 'bald' || r.status === 'ueberfaellig') {
-        due.push({ ...r, vehicle: v.name, ref: `${v.id}:${r.category}:${r.due_date}:${r.status}` });
+        due.push({ ...r, vehicle: v.name, vehicle_id: v.id, ref: `${v.id}:${r.category}:${r.due_date}:${r.status}` });
       }
     }
   }
   return due;
 }
 
+const faelligText = (r) => (r.status === 'ueberfaellig' ? 'überfällig' : (r.days === 0 ? 'heute fällig' : `fällig in ${r.days} Tagen`));
+
 function reminderMail(due) {
   const line = (r) => {
-    const when = r.status === 'ueberfaellig' ? 'überfällig' : (r.days === 0 ? 'heute fällig' : `fällig in ${r.days} Tagen`);
+    const when = faelligText(r);
     const km = r.due_km ? ` oder bei ${fmt(r.due_km, 0)} km` : '';
     return { text: `${r.vehicle}: ${r.title} – ${when} (${fmtDate(r.due_date)}${km})`, overdue: r.status === 'ueberfaellig' };
   };
@@ -101,6 +115,87 @@ function odometerMail(rows, appUrl = process.env.APP_URL) {
     .map((i) => `<li>${esc(i.text)}${i.link ? ` – <a href="${esc(i.link)}">jetzt nachtragen</a>` : ''}</li>`).join('')}</ul>${base
     ? '' : '<p>Du findest die Einträge in der Eintragsliste des Fahrzeugs („Nachtragen“).</p>'}<p>Deine Fuelstat-App</p>`;
   return { subject, text, html };
+}
+
+// --- Push-Texte (#136): knapp, ein Tipp öffnet die passende Seite (url relativ zur App) ---
+function reminderPush(due) {
+  const ueberfaellig = due.some((r) => r.status === 'ueberfaellig');
+  if (due.length === 1) {
+    const r = due[0];
+    return { title: ueberfaellig ? 'Termin überfällig' : 'Termin bald fällig', body: `${r.vehicle}: ${r.title} – ${faelligText(r)}`,
+      url: `pages/fahrzeug_detail.php?id=${encodeURIComponent(r.vehicle_id)}`, tag: 'termine',
+      badge: 1, ttl: 3 * 86400, urgency: ueberfaellig ? 'high' : 'normal' };
+  }
+  const fahrzeuge = [...new Set(due.map((r) => r.vehicle_id))];
+  return {
+    title: ueberfaellig ? `${due.length} Termine, davon überfällige` : `${due.length} Termine bald fällig`,
+    body: due.slice(0, 3).map((r) => `${r.vehicle}: ${r.title}`).join(' · ') + (due.length > 3 ? ' …' : ''),
+    url: fahrzeuge.length === 1 ? `pages/fahrzeug_detail.php?id=${encodeURIComponent(fahrzeuge[0])}` : '',
+    tag: 'termine',
+    badge: due.length,
+    ttl: 3 * 86400,
+    urgency: ueberfaellig ? 'high' : 'normal'
+  };
+}
+
+function odometerPush(rows) {
+  const was = (f) => (f.fuel_type === 'electric' || f.unit === 'kwh' ? 'Ladevorgang' : 'Tankfüllung');
+  const datum = (f) => fmtDate(new Date(f.filled_at).toISOString().slice(0, 10)).slice(0, 6);
+  if (rows.length === 1) {
+    const f = rows[0];
+    return { title: 'Kilometerstand nachtragen', body: `${f.vehicle}: ${was(f)} vom ${datum(f)}`,
+      url: `pages/tachostand_nachtragen.php?id=${encodeURIComponent(f.id)}&fahrzeug_id=${encodeURIComponent(f.vehicle_id)}`, tag: 'tachostand',
+      ttl: 2 * 86400, urgency: 'normal' };
+  }
+  return { title: `${rows.length} Kilometerstände nachtragen`, body: [...new Set(rows.map((f) => f.vehicle))].join(', '),
+    url: `pages/fahrzeug_detail.php?id=${encodeURIComponent(rows[0].vehicle_id)}#eintraege`, tag: 'tachostand', ttl: 2 * 86400, urgency: 'normal' };
+}
+
+function reportPush(report) {
+  return { title: `Monatsbericht ${report.label}`, body: `Kosten aller Fahrzeuge: ${fmt(report.total)} €`, url: '', tag: 'monatsbericht',
+    ttl: 7 * 86400, urgency: 'low' };
+}
+
+/** Fahrzeuge, für die seit INACTIVE_DAYS nichts erfasst wurde (nur solche mit früheren Einträgen) */
+async function collectInactive(pool, settings, now = new Date()) {
+  const r = await pool.query(
+    `SELECT v.id AS vehicle_id, v.name AS vehicle,
+            GREATEST((SELECT MAX(filled_at) FROM fillups WHERE vehicle_id = v.id),
+                     (SELECT MAX(occurred_at) FROM expenses WHERE vehicle_id = v.id),
+                     (SELECT MAX(started_at) FROM trips WHERE vehicle_id = v.id)) AS last_at
+       FROM vehicles v WHERE ${accessibleVehicles('v', 1)}`,
+    [settings.user_id]
+  );
+  const grenze = now.getTime() - INACTIVE_DAYS * 86400000;
+  return r.rows
+    .filter((x) => x.last_at && new Date(x.last_at).getTime() < grenze)
+    .map((x) => ({
+      ...x,
+      days: Math.floor((now.getTime() - new Date(x.last_at).getTime()) / 86400000),
+      // Je Pause nur eine Nachricht: neuer Eintrag = neue Referenz
+      ref: `${x.vehicle_id}:${new Date(x.last_at).toISOString().slice(0, 10)}`
+    }));
+}
+
+function inactiveMail(rows) {
+  const lines = rows.map((x) => `${x.vehicle}: seit ${x.days} Tagen nichts erfasst`);
+  return {
+    subject: rows.length === 1 ? `Fuelstat: ${rows[0].vehicle} – lange kein Eintrag` : 'Fuelstat: lange kein Eintrag',
+    text: `Hallo,\n\nfür diese Fahrzeuge wurde länger nichts erfasst:\n\n${lines.map((l) => '- ' + l).join('\n')}\n\nWenn du getankt hast oder gefahren bist, trag es nach – dann stimmen Verbrauch und Kosten.\n\nDeine Fuelstat-App`,
+    html: `<p>Hallo,</p><p>für diese Fahrzeuge wurde länger nichts erfasst:</p><ul>${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul><p>Wenn du getankt hast oder gefahren bist, trag es nach – dann stimmen Verbrauch und Kosten.</p><p>Deine Fuelstat-App</p>`
+  };
+}
+
+function inactivePush(rows) {
+  const x = rows[0];
+  return {
+    title: 'Lange kein Eintrag',
+    body: rows.length === 1 ? `${x.vehicle}: seit ${x.days} Tagen nichts erfasst` : rows.map((r) => r.vehicle).join(', ') + ': länger nichts erfasst',
+    url: `pages/eintrag_hinzufuegen.php?fahrzeug_id=${encodeURIComponent(x.vehicle_id)}`,
+    tag: 'inaktiv',
+    ttl: 3 * 86400,
+    urgency: 'low'
+  };
 }
 
 /** Monatsdaten aller Fahrzeuge für einen Monat (year, month 1-12). */
@@ -235,60 +330,74 @@ async function recordResult(pool, userId, error) {
   );
 }
 
-/** Neue Erinnerungen und den Bericht des Vormonats für einen Benutzer verschicken. */
+// Einen Anlass über einen Kanal verschicken: Referenzen reservieren, senden, bei Fehler wieder freigeben
+async function viaMail(pool, settings, occasion, items, build) {
+  const kind = LOG_KIND[occasion];
+  const fresh = await claim(pool, settings.user_id, kind, items.map((i) => i.ref));
+  if (!fresh.length) return;
+  try {
+    await sendUserMail(settings, await build(items.filter((i) => fresh.includes(i.ref))));
+    await recordResult(pool, settings.user_id, null);
+  } catch (e) {
+    await release(pool, settings.user_id, kind, fresh);
+    await recordResult(pool, settings.user_id, e);
+  }
+}
+
+async function viaPush(pool, settings, occasion, items, build) {
+  const kind = 'push:' + LOG_KIND[occasion];
+  const fresh = await claim(pool, settings.user_id, kind, items.map((i) => i.ref));
+  if (!fresh.length) return;
+  try {
+    const r = await push.sendToUser(pool, settings.user_id, await build(items.filter((i) => fresh.includes(i.ref))));
+    // Kein Gerät erreicht (z. B. Push-Dienst gestört): beim nächsten Lauf noch einmal versuchen
+    if (r.sent === 0) await release(pool, settings.user_id, kind, fresh);
+  } catch (e) {
+    await release(pool, settings.user_id, kind, fresh);
+    console.error('[notifier] push', settings.user_id, e.message);
+  }
+}
+
+/** Alle fälligen Anlässe eines Benutzers über die gewählten Kanäle verschicken. */
 async function notifyUser(pool, settings, now = new Date()) {
-  if (settings.reminders_enabled) {
-    const due = await collectDueReminders(pool, settings);
-    const fresh = await claim(pool, settings.user_id, 'reminder', due.map((r) => r.ref));
-    if (fresh.length) {
-      try {
-        await sendUserMail(settings, reminderMail(due.filter((r) => fresh.includes(r.ref))));
-        await recordResult(pool, settings.user_id, null);
-      } catch (e) {
-        await release(pool, settings.user_id, 'reminder', fresh);
-        await recordResult(pool, settings.user_id, e);
-      }
-    }
-  }
+  const mailOk = Boolean(settings.smtp_host);
+  const pushOk = Boolean(push.config()) && OCCASIONS.some((o) => settings[PUSH_FLAG[o]]) && await push.hasDevices(pool, settings.user_id);
+  const kanaele = (o) => ({ mail: mailOk && Boolean(settings[MAIL_FLAG[o]]), push: pushOk && Boolean(settings[PUSH_FLAG[o]]) });
 
-  // Kilometerstand nachtragen: gehört zu den Erinnerungen, jeder Eintrag nur einmal (mail_log kind 'odometer')
-  if (settings.reminders_enabled) {
-    const missing = await collectMissingOdometers(pool, settings, now);
-    const fresh = await claim(pool, settings.user_id, 'odometer', missing.map((f) => f.ref));
-    if (fresh.length) {
-      try {
-        await sendUserMail(settings, odometerMail(missing.filter((f) => fresh.includes(f.ref))));
-        await recordResult(pool, settings.user_id, null);
-      } catch (e) {
-        await release(pool, settings.user_id, 'odometer', fresh);
-        await recordResult(pool, settings.user_id, e);
-      }
-    }
-  }
+  // Monatsbericht nur einmal berechnen, auch wenn er per E-Mail und Push geht
+  let bericht = null;
+  const { year, month } = previousMonth(now);
+  const holeBericht = async () => (bericht ||= await buildMonthlyReport(pool, settings, year, month));
 
-  if (settings.monthly_report) {
-    const { year, month } = previousMonth(now);
-    const ref = `${year}-${String(month).padStart(2, '0')}`;
-    const fresh = await claim(pool, settings.user_id, 'report', [ref]);
-    if (fresh.length) {
-      try {
-        await sendUserMail(settings, reportMail(await buildMonthlyReport(pool, settings, year, month)));
-        await recordResult(pool, settings.user_id, null);
-      } catch (e) {
-        await release(pool, settings.user_id, 'report', fresh);
-        await recordResult(pool, settings.user_id, e);
-      }
-    }
+  const anlaesse = {
+    reminders: { collect: () => collectDueReminders(pool, settings), mail: reminderMail, push: reminderPush },
+    // Kilometerstand nachtragen (#41): jeder Eintrag nur einmal
+    odometer: { collect: () => collectMissingOdometers(pool, settings, now), mail: (x) => odometerMail(x), push: odometerPush },
+    report: {
+      collect: async () => [{ ref: `${year}-${String(month).padStart(2, '0')}` }],
+      mail: async () => reportMail(await holeBericht()),
+      push: async () => reportPush(await holeBericht())
+    },
+    inactive: { collect: () => collectInactive(pool, settings, now), mail: inactiveMail, push: inactivePush }
+  };
+
+  for (const o of OCCASIONS) {
+    const k = kanaele(o);
+    if (!k.mail && !k.push) continue;
+    const items = await anlaesse[o].collect();
+    if (!items.length) continue;
+    if (k.mail) await viaMail(pool, settings, o, items, anlaesse[o].mail);
+    if (k.push) await viaPush(pool, settings, o, items, anlaesse[o].push);
   }
 }
 
 async function runNotifications(pool, now = new Date()) {
   const defaults = await loadDefaultSmtp(pool);
   // Nur Konten mit bestätigter Adresse (#135): keine Mails an Adressen, deren Inhaber nicht zugestimmt hat
-  const r = await pool.query(`${SETTINGS_SQL} WHERE (s.reminders_enabled OR s.monthly_report) AND u.email_verified_at IS NOT NULL`);
+  const aktiv = OCCASIONS.flatMap((o) => [MAIL_FLAG[o], PUSH_FLAG[o]]).map((c) => `s.${c}`).join(' OR ');
+  const r = await pool.query(`${SETTINGS_SQL} WHERE (${aktiv}) AND u.email_verified_at IS NOT NULL`);
   for (const row of r.rows) {
     const settings = withDefaultSmtp(row, defaults);
-    if (!settings.smtp_host) continue;
     try {
       await notifyUser(pool, settings, now);
     } catch (e) {
@@ -317,6 +426,8 @@ function startNotifier(pool) {
 }
 
 module.exports = {
-  loadUserSettings, collectDueReminders, reminderMail, collectMissingOdometers, odometerMail, buildMonthlyReport, reportMail,
+  OCCASIONS, MAIL_FLAG, PUSH_FLAG, INACTIVE_DAYS,
+  loadUserSettings, collectDueReminders, reminderMail, reminderPush, collectMissingOdometers, odometerMail, odometerPush,
+  collectInactive, inactiveMail, inactivePush, buildMonthlyReport, reportMail, reportPush,
   previousMonth, notifyUser, runNotifications, startNotifier
 };

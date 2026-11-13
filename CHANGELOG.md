@@ -7,12 +7,15 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 ## [Unreleased]
 
 ### Neu
+- **Push-Benachrichtigungen** (#136): Termine, „Kilometerstand nachtragen“ und den Monatsbericht gibt es jetzt auch als Push-Benachrichtigung der installierten Web-App – auf Android, am Computer und auf dem iPhone/iPad ab iOS 16.4 (dort nach „Zum Home-Bildschirm“). Unter „Benachrichtigungen“ wählst du je Anlass E-Mail, Push oder beides, aktivierst Push auf dem Gerät mit einem Klick und schickst eine Testnachricht. Ein Tipp auf die Nachricht öffnet die passende Seite; anstehende Termine zeigt das App-Symbol als Zahl.
+- **Hinweis „Lange kein Eintrag“** (#136): Wurde für ein Fahrzeug 30 Tage nichts erfasst, kommt auf Wunsch eine Erinnerung per E-Mail oder Push.
 - **Angemeldete Apps** (#117): Unter Einstellungen → Sicherheit siehst du, auf welchen Geräten die iPhone- bzw. Android-App angemeldet ist (Name, App-Version, zuletzt genutzt), und kannst einzelne Geräte abmelden. „Auf allen Geräten abmelden“ und eine Passwortänderung melden auch alle Apps ab.
 
 ### Sicherheit
 - **Gerätesitzungen für Apps** (#117): Apps bekommen statt eines 7-Tage-Tokens ein Zugriffstoken für 30 Minuten und ein Refresh-Token je Gerät. Es gilt nur einmal (wird bei jeder Verwendung getauscht) und steht nur als Hash in der Datenbank; taucht ein schon getauschtes Token noch einmal auf, endet die Sitzung dieses Geräts. Apps bleiben so monatelang angemeldet, ohne dass ein langlebiges Token auf dem Gerät liegt. Die Web-App meldet sich unverändert an.
 
 ### Technik
+- **API für Push** (#136): `GET/PUT /notifications/preferences` (Kanäle je Anlass), `GET /push/config`, `GET/POST/DELETE /push/devices`, `DELETE /push/devices/:id`, `POST /push/test`. Versand über `web-push` mit VAPID; je Anlass TTL, Urgency und Topic, VAPID-JWT je Push-Dienst zwischengespeichert, abgemeldete Geräte (404/410) werden gelöscht. `push_devices` kennt schon APNs und FCM für die nativen Apps. `PUT /auth/mail-settings` lässt fehlende Felder für Termine und Monatsbericht jetzt unverändert.
 - **API-Vertrag** (#118): Regeln für abwärtskompatible Änderungen, Fehlerformat und Abkündigungen in `docs/api.md`; ein Vertragstest prüft die Antworten der Endpunkte, die Apps nutzen, gegen die OpenAPI. `/health` liefert je Plattform Mindest- und empfohlene App-Version (`apps`); Apps mit dem Header `X-Fuelstat-Client`, die älter als die Mindestversion sind, bekommen 426 `app_update_required`. Beträge, Mengen und Strecken kommen jetzt überall als Zahl statt als Text; die Liste der Tank- und Ladevorgänge enthält `vehicle_id`. Kein gültiges JSON im Anfragekörper ergibt 400 `invalid_json` (bisher fälschlich `upload_error`), unbekannte Pfade 404 `not_found` als JSON statt einer HTML-Seite.
 - API (#117): `device` bei `POST /auth/register`, `/auth/login` und `/auth/login/mfa`; neu `POST /auth/session/refresh`, `GET /auth/sessions`, `DELETE /auth/sessions/:id` (auch `current`). Doku in `docs/api.md` („Gerätesitzungen für Apps“) und OpenAPI.
 
@@ -22,6 +25,21 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
   ```bash
   cd infra
   sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_022_device_sessions.sql
+  ```
+
+- Migration `023_push` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich). „Kilometerstand nachtragen“ per E-Mail übernimmt die bisherige Einstellung der Termin-Erinnerungen. Von Hand:
+
+  ```bash
+  cd infra
+  sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_023_push.sql
+  ```
+
+- **Für Push** (optional) einmal VAPID-Schlüssel erzeugen, die drei Zeilen in `infra/.env` eintragen (`VAPID_SUBJECT` mit eigener Kontaktadresse) und die API neu starten. Ohne Schlüssel bleibt Push aus:
+
+  ```bash
+  cd infra
+  sudo docker compose exec api node scripts/vapid-schluessel.js
+  sudo docker compose up -d
   ```
 
 ### Verbessert

@@ -8,7 +8,7 @@ $menue = [
     ['pages/einstellungen.php', 'fa-user-edit', 'Profil bearbeiten'],
     ['pages/passwort_aendern.php', 'fa-key', 'Passwort ändern'],
     ['pages/mfa_einrichten.php', 'fa-shield-alt', '2FA einrichten'],
-    ['pages/benachrichtigungen.php', 'fa-envelope', 'E-Mail-Benachrichtigungen'],
+    ['pages/benachrichtigungen.php', 'fa-bell', 'Benachrichtigungen'],
     ['pages/kategorien.php', 'fa-tags', 'Kategorien'],
     ['pages/einladungen.php', 'fa-users', 'Einladungen'],
     ['pages/neuigkeiten.php', 'fa-bullhorn', 'Neuigkeiten'],

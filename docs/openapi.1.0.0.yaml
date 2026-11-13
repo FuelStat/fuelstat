@@ -27,6 +27,7 @@ tags:
   - name: Stats
   - name: Entries
   - name: Feedback
+  - name: Notifications
   - name: Media
   - name: Stations
   - name: Sharing
@@ -2704,6 +2705,206 @@ paths:
         "404":
           description: Unbekannt, falsche Signatur oder abgelaufen
 
+  /api/v1/notifications/preferences:
+    get:
+      tags: [Notifications]
+      summary: Channels per occasion (email, push) and reminder lead time (#136)
+      operationId: getNotificationPreferences
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPreferences"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      tags: [Notifications]
+      summary: Change channels per occasion (partial)
+      operationId: putNotificationPreferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                occasions:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    reminders: { $ref: "#/components/schemas/OccasionChannelsInput" }
+                    odometer: { $ref: "#/components/schemas/OccasionChannelsInput" }
+                    report: { $ref: "#/components/schemas/OccasionChannelsInput" }
+                    inactive: { $ref: "#/components/schemas/OccasionChannelsInput" }
+                reminder_days: { type: integer, minimum: 1, maximum: 180 }
+            example:
+              occasions: { reminders: { push: true }, report: { email: true, push: false } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationPreferences"
+        "400":
+          description: invalid_occasions | invalid_reminderDays | mail_not_configured | push_not_configured
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: email_not_verified
+
+  /api/v1/push/config:
+    get:
+      tags: [Notifications]
+      summary: Is push enabled on this server? Public VAPID key (#136)
+      operationId: getPushConfig
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [enabled, vapidPublicKey]
+                properties:
+                  enabled: { type: boolean }
+                  vapidPublicKey: { type: string, nullable: true, description: "Für pushManager.subscribe({ applicationServerKey })" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/push/devices:
+    get:
+      tags: [Notifications]
+      summary: Own push devices, paginated (#136)
+      operationId: getPushDevices
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Eine Seite (#160)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PushDevice"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Notifications]
+      summary: Register or update a push device (Web Push subscription)
+      description: >
+        Body = PushSubscription.toJSON() plus kind und name. Dieselbe Adresse aktualisiert das Gerät. Nur https-Adressen
+        der Push-Dienste von Google, Apple, Mozilla und Microsoft; höchstens 20 Geräte je Konto.
+      operationId: postPushDevice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint, keys]
+              properties:
+                kind: { type: string, enum: [webpush], default: webpush }
+                endpoint: { type: string, format: uri, maxLength: 1000 }
+                keys:
+                  type: object
+                  required: [p256dh, auth]
+                  properties:
+                    p256dh: { type: string }
+                    auth: { type: string }
+                name: { type: string, maxLength: 100, example: "iPhone (App)" }
+      responses:
+        "201":
+          description: Angemeldet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushDevice"
+        "400":
+          description: push_not_configured | unsupported_kind | invalid_endpoint | invalid_keys
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: email_not_verified
+        "409":
+          description: too_many_devices
+    delete:
+      tags: [Notifications]
+      summary: Unregister a push device by its endpoint (from the browser)
+      operationId: deletePushDeviceByEndpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint]
+              properties:
+                endpoint: { type: string }
+      responses:
+        "204":
+          description: Abgemeldet
+        "400":
+          description: missing_endpoint
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: device_not_found
+
+  /api/v1/push/devices/{deviceId}:
+    delete:
+      tags: [Notifications]
+      summary: Unregister a push device
+      operationId: deletePushDevice
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Abgemeldet
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: device_not_found
+
+  /api/v1/push/test:
+    post:
+      tags: [Notifications]
+      summary: Send a test notification to all own devices (max. 5 in 15 minutes)
+      operationId: postPushTest
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [sent, failed, removed]
+                properties:
+                  sent: { type: integer }
+                  failed: { type: integer }
+                  removed: { type: integer, description: "vom Push-Dienst als abgemeldet gemeldet (404/410) und gelöscht" }
+        "400":
+          description: push_not_configured
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: no_push_devices
+        "429":
+          description: too_many_attempts
+
   /api/v1/feedback:
     post:
       tags: [Feedback]
@@ -3685,6 +3886,53 @@ components:
           format: date-time
       required: [id, name, fuel_type]
 
+    NotificationPreferences:
+      type: object
+      additionalProperties: false
+      description: Kanäle je Anlass (#136)
+      required: [occasions, reminder_days, email_available, push_available, push_devices]
+      properties:
+        occasions:
+          type: object
+          additionalProperties: false
+          required: [reminders, odometer, report, inactive]
+          properties:
+            reminders: { $ref: "#/components/schemas/OccasionChannels" }
+            odometer: { $ref: "#/components/schemas/OccasionChannels" }
+            report: { $ref: "#/components/schemas/OccasionChannels" }
+            inactive: { $ref: "#/components/schemas/OccasionChannels" }
+        reminder_days: { type: integer, description: Vorlauf für Termine in Tagen }
+        email_available: { type: boolean, description: Eigener oder Standard-Mailserver vorhanden }
+        push_available: { type: boolean, description: VAPID-Schlüssel auf dem Server gesetzt }
+        push_devices: { type: integer, description: Anzahl Geräte mit Web Push }
+
+    OccasionChannels:
+      type: object
+      additionalProperties: false
+      required: [email, push]
+      properties:
+        email: { type: boolean }
+        push: { type: boolean }
+
+    OccasionChannelsInput:
+      type: object
+      additionalProperties: false
+      properties:
+        email: { type: boolean }
+        push: { type: boolean }
+
+    PushDevice:
+      type: object
+      additionalProperties: false
+      required: [id, kind, created_at, last_used_at]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [webpush, apns, fcm] }
+        name: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: string, format: date-time, description: Anmeldung bzw. letzte erfolgreiche Zustellung }
+        last_error: { type: string, nullable: true, example: "HTTP 403 BadJwtToken" }
+
     Pagination:
       type: object
       description: Angaben zur Seite (#160)
@@ -4197,9 +4445,9 @@ components:
         clearPassword: { type: boolean }
         fromAddress: { type: string, nullable: true }
         toAddress: { type: string, nullable: true }
-        remindersEnabled: { type: boolean }
-        reminderDays: { type: integer, minimum: 1, maximum: 180 }
-        monthlyReport: { type: boolean }
+        remindersEnabled: { type: boolean, description: "Optional, fehlt = unverändert. E-Mail für Termine; alle Kanäle je Anlass über /notifications/preferences (#136)" }
+        reminderDays: { type: integer, minimum: 1, maximum: 180, description: "Optional, fehlt = unverändert" }
+        monthlyReport: { type: boolean, description: "Optional, fehlt = unverändert. E-Mail für den Monatsbericht" }
 
     EntryListResponse:
       description: Eine Seite (#160)

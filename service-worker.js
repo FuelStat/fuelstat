@@ -212,3 +212,53 @@ self.addEventListener('fetch', (event) => {
     return antwort;
   })());
 });
+
+// --- Push-Benachrichtigungen (#136) ---
+// Die API schickt { title, body, url, tag, badge } (Ende-zu-Ende verschlüsselt). url ist relativ zur App, ein Tipp
+// öffnet sie. badge: Zahl auf dem App-Symbol (z. B. anstehende Termine), wo der Browser das kann (iOS ab 16.4, Android,
+// Desktop); die App löscht sie beim Öffnen (includes/footer.php).
+self.addEventListener('push', (event) => {
+  let d = {};
+  try {
+    d = event.data ? event.data.json() : {};
+  } catch (e) {
+    d = { body: event.data ? event.data.text() : '' };
+  }
+  const scope = self.registration.scope;
+  let ziel = scope;
+  try {
+    const u = new URL(d.url || '', scope);
+    // Nur Seiten der App
+    if (u.origin === new URL(scope).origin) ziel = u.href;
+  } catch (e) { /* Startseite */ }
+  const badge = Number.isInteger(d.badge) && 'setAppBadge' in self.navigator ? self.navigator.setAppBadge(d.badge).catch(() => {}) : null;
+  event.waitUntil(Promise.all([self.registration.showNotification(d.title || 'Fuelstat', {
+    body: d.body || '',
+    tag: d.tag || undefined,
+    renotify: Boolean(d.tag),
+    icon: scope + 'images/icon-192x192.png',
+    data: { url: ziel }
+  }), badge]));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    let url;
+    try {
+      url = new URL((event.notification.data && event.notification.data.url) || self.registration.scope);
+    } catch (e) {
+      url = new URL(self.registration.scope);
+    }
+    // Nur Seiten der App öffnen
+    if (url.origin !== self.location.origin) url = new URL(self.registration.scope);
+    const fenster = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const f of fenster) {
+      if (new URL(f.url).origin !== url.origin) continue;
+      await f.focus();
+      if ('navigate' in f) return f.navigate(url.href);
+      return undefined;
+    }
+    return self.clients.openWindow(url.href);
+  })());
+});

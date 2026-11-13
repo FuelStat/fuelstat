@@ -4424,14 +4424,20 @@ components:
 
     Reminder:
       type: object
+      additionalProperties: false
+      required: [title, category, kind, last, last_odometer_km, last_description, due_date, due_km, status, days, source]
       properties:
         title: { type: string, example: "TÜV" }
         category: { type: string, example: "TUV" }
-        last: { type: string, format: date, nullable: true }
+        kind: { type: string, enum: [due, info], description: "due: Termin mit Fälligkeit; info: nur letzter Eintrag ohne Fälligkeit (Reifen)" }
+        last: { type: string, format: date, nullable: true, description: Datum des letzten Eintrags der Kategorie }
+        last_odometer_km: { type: integer, nullable: true, description: Tachostand des letzten Eintrags }
+        last_description: { type: string, nullable: true, description: Beschreibung des letzten Eintrags }
         due_date: { type: string, format: date, nullable: true }
         due_km: { type: integer, nullable: true }
         status: { type: string, enum: [ok, bald, ueberfaellig, unbekannt] }
         days: { type: integer, nullable: true }
+        source: { type: string, nullable: true, enum: [eintrag, erstzulassung, faelligkeitsmonat, null] }
 
     MailSettings:
       type: object

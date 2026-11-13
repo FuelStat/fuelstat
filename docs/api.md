@@ -55,7 +55,7 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | GET | `/vehicles/:vehicleId/consumption` | ✓ | Verbrauch je Energieart (und je Einheit): Abschnitte, Monate, Jahre, Ø/Min/Max, Mengen, CO₂, Stromanteil; Preise je Sorte |
 | GET | `/stations?lat=&lng=&radius=&type=` | ✓ | Tankstellen in der Nähe mit aktuellen Preisen (Tankerkönig) |
 | GET | `/charging-stations?lat=&lng=&radius=` | ✓ | Ladestationen in der Nähe (Open Charge Map) |
-| GET | `/vehicles/:vehicleId/reminders` | ✓ | Fälligkeiten TÜV, Wartung, Versicherung, Steuer |
+| GET | `/vehicles/:vehicleId/reminders` | ✓ | Fälligkeiten TÜV, Wartung, Versicherung, Steuer; letzter Reifenwechsel |
 | GET | `/vehicles/:vehicleId/members` | ✓ | Wer Zugriff hat (Besitzer, Mitglieder, für den Besitzer offene Einladungen) (#53) |
 | POST | `/vehicles/:vehicleId/invitations` | Besitzer | E-Mail-Adresse einladen (`role`: `editor` oder `viewer`) |
 | DELETE | `/vehicles/:vehicleId/invitations/:invitationId` | Besitzer | Einladung zurückziehen |
@@ -722,7 +722,7 @@ Verglichen wird mit allen echten Tachoständen des Fahrzeugs (Tankfüllungen, La
 
 ## Fälligkeiten (Auth required)
 
-`GET /vehicles/:vehicleId/reminders` – Liste mit `title`, `category`, `last`, `due_date`, `due_km`, `status` (`ok`, `bald`, `ueberfaellig`, `unbekannt`), `days` und `source` (`eintrag`, `erstzulassung`, `faelligkeitsmonat`). Regeln: TÜV alle 24 Monate, Wartung/Inspektion alle 12 Monate oder 15.000 km (bzw. das Intervall des Fahrzeugs), Versicherung und Steuer jährlich, jeweils ab dem letzten Eintrag. Ohne TÜV-Eintrag zählt die Erstzulassung (+36 Monate, danach +24); ist für Versicherung oder Steuer ein Fälligkeitsmonat hinterlegt, gilt der nächste 1. dieses Monats. „bald“ = innerhalb der Vorlaufzeit aus den Mail-Einstellungen (Standard 30 Tage) oder weniger als 1.000 km.
+`GET /vehicles/:vehicleId/reminders` – Liste mit `title`, `category`, `kind` (`due` = Termin mit Fälligkeit, `info` = nur letzter Eintrag), `last`, `last_odometer_km` und `last_description` (letzter Eintrag der Kategorie), `due_date`, `due_km`, `status` (`ok`, `bald`, `ueberfaellig`, `unbekannt`), `days` und `source` (`eintrag`, `erstzulassung`, `faelligkeitsmonat`). Regeln: TÜV alle 24 Monate, Wartung/Inspektion alle 12 Monate oder 15.000 km (bzw. das Intervall des Fahrzeugs), Versicherung und Steuer jährlich, jeweils ab dem letzten Eintrag. Ohne TÜV-Eintrag zählt die Erstzulassung nur für den ersten TÜV (+36 Monate), solange er bevorsteht; liegt er zurück, ist der TÜV ohne Eintrag `unbekannt`. Ist für Versicherung oder Steuer ein Fälligkeitsmonat hinterlegt, gilt der nächste 1. dieses Monats. Die Zeile `Reifen` (`kind: info`) zeigt nur den letzten Wechsel, ohne Fälligkeit (Status `unbekannt`). „bald“ = innerhalb der Vorlaufzeit (Standard 30 Tage) oder weniger als 1.000 km. Für km-Fälligkeiten zählt der aktuelle Tachostand = der jüngste echte Wert (nicht der höchste).
 
 ## E-Mail-Benachrichtigungen (Auth required)
 

@@ -508,6 +508,41 @@ test('Fälligkeiten aus Fahrzeugangaben (#45)', async () => {
   assert.equal(nach.Versicherung.status, 'unbekannt');
 });
 
+test('Fälligkeiten: alter Erstzulassung ohne TÜV-Eintrag unbekannt, Reifen als Info, letzter Eintrag je Termin', async () => {
+  const u = await newUser();
+  const v = await newVehicle(u.token, 'e10', { firstRegistration: '1921-06-01' });
+  await api('POST', '/entries', { token: u.token, body: { vehicleId: v, category: 'Reifen', amountEur: 80, odometerKm: 61200,
+    description: 'Winterreifen drauf', occurredAt: '2026-10-20T10:00:00Z' } });
+  await api('POST', '/entries', { token: u.token, body: { vehicleId: v, category: 'Wartung', amountEur: 300, odometerKm: 60000,
+    description: 'Ölwechsel', occurredAt: '2026-09-01T10:00:00Z' } });
+  const r = (await api('GET', `/vehicles/${v}/reminders`, { token: u.token })).body;
+  const nach = Object.fromEntries(r.map((x) => [x.category, x]));
+  // 1921: Der erste TÜV ist lange vorbei, wann zuletzt geprüft wurde, ist unbekannt
+  assert.equal(nach.TUV.status, 'unbekannt');
+  assert.equal(nach.TUV.due_date, null);
+  assert.equal(nach.TUV.kind, 'due');
+  assert.deepEqual([nach.Reifen.kind, nach.Reifen.title, nach.Reifen.last, nach.Reifen.due_date, nach.Reifen.status],
+    ['info', 'Reifen', '2026-10-20', null, 'unbekannt']);
+  assert.equal(nach.Reifen.last_odometer_km, 61200);
+  assert.equal(nach.Reifen.last_description, 'Winterreifen drauf');
+  assert.deepEqual([nach.Wartung.last_odometer_km, nach.Wartung.last_description], [60000, 'Ölwechsel']);
+});
+
+test('Aktueller Tachostand ist der jüngste Wert, nicht der höchste', async () => {
+  const u = await newUser();
+  const v = await newVehicle(u.token, 'e10');
+  await fillup(u.token, v, { odometerKm: 12000, amount: 40, filledAt: '2026-09-01T10:00:00Z' });
+  // Tippfehler nach oben, danach wieder richtig
+  const falsch = await api('POST', '/fillups', { token: u.token, body: { vehicleId: v, odometerKm: 120000, amount: 40, totalCostEur: 0, filledAt: '2026-09-10T10:00:00Z' } });
+  assert.deepEqual(falsch.body.warnings.map((w) => w.code), ['jump']);
+  assert.equal((await api('GET', `/vehicles/${v}/stats`, { token: u.token })).body.currentOdo, 120000);
+  await fillup(u.token, v, { odometerKm: 13000, amount: 40, filledAt: '2026-09-20T10:00:00Z' });
+  assert.equal((await api('GET', `/vehicles/${v}/stats`, { token: u.token })).body.currentOdo, 13000);
+  // Am selben Tag niedriger als ein früherer Eintrag: Warnung
+  const gleicherTag = await api('POST', '/fillups', { token: u.token, body: { vehicleId: v, odometerKm: 12900, amount: 10, totalCostEur: 0, filledAt: '2026-09-20T18:00:00Z' } });
+  assert.deepEqual(gleicherTag.body.warnings.map((w) => w.code), ['lower_than_previous']);
+});
+
 test('Ausgabe ohne Tachostand speichert null, nicht 0', async () => {
   const u = await newUser();
   const v = await newVehicle(u.token);

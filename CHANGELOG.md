@@ -6,6 +6,9 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+### Verbessert
+- **Neue Startseite** (#158): Start zeigt jetzt wie in der iOS-App ein Fahrzeug – das zuletzt genutzte bzw. gewählte – mit großem Foto, Kennzeichen und Tachostand, drei Kennzahlen (Ø Verbrauch, Kosten je km, Kosten diesen Monat), den nächsten drei Terminen und den letzten fünf Einträgen. Oben wechselst du das Fahrzeug; alle Fahrzeuge als Karten (mit „Ordnen“) findest du unter „Fahrzeuge“ → „Alle Fahrzeuge“.
+
 ## [0.12.2] - 2026-11-13
 
 ### Behoben

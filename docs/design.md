@@ -450,9 +450,11 @@ Plattform-Besonderheiten der Web-App (PHP mit Bootstrap 5.3):
   `Background` des aktiven Modus. Pull-to-refresh nur in der installierten App und nicht in Formularen.
 - **Diagramme (Chart.js):** Farben aus den CSS-Variablen lesen (`getComputedStyle`), nicht im Skript festlegen.
   Beim Wechsel der Darstellung lädt eine Seite mit Diagrammen neu, damit die Reihen die Farben des neuen Modus bekommen.
-- **Bereiche:** Die Web-App zeigt auf „Start“ alle Fahrzeuge als Karten und die Bereiche Einträge, Statistiken,
-  Ausgaben und Fahrten als Reiter der Fahrzeugseite. Die Aufteilung aus Abschnitt 7 (Start mit einem gewählten
-  Fahrzeug) ist das Ziel für einen späteren Schritt.
+- **Bereiche:** „Start“ zeigt wie in den Apps ein Fahrzeug nach Abschnitt 7.1: das gewählte bzw. zuletzt genutzte,
+  mit Wechsler (mobil auf der Seite, am PC in der Kopfleiste). Ohne „In der Nähe“: Die Web-App fragt den Standort
+  nur im Erfassen-Formular ab. Alle Fahrzeuge als Karten mit Reihenfolge stehen unter „Alle Fahrzeuge“
+  (`pages/fahrzeuge.php`, erreichbar über „Fahrzeuge“ und den Wechsler). Einträge, Statistiken, Ausgaben und Fahrten
+  sind Reiter der Fahrzeugseite.
 - **Seitenbreite:** Inhalt in `container-xl` (max. 1200 px); Formulare in einer Spalte bis 640 px.
 
 ## 12. Bestandsaufnahme und Entscheidungen

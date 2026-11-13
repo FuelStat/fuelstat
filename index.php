@@ -1,4 +1,7 @@
 <?php
+// Start (#158, docs/design.md 7.1): ein Fahrzeug im Blick – Wechsler, Hero, drei Kennzahlen, nächste Termine,
+// letzte Einträge. Welches Fahrzeug, entscheidet includes/header.php ($startFahrzeug: gewählt, zuletzt genutzt oder
+// das erste). Alle Fahrzeuge als Karten: pages/fahrzeuge.php. Alle Zahlen kommen aus der API.
 include 'includes/session.php';
 include 'includes/functions.php';
 include 'includes/header.php';
@@ -19,159 +22,217 @@ try {
 } catch (Throwable $e) {
     $ladeFehler = true;
 }
-?>
+$fz = null;
+foreach ($vehicles as $v) {
+    if ($startFahrzeug && (string)$v['id'] === (string)$startFahrzeug['id']) {
+        $fz = $v;
+    }
+}
 
-<?php $sortiermodus = !empty($_GET['sortieren']) && count($vehicles) > 1; ?>
-<div class="container mt-3 mt-lg-4">
-    <div class="d-flex justify-content-between align-items-center gap-2 mb-3 mb-lg-4">
-        <h1 class="mb-0">Meine Fahrzeuge</h1>
-        <?php if ($sortiermodus): ?>
-            <a href="index.php" class="btn btn-primary btn-sm"><i class="fas fa-check me-1"></i> Fertig</a>
-        <?php elseif (count($vehicles) > 1): ?>
-            <a href="index.php?sortieren=1" class="btn btn-secondary btn-sm"><i class="fas fa-sort" aria-hidden="true"></i><span class="d-none d-sm-inline">Reihenfolge ändern</span><span class="d-sm-none">Ordnen</span></a>
+if ($fz):
+    $vid = (string)$fz['id'];
+    $detail = 'pages/fahrzeug_detail.php?id=' . urlencode($vid);
+    $fuelType = $fz['fuel_type'] ?? null;
+    $einheit = einheitKurz(getEinheitFuerKraftstoff($fuelType));
+    $kraftstoffNamen = getKraftstoffOptionen();
+    $euro = fn($v) => number_format((float)$v, 2, ',', '.') . ' €';
+
+    $stats = $costs = $liste = [];
+    try { $stats = $api->getVehicleStats($vid); } catch (Throwable $e) { }
+    try { $costs = $api->getVehicleCosts($vid); } catch (Throwable $e) { }
+    try { $liste = $api->getTimeline($vid, ['per_page' => 5]); } catch (Throwable $e) { }
+    $termine = getFaelligkeitenFromApi($api, $vid);
+
+    // Kachel 1: Ø Verbrauch über alle Abschnitte; Plug-in-Hybrid: Kraftstoff und Strom nebeneinander
+    $verbrauch = [];
+    foreach (count($stats['units'] ?? []) > 1 ? ['l', 'kwh'] : [null] as $u) {
+        $wert = $u === null ? ($stats['avgConsumption'] ?? null) : ($stats['units'][$u]['avgConsumption'] ?? null);
+        if ($wert !== null) {
+            $verbrauch[] = [number_format((float)$wert, 1, ',', '.'), ($u === null ? $einheit : einheitKurz($u)) . '/100 km'];
+        }
+    }
+    $kmKosten = $costs['costPerKm']['total'] ?? null;
+    $monat = $costs['currentMonth']['total'] ?? null;
+
+    // Nächste Termine: nur solche mit Datum, dringendste zuerst, höchstens drei
+    $rang = ['ueberfaellig' => 0, 'bald' => 1, 'ok' => 2];
+    $naechste = array_values(array_filter($termine, fn($t) => ($t['art'] ?? 'due') === 'due' && !empty($t['faellig_datum'])));
+    usort($naechste, fn($a, $b) => [$rang[$a['status']] ?? 9, $a['tage'] ?? PHP_INT_MAX] <=> [$rang[$b['status']] ?? 9, $b['tage'] ?? PHP_INT_MAX]);
+    $naechste = array_slice($naechste, 0, 3);
+
+    $zwecke = fahrtZwecke();
+    $tachoFehlt = (int)($stats['missingOdometer'] ?? 0);
+endif;
+?>
+<div class="container mt-3 mt-lg-4 start">
+<?php if ($ladeFehler): ?>
+    <div class="alert alert-danger">Die Fahrzeuge konnten gerade nicht geladen werden. Bitte versuche es gleich noch einmal.</div>
+<?php elseif (!$fz): ?>
+    <!-- EmptyState: Symbol, ein Satz, eine Aktion -->
+    <div class="card leer-zustand mx-auto">
+        <div class="card-body">
+            <span class="symbol-kreis symbol-kreis-token symbol-kreis-gross" style="--farbe: var(--fs-brand)" aria-hidden="true"><i class="fas fa-car-side"></i></span>
+            <h1 class="h2">Noch kein Fahrzeug angelegt</h1>
+            <p class="text-body-secondary mb-4">Lege dein erstes Fahrzeug an, danach kannst du Tankfüllungen, Ladevorgänge und Ausgaben erfassen.</p>
+            <a href="pages/fahrzeug_hinzufuegen.php" class="btn btn-primary btn-lg px-4">
+                <i class="fas fa-plus" aria-hidden="true"></i>Fahrzeug hinzufügen
+            </a>
+            <p class="fs-footnote mt-4 mb-0">
+                <i class="fas fa-file-import me-1" aria-hidden="true"></i>Daten aus einer anderen App oder Excel? Nach dem Anlegen unter „Einträge“ → „Import“ übernehmen.
+            </p>
+        </div>
+    </div>
+<?php else: ?>
+    <h1 class="visually-hidden">Start: <?= htmlspecialchars($fz['name'] ?? 'Fahrzeug') ?></h1>
+
+    <!-- VehicleSwitcher (mobil; am PC steht er in der Kopfleiste) -->
+    <div class="d-flex align-items-center gap-2 mb-3 d-lg-none">
+        <?php if (count($vehicles) > 1): ?>
+        <div class="dropdown min-w-0">
+            <button type="button" class="kopf-wechsler dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Fahrzeug wählen, gewählt: <?= htmlspecialchars($fz['name'] ?? '') ?>">
+                <i class="fas fa-car-side" aria-hidden="true"></i><span class="text-truncate"><?= htmlspecialchars($fz['name'] ?? 'Fahrzeug') ?></span>
+            </button>
+            <ul class="dropdown-menu">
+                <?php foreach ($vehicles as $v): $aktiv = (string)$v['id'] === $vid; ?>
+                <li><a class="dropdown-item<?= $aktiv ? ' active' : '' ?>" href="index.php?fahrzeug=<?= htmlspecialchars(urlencode((string)$v['id'])) ?>"<?= $aktiv ? ' aria-current="true"' : '' ?>><i class="fas fa-car-side fa-fw" aria-hidden="true"></i><?= htmlspecialchars($v['name'] ?? 'Fahrzeug') ?></a></li>
+                <?php endforeach; ?>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="pages/fahrzeuge.php"><i class="fas fa-table-cells-large fa-fw" aria-hidden="true"></i>Alle Fahrzeuge</a></li>
+            </ul>
+        </div>
         <?php endif; ?>
     </div>
-    <?php if ($ladeFehler): ?>
-        <div class="alert alert-danger">Die Fahrzeuge konnten gerade nicht geladen werden. Bitte versuche es gleich noch einmal.</div>
-    <?php elseif (count($vehicles) > 0): ?>
-        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
-            <?php
-            $kraftstoffNamen = getKraftstoffOptionen();
-            // Statistik und Fälligkeiten aller Fahrzeuge gleichzeitig laden statt nacheinander (#89)
-            $api->vorladen(array_merge(...array_map(fn($v) => [
-                '/vehicles/' . rawurlencode((string)$v['id']) . '/stats',
-                '/vehicles/' . rawurlencode((string)$v['id']) . '/reminders',
-            ], array_values($vehicles))));
-            foreach (array_values($vehicles) as $index => $row):
-                $vehicleId = $row['id'];
-                $displayName = $row['name'] ?? 'Fahrzeug';
-                $bildUrl = fahrzeugBildUrl($row, $baseUrl);
-                $einheit = einheitKurz(getEinheitFuerKraftstoff($row['fuel_type'] ?? null));
 
-                $currentOdo = null;
-                $tachoFehlt = 0;
-                $verbrauchHtml = '';
-                try {
-                    $stats = $api->getVehicleStats($vehicleId);
-                    $currentOdo = $stats['currentOdo'] ?? null;
-                    $tachoFehlt = (int)($stats['missingOdometer'] ?? 0);
-                    // Ø über alle Abschnitte (der letzte Abschnitt allein schwankt zu stark);
-                    // Plug-in-Hybrid: Kraftstoff und Strom nebeneinander, z. B. "Ø 2,7 l + 20,0 kWh/100 km"
-                    $teile = [];
-                    $einheiten = count($stats['units'] ?? []) > 1 ? ['l', 'kwh'] : [null];
-                    foreach ($einheiten as $u) {
-                        $wert = $u === null ? ($stats['avgConsumption'] ?? null) : ($stats['units'][$u]['avgConsumption'] ?? null);
-                        if ($wert !== null) {
-                            $teile[] = htmlspecialchars(number_format($wert, 1, ',', '.')) . ' <small>' . htmlspecialchars($u === null ? $einheit : einheitKurz($u)) . '</small>';
+    <div class="row g-3 g-lg-4">
+        <div class="col-lg-5">
+            <!-- VehicleHero: Foto, Name, Kennzeichen, Kilometerstand, Energie-Badge; führt zum Fahrzeug -->
+            <a href="<?= htmlspecialchars($detail) ?>" class="fahrzeug-hero fahrzeug-hero-gross d-block text-reset text-decoration-none" aria-label="<?= htmlspecialchars(($fz['name'] ?? 'Fahrzeug') . ' öffnen') ?>">
+                <img src="<?= htmlspecialchars(fahrzeugBildUrl($fz, $baseUrl)) ?>" alt="">
+                <span class="fahrzeug-hero-text">
+                    <span class="fahrzeug-hero-name text-truncate d-block"><?= htmlspecialchars($fz['name'] ?? 'Fahrzeug') ?></span>
+                    <span class="d-flex flex-wrap align-items-center gap-2">
+                        <?php if (!empty($fz['license_plate'])): ?><span class="kennzeichen"><?= htmlspecialchars($fz['license_plate']) ?></span><?php endif; ?>
+                        <span class="energie-badge" style="--farbe: <?= energieFarbe($fuelType) ?>"><i class="fas <?= verbrauchsBegriffe($fuelType)['icon'] ?>" aria-hidden="true"></i><?= htmlspecialchars($kraftstoffNamen[$fuelType ?? ''] ?? 'Sonstiges') ?></span>
+                        <?php if (($stats['currentOdo'] ?? null) !== null): ?><span class="fahrzeug-hero-zeile"><?= number_format((int)$stats['currentOdo'], 0, ',', '.') ?> km</span><?php endif; ?>
+                    </span>
+                </span>
+            </a>
+            <?php if (($fz['role'] ?? 'owner') !== 'owner' || $tachoFehlt > 0): ?>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+                <?php if (($fz['role'] ?? 'owner') !== 'owner'): ?><span class="fs-label"><i class="fas fa-users me-1" aria-hidden="true"></i>Geteilt von <?= htmlspecialchars((string)($fz['owner_name'] ?? '')) ?></span><?php endif; ?>
+                <?php if ($tachoFehlt > 0): ?>
+                <a class="badge text-bg-warning text-decoration-none" href="<?= htmlspecialchars($detail) ?>#eintraege"><i class="fas fa-gauge-high" aria-hidden="true"></i><?= $tachoFehlt === 1 ? '1 Tachostand fehlt' : $tachoFehlt . ' Tachostände fehlen' ?></a>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+
+            <!-- Drei Kennzahlen; Termine gehören nicht in die Kacheln -->
+            <div class="row row-cols-3 g-2 mt-1 start-kennzahlen">
+                <div class="col">
+                    <div class="kennzahl h-100">
+                        <div class="kennzahl-wert"><?php if ($verbrauch): ?><?= implode(' + ', array_map(fn($x) => htmlspecialchars($x[0]) . ' <small>' . htmlspecialchars($x[1]) . '</small>', $verbrauch)) ?><?php else: ?>–<?php endif; ?></div>
+                        Ø Verbrauch
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="kennzahl h-100">
+                        <div class="kennzahl-wert"><?= $kmKosten !== null ? htmlspecialchars(number_format((float)$kmKosten, 2, ',', '.')) . ' <small>€/km</small>' : '–' ?></div>
+                        Kosten je km
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="kennzahl h-100">
+                        <div class="kennzahl-wert"><?= $monat !== null ? htmlspecialchars($euro($monat)) : '–' ?></div>
+                        Diesen Monat
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7 d-flex flex-column gap-3 gap-lg-4">
+            <!-- Nächste Termine (höchstens drei) -->
+            <section class="card" aria-labelledby="startTermine">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="mb-0" id="startTermine">Nächste Termine</h2>
+                    <a href="<?= htmlspecialchars($detail) ?>#allgemein" class="tipp-link">Alle anzeigen</a>
+                </div>
+                <?php if ($naechste): ?>
+                <ul class="list-group list-group-flush">
+                    <?php foreach ($naechste as $t): ?>
+                    <li class="list-group-item termin-zeile">
+                        <?= symbolKreis(getCategoryIcon($t['kategorie']), 'var(--fs-brand)') ?>
+                        <div class="termin-text">
+                            <div class="fs-headline"><?= htmlspecialchars($t['titel']) ?></div>
+                            <div class="fs-label"><?= date('d.m.Y', strtotime($t['faellig_datum'])) ?><?php if (!empty($t['faellig_km'])): ?> oder bei <?= number_format((int)$t['faellig_km'], 0, ',', '.') ?> km<?php endif; ?></div>
+                        </div>
+                        <?= statusBadge((string)$t['status'], isset($t['tage']) ? terminAbstand((int)$t['tage']) : '', 'ms-auto') ?>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+                <?php else: ?>
+                <div class="card-body fs-label">Keine Termine mit Datum. <a class="tipp-link" href="<?= htmlspecialchars($detail) ?>#allgemein">TÜV, Wartung und Versicherung eintragen</a>, um erinnert zu werden.</div>
+                <?php endif; ?>
+            </section>
+
+            <!-- Letzte Einträge (fünf) -->
+            <section class="card" aria-labelledby="startEintraege">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="mb-0" id="startEintraege">Letzte Einträge</h2>
+                    <a href="<?= htmlspecialchars($detail) ?>#eintraege" class="tipp-link">Alle anzeigen</a>
+                </div>
+                <?php if (!empty($liste['data'])): ?>
+                <ul class="list-group list-group-flush">
+                    <?php foreach ($liste['data'] as $x):
+                        $kind = $x['kind'] ?? 'expense';
+                        $unit = $x['unit'] ?? null;
+                        if ($kind === 'fuel' || $kind === 'charge') {
+                            $titel = begriffeFuerEinheit($fuelType, $unit)['vorgang'];
+                            $zusatz = $x['place'] ?? '';
+                            $farbe = energieFarbe($fuelType, $unit, $x['fuel'] ?? null);
+                            $symbol = getCategoryIcon('Tankfuellung', $fuelType, $unit);
+                        } elseif ($kind === 'trip') {
+                            $titel = 'Fahrt';
+                            $zusatz = $zwecke[$x['purpose'] ?? ''] ?? '';
+                            $farbe = fahrtFarbe($x['purpose'] ?? null);
+                            $symbol = 'fa-route';
+                        } elseif ($kind === 'odometer') {
+                            $titel = 'Kilometerstand';
+                            $zusatz = $x['description'] ?? '';
+                            $farbe = 'var(--fs-purpose-odometer)';
+                            $symbol = getCategoryIcon('Kilometerstand');
+                        } else {
+                            $titel = getKategorieName($x['category'] ?? '');
+                            $zusatz = $x['description'] ?: ($x['place'] ?? '');
+                            $farbe = getKategorieFarbe($x['category'] ?? null);
+                            $symbol = getCategoryIcon($x['category'] ?? '');
                         }
-                    }
-                    if ($teile) {
-                        // Zahl groß, Einheit klein dahinter (StatTile); „/100 km“ gehört zur letzten Einheit
-                        $verbrauchHtml = preg_replace('~</small>$~', '/100 km</small>', implode(' + ', $teile));
-                        // Trend-Pfeil: letzter Abschnitt mind. 5 % über bzw. unter dem Durchschnitt (nur bei einer Einheit)
-                        $zuletzt = $stats['trend']['current'] ?? null;
-                        $schnitt = $stats['avgConsumption'] ?? null;
-                        if ($einheiten === [null] && $zuletzt !== null && $schnitt > 0 && abs($zuletzt - $schnitt) / $schnitt >= 0.05) {
-                            $hoeher = $zuletzt > $schnitt;
-                            $text = 'Zuletzt ' . number_format($zuletzt, 1, ',', '.') . ' ' . $einheit . '/100 km, ' . ($hoeher ? 'mehr' : 'weniger') . ' als im Durchschnitt';
-                            $verbrauchHtml .= ' <i class="fas fa-arrow-trend-' . ($hoeher ? 'up text-danger' : 'down text-success') . ' trend-pfeil" title="' . htmlspecialchars($text) . '" aria-hidden="true"></i>'
-                                . '<span class="visually-hidden">' . htmlspecialchars($text) . '</span>';
-                        }
-                    }
-                } catch (Throwable $e) {
-                }
-                // Termine zu einem Hinweis zusammenfassen
-                $faellig = array_values(array_filter(
-                    getFaelligkeitenFromApi($api, $vehicleId),
-                    fn($f) => in_array($f['status'], ['ueberfaellig', 'bald'], true)
-                ));
-                $ueberfaellig = count(array_filter($faellig, fn($f) => $f['status'] === 'ueberfaellig'));
-                $hinweis = null;
-                if (count($faellig) === 1) {
-                    $hinweis = $faellig[0]['titel'] . ($ueberfaellig ? ' überfällig' : ' bald fällig');
-                } elseif ($faellig) {
-                    $hinweis = count($faellig) . ' Termine ' . ($ueberfaellig ? 'fällig' : 'bald fällig');
-                }
-                $detailLink = 'pages/fahrzeug_detail.php?id=' . urlencode($vehicleId);
-            ?>
-            <div class="col">
-                <article class="card fahrzeug-karte h-100">
-                    <?php if (!$sortiermodus): ?>
-                    <!-- Die ganze Karte führt zum Fahrzeug (Foto, Name, Kennzahlen). Der Link steht direkt in der Karte:
-                         innerhalb des Fotos würde er nur dessen Textbereich abdecken. -->
-                    <a href="<?= htmlspecialchars($detailLink) ?>" class="stretched-link karten-link" aria-label="<?= htmlspecialchars($displayName) ?> öffnen"></a>
+                        $datum = (new DateTime((string)$x['at']))->setTimezone(new DateTimeZone('Europe/Berlin'))->format('d.m.Y');
+                        $betrag = $kind === 'trip'
+                            ? number_format((float)($x['distance_km'] ?? 0), fmod((float)($x['distance_km'] ?? 0), 1) ? 1 : 0, ',', '.') . ' km'
+                            : (!empty($x['countsAsCost']) ? $euro($x['cost'] ?? 0) : '');
+                    ?>
+                    <li class="list-group-item eintrag-zeile">
+                        <?= symbolKreis($symbol, $farbe) ?>
+                        <div class="eintrag-text min-w-0">
+                            <span class="d-block fs-headline text-truncate"><?= htmlspecialchars($titel . ($zusatz !== '' ? ' · ' . $zusatz : '')) ?></span>
+                            <span class="d-block fs-label"><?= htmlspecialchars($datum . (!empty($x['odometer_km']) ? ' · ' . number_format((int)$x['odometer_km'], 0, ',', '.') . ' km' : '')) ?></span>
+                        </div>
+                        <span class="eintrag-betrag"><?= htmlspecialchars($betrag) ?></span>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+                <?php else: ?>
+                <div class="card-body">
+                    <p class="fs-label mb-2">Noch keine Einträge.</p>
+                    <?php if (in_array($fz['role'] ?? 'owner', ['owner', 'editor'], true)): ?>
+                    <a href="pages/eintrag_hinzufuegen.php?fahrzeug_id=<?= htmlspecialchars(urlencode($vid)) ?>" class="btn btn-primary">Ersten Eintrag erfassen</a>
                     <?php endif; ?>
-                    <!-- VehicleHero: Foto mit Verlauf, darauf Name, Kennzeichen und Energie-Badge -->
-                    <div class="fahrzeug-hero">
-                        <img src="<?= htmlspecialchars($bildUrl) ?>" alt="" loading="lazy">
-                        <div class="fahrzeug-hero-text">
-                            <h2 class="fahrzeug-hero-name text-truncate"><?= htmlspecialchars($displayName) ?></h2>
-                            <div class="d-flex flex-wrap align-items-center gap-2">
-                                <?php if (!empty($row['license_plate'])): ?><span class="kennzeichen"><?= htmlspecialchars($row['license_plate']) ?></span><?php endif; ?>
-                                <span class="energie-badge" style="--farbe: <?= energieFarbe($row['fuel_type'] ?? null) ?>"><i class="fas <?= verbrauchsBegriffe($row['fuel_type'] ?? null)['icon'] ?>" aria-hidden="true"></i><?= htmlspecialchars($kraftstoffNamen[$row['fuel_type'] ?? ''] ?? 'Sonstiges') ?></span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body d-flex flex-column gap-3">
-                        <?php if (($row['role'] ?? 'owner') !== 'owner'): ?><div class="fs-label text-truncate"><i class="fas fa-users me-1" aria-hidden="true"></i>Geteilt von <?= htmlspecialchars((string)($row['owner_name'] ?? '')) ?></div><?php endif; ?>
-                        <div class="row g-2">
-                            <div class="col-6">
-                                <div class="kennzahl">
-                                    <div class="kennzahl-wert"><?= $currentOdo !== null ? htmlspecialchars(number_format($currentOdo, 0, ',', '.')) . ' <small>km</small>' : '—' ?></div>
-                                    Tachostand
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="kennzahl">
-                                    <div class="kennzahl-wert"><?= $verbrauchHtml !== '' ? $verbrauchHtml : '—' ?></div>
-                                    Ø Verbrauch
-                                </div>
-                            </div>
-                        </div>
-                        <?php if ($hinweis || $tachoFehlt > 0): ?>
-                        <div class="d-flex flex-wrap gap-2">
-                            <?php if ($hinweis): ?><?= statusBadge($ueberfaellig ? 'ueberfaellig' : 'bald', $hinweis) ?><?php endif; ?>
-                            <?php if ($tachoFehlt > 0): ?>
-                                <!-- Tachostand vergessen (#41): führt zur Eintragsliste mit "Nachtragen" -->
-                                <span class="badge text-bg-warning"><i class="fas fa-gauge-high" aria-hidden="true"></i><?= $tachoFehlt === 1 ? '1 Tachostand fehlt' : $tachoFehlt . ' Tachostände fehlen' ?></span>
-                            <?php endif; ?>
-                        </div>
-                        <?php endif; ?>
-                        <div class="fahrzeug-aktionen mt-auto">
-                            <?php if ($sortiermodus): ?>
-                                <form method="post" action="includes/fahrzeug_sortieren.php" class="btn-group w-100" aria-label="Reihenfolge ändern">
-                                    <input type="hidden" name="id" value="<?= htmlspecialchars($vehicleId) ?>">
-                                    <input type="hidden" name="sortieren" value="1">
-                                    <button type="submit" name="richtung" value="hoch" class="btn btn-secondary" aria-label="Nach vorne" <?= $index === 0 ? 'disabled' : '' ?>><i class="fas fa-arrow-up d-sm-none" aria-hidden="true"></i><i class="fas fa-arrow-left d-none d-sm-inline" aria-hidden="true"></i></button>
-                                    <button type="submit" name="richtung" value="runter" class="btn btn-secondary" aria-label="Nach hinten" <?= $index === count($vehicles) - 1 ? 'disabled' : '' ?>><i class="fas fa-arrow-down d-sm-none" aria-hidden="true"></i><i class="fas fa-arrow-right d-none d-sm-inline" aria-hidden="true"></i></button>
-                                </form>
-                            <?php else: ?>
-                                <a href="pages/eintrag_hinzufuegen.php?fahrzeug_id=<?= htmlspecialchars(urlencode($vehicleId)) ?>" class="btn btn-secondary w-100" aria-label="Eintrag erfassen für <?= htmlspecialchars($displayName) ?>">
-                                    <i class="fas <?= verbrauchsBegriffe($row['fuel_type'] ?? null)['icon'] ?>" aria-hidden="true"></i>Eintrag erfassen
-                                </a>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </article>
-            </div>
-            <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+            </section>
         </div>
-    <?php else: ?>
-        <!-- EmptyState: Symbol, ein Satz, eine Aktion -->
-        <div class="card leer-zustand mx-auto">
-            <div class="card-body">
-                <span class="symbol-kreis symbol-kreis-token symbol-kreis-gross" style="--farbe: var(--fs-brand)" aria-hidden="true"><i class="fas fa-car-side"></i></span>
-                <h2>Noch kein Fahrzeug angelegt</h2>
-                <p class="text-body-secondary mb-4">Lege dein erstes Fahrzeug an, danach kannst du Tankfüllungen, Ladevorgänge und Ausgaben erfassen.</p>
-                <a href="pages/fahrzeug_hinzufuegen.php" class="btn btn-primary btn-lg px-4">
-                    <i class="fas fa-plus" aria-hidden="true"></i>Fahrzeug hinzufügen
-                </a>
-                <p class="fs-footnote mt-4 mb-0">
-                    <i class="fas fa-file-import me-1"></i>Daten aus einer anderen App oder Excel? Nach dem Anlegen unter „Einträge“ → „Import“ übernehmen.
-                </p>
-            </div>
-        </div>
-    <?php endif; ?>
+    </div>
+<?php endif; ?>
 </div>
 
 <?php include 'includes/footer.php'; ?>

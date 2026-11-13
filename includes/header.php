@@ -11,6 +11,12 @@ if (isApiAuthenticated()) {
     $vorabSkript = basename($_SERVER['SCRIPT_NAME'] ?? '');
     $vorab = ['/whoami', FuelstatApi::ersteSeite('/vehicles')];
     $vorabId = (string)($_GET['fahrzeug_id'] ?? ($vorabSkript === 'fahrzeug_detail.php' ? ($_GET['id'] ?? '') : ''));
+    // Start (#158): gewähltes bzw. zuletzt genutztes Fahrzeug mit Kennzahlen, Terminen und letzten Einträgen
+    $startId = $vorabSkript === 'index.php' ? (string)($_GET['fahrzeug'] ?? ($_COOKIE['fuelstat_fahrzeug'] ?? '')) : '';
+    if ($startId !== '' && preg_match('/^[0-9a-f-]{36}$/', $startId)) {
+        $p = '/vehicles/' . rawurlencode($startId);
+        array_push($vorab, $p . '/stats', $p . '/reminders', $p . '/costs', $p . '/timeline?per_page=5');
+    }
     if ($vorabId !== '' && in_array($vorabSkript, ['fahrzeug_detail.php', 'eintrag_hinzufuegen.php'], true)) {
         $p = '/vehicles/' . rawurlencode($vorabId);
         array_push($vorab, $p, $p . '/stats');
@@ -95,6 +101,23 @@ foreach ($userVehicles as $vehicle) {
         $kontextFahrzeug = $vehicle;
     }
 }
+// Start (#158) zeigt ein Fahrzeug: ?fahrzeug=… (Wechsler), sonst das zuletzt genutzte (Cookie), sonst das erste.
+// Die Wahl wird im Fahrzeug-Cookie gemerkt, das auch die Schnellerfassung nutzt.
+$startFahrzeug = null;
+if ($angemeldet && $skript === 'index.php' && $userVehicles) {
+    $wunsch = (string)($_GET['fahrzeug'] ?? ($_COOKIE['fuelstat_fahrzeug'] ?? ''));
+    foreach ($userVehicles as $vehicle) {
+        if ((string)$vehicle['id'] === $wunsch) {
+            $startFahrzeug = $vehicle;
+        }
+    }
+    $startFahrzeug ??= $userVehicles[0];
+    if (isset($_GET['fahrzeug']) && (string)$startFahrzeug['id'] === (string)$_GET['fahrzeug']) {
+        setcookie('fuelstat_fahrzeug', (string)$startFahrzeug['id'], ['expires' => time() + 365 * 86400, 'path' => '/',
+            'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off', 'httponly' => true, 'samesite' => 'Lax']);
+    }
+    $kontextFahrzeug = $startFahrzeug;
+}
 $detailUrl = $kontextFahrzeug ? 'pages/fahrzeug_detail.php?id=' . urlencode($kontextFahrzeug['id']) : null;
 $eintraegeUrl = $detailUrl ? $detailUrl . '#eintraege' : null;
 
@@ -102,6 +125,7 @@ $eintraegeUrl = $detailUrl ? $detailUrl . '#eintraege' : null;
 $seitenInfo = [
     'fahrzeug_detail.php'      => [$kontextFahrzeug['modell'] ?? 'Fahrzeug', 'index.php'],
     'fahrzeug_hinzufuegen.php' => ['Neues Fahrzeug', 'index.php'],
+    'fahrzeuge.php'            => ['Meine Fahrzeuge', 'index.php'],
     'fahrzeug_bearbeiten.php'  => ['Fahrzeug bearbeiten', $detailUrl],
     'eintrag_hinzufuegen.php'  => ['Eintrag erfassen', $eintraegeUrl],
     'eintrag_bearbeiten.php'   => ['Eintrag bearbeiten', $eintraegeUrl],
@@ -129,7 +153,7 @@ $seitenInfo = [
 // Aktiver Eintrag der unteren Leiste (Statistik wird auf der Fahrzeugseite per JS umgeschaltet)
 $tabbarAktiv = [
     'index.php' => 'uebersicht',
-    'fahrzeug_detail.php' => 'fahrzeuge', 'fahrzeug_bearbeiten.php' => 'fahrzeuge',
+    'fahrzeug_detail.php' => 'fahrzeuge', 'fahrzeug_bearbeiten.php' => 'fahrzeuge', 'fahrzeuge.php' => 'fahrzeuge',
     'fahrzeug_hinzufuegen.php' => 'fahrzeuge', 'import.php' => 'fahrzeuge',
     'eintrag_hinzufuegen.php' => 'eintrag', 'eintrag_bearbeiten.php' => 'eintrag', 'schnell.php' => 'eintrag',
     'einstellungen.php' => 'profil', 'passwort_aendern.php' => 'profil', 'mfa_einrichten.php' => 'profil',
@@ -241,12 +265,13 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
             <ul class="dropdown-menu" aria-labelledby="fahrzeugeDropdown">
                 <?php foreach ($userVehicles as $vehicle): ?>
                     <li>
-                        <a class="dropdown-item<?= $kontextFahrzeug && $kontextFahrzeug['id'] === $vehicle['id'] ? ' active' : '' ?>" href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_detail.php?id=<?php echo htmlspecialchars($vehicle['id']); ?>"<?= $kontextFahrzeug && $kontextFahrzeug['id'] === $vehicle['id'] ? ' aria-current="true"' : '' ?>>
+                        <a class="dropdown-item<?= $kontextFahrzeug && $kontextFahrzeug['id'] === $vehicle['id'] ? ' active' : '' ?>" href="<?= htmlspecialchars($baseUrl) ?><?= $skript === 'index.php' ? 'index.php?fahrzeug=' : 'pages/fahrzeug_detail.php?id=' ?><?php echo htmlspecialchars(urlencode($vehicle['id'])); ?>"<?= $kontextFahrzeug && $kontextFahrzeug['id'] === $vehicle['id'] ? ' aria-current="true"' : '' ?>>
                             <i class="fas fa-car-side fa-fw" aria-hidden="true"></i><?php echo htmlspecialchars(trim($vehicle['marke'] . ' ' . $vehicle['modell'])); ?>
                         </a>
                     </li>
                 <?php endforeach; ?>
                 <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeuge.php"><i class="fas fa-table-cells-large fa-fw" aria-hidden="true"></i>Alle Fahrzeuge</a></li>
                 <li><a class="dropdown-item" href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_hinzufuegen.php"><i class="fas fa-plus fa-fw" aria-hidden="true"></i>Fahrzeug hinzufügen</a></li>
             </ul>
         </div>
@@ -395,6 +420,10 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
                 <i class="fas fa-chevron-right ms-auto small opacity-50"></i>
             </a>
             <?php endforeach; ?>
+            <a class="list-group-item list-group-item-action d-flex align-items-center blatt-alle" href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeuge.php">
+                <i class="fas fa-table-cells-large fa-fw me-3" aria-hidden="true"></i>Alle Fahrzeuge
+                <i class="fas fa-chevron-right ms-auto small opacity-50" aria-hidden="true"></i>
+            </a>
             <a class="list-group-item list-group-item-action d-flex align-items-center text-primary blatt-neu" href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_hinzufuegen.php">
                 <i class="fas fa-plus me-3"></i>Fahrzeug hinzufügen
             </a>

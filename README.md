@@ -34,7 +34,8 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 - Kauf- und Verkaufsdaten sowie Wartungs- und Ölwechselintervalle
 - Versicherungs- und Steuerinformationen
 - Individuelle Reifengrößen
-- Frei sortierbare Fahrzeugübersicht
+- Startseite mit dem gewählten Fahrzeug: Kennzahlen, nächste Termine und letzte Einträge auf einen Blick
+- Frei sortierbare Übersicht aller Fahrzeuge
 - Fahrzeuge mit anderen Konten teilen: Mitfahrer erfassen mit, „Nur ansehen“ sieht alles; Einladung per E-Mail
 - Hinweise auf anstehende und überfällige Termine
 

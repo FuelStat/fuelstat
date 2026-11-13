@@ -1,5 +1,5 @@
 <?php
-// Fahrzeug in der Übersicht eine Position nach vorne oder hinten schieben (speichert sortOrder über die API)
+// Fahrzeug in „Alle Fahrzeuge“ (pages/fahrzeuge.php) eine Position nach vorne oder hinten schieben (speichert sortOrder über die API)
 include 'session.php';
 require_once __DIR__ . '/api_config.php';
 require_once __DIR__ . '/api_helpers.php';
@@ -12,7 +12,7 @@ if (!isApiAuthenticated()) {
 $id = trim((string)($_POST['id'] ?? ''));
 $richtung = $_POST['richtung'] ?? '';
 // Im Sortiermodus der Übersicht bleiben
-$zurueck = !empty($_POST['sortieren']) ? '../index.php?sortieren=1' : '../index.php';
+$zurueck = !empty($_POST['sortieren']) ? '../pages/fahrzeuge.php?sortieren=1' : '../pages/fahrzeuge.php';
 
 if ($id === '' || !in_array($richtung, ['hoch', 'runter'], true)) {
     header('Location: ' . $zurueck);

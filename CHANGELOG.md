@@ -6,6 +6,8 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-11-13
+
 ### Behoben
 - **Tachostand-Prüfung** (#170): Zwei Einträge am selben Tag werden jetzt verglichen, z. B. morgens 12.000 km und abends 11.500 km ergibt eine Warnung. Der aktuelle Tachostand ist der jüngste Wert statt des höchsten; ein Tippfehler nach oben bleibt nicht mehr dauerhaft stehen und verfälscht Fahrleistung und km-Fälligkeiten nicht mehr.
 - **TÜV aus der Erstzulassung** (#171): Ohne TÜV-Eintrag wird nur der erste TÜV (36 Monate nach Erstzulassung) berechnet, solange er bevorsteht. Bei älteren Fahrzeugen heißt es jetzt „Letzten Termin erfassen“ statt eines geratenen Datums.
@@ -228,7 +230,8 @@ Erste Version mit Versionsnummer: alles, was Fuelstat bis zu diesem Stand kann.
 - Einmalig vorhandene Bilder umstellen: `sudo docker compose exec api node scripts/bilder-optimieren.js`
 - nginx: `/uploads/` sperren, `FUELSTAT_API_BASE_URL` direkt auf `127.0.0.1:3000` setzen (`docs/installation.md`)
 
-[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v0.12.1...HEAD
+[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v0.12.2...HEAD
+[0.12.2]: https://github.com/FuelStat/fuelstat/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/FuelStat/fuelstat/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/FuelStat/fuelstat/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/FuelStat/fuelstat/compare/v0.10.0...v0.11.0

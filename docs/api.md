@@ -14,7 +14,7 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 
 | Methode | Pfad | Auth | Zweck |
 |---|---|---|---|
-| GET | `/health` | – | Healthcheck, enthält `version`, `registration_enabled`, `beta_phase` und `terms_version` |
+| GET | `/health` | – | Healthcheck, enthält `version`, `registration_enabled`, `beta_phase`, `terms_version` und `apps` (Mindest-App-Version, #118) |
 | GET | `/db-ping` | – | Datenbank erreichbar? |
 | GET | `/whoami` | ✓ | Eigenes Konto inkl. `is_admin`, `beta_tester`, Tarif und Rechte, `email_verified`, `pending_invitations`, `terms` |
 | POST | `/auth/register` | – | Konto anlegen, liefert Token |
@@ -25,8 +25,11 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | POST | `/auth/accept-terms` | ✓ | Nutzungsbedingungen zustimmen (`version`) |
 | POST | `/auth/forgot-password` | – | Link zum Zurücksetzen des Passworts anfordern (#141) |
 | POST | `/auth/reset-password` | – | Neues Passwort mit dem Token aus der Mail setzen |
-| POST | `/auth/refresh` | ✓ | Anmeldung verlängern: neues Token (7 Tage), höchstens 90 Tage nach dem letzten Login |
-| POST | `/auth/password` | ✓ | Passwort ändern, widerruft alle Tokens |
+| POST | `/auth/refresh` | ✓ | Anmeldung verlängern (Web-App): neues Token (7 Tage), höchstens 90 Tage nach dem letzten Login |
+| POST | `/auth/session/refresh` | – | Apps: Refresh-Token gegen neues Token-Paar tauschen (#117) |
+| GET | `/auth/sessions` | ✓ | Angemeldete Apps (Gerätesitzungen) des eigenen Kontos |
+| DELETE | `/auth/sessions/:sessionId` | ✓ | Ein Gerät abmelden; `current` = dieses Gerät |
+| POST | `/auth/password` | ✓ | Passwort ändern, widerruft alle Tokens und Gerätesitzungen |
 | POST | `/auth/mfa/setup` · `/enable` · `/disable` | ✓ | 2FA einrichten, aktivieren, abschalten |
 | GET | `/auth/users` | Admin | Alle Benutzer mit Aktivität |
 | GET · PATCH · DELETE | `/auth/users/:userId` | Selbst/Admin | Konto lesen, `email`/`username`/`profileImageUrl` ändern, löschen |
@@ -128,9 +131,26 @@ Gibt bei gültigen Credentials ein JWT zurück.
 **Responses**
 
 * 200 wie Register (token + user)
-* 400: `missing_credentials`
+* 400: `missing_credentials`, mit `device`: `invalid_device`, `invalid_device_name`, `invalid_device_platform`
 * 401: `invalid_credentials`
 * 500: `server_error`
+
+### Gerätesitzungen für Apps (#117)
+
+Apps schicken bei `POST /auth/register`, `/auth/login` (und bei 2FA wahlweise erst bei `/auth/login/mfa`) ihr Gerät mit:
+
+```json
+{ "email": "…", "password": "…", "device": { "name": "iPhone von Mario", "platform": "ios", "appVersion": "0.2.0" } }
+```
+
+`platform`: `ios`, `android` oder `other`. Die Antwort enthält dann zusätzlich zum `token` (Zugriffstoken, **30 Minuten**) ein `refreshToken`, `expiresIn` (Sekunden) und `session` (`id`, `name`, `platform`, `app_version`, `created_at`, `last_used_at`). Ohne `device` – so arbeitet die Web-App – bleibt alles wie bisher (7-Tage-Token, `/auth/refresh`).
+
+* **Verlängern:** `POST /auth/session/refresh` `{ "refreshToken", "appVersion"? }` ohne Bearer-Token liefert `{ token, refreshToken, expiresIn }`. Jedes Refresh-Token gilt **genau einmal**; das neue sofort sicher speichern (Keychain) und das alte verwerfen. Eine Sitzung hält, solange die App sie mindestens alle 180 Tage nutzt – ohne erneute Anmeldung und ohne 2FA.
+* **Diebstahlschutz:** Kommt ein schon getauschtes Refresh-Token später noch einmal, beendet die API die ganze Sitzung (401 `refresh_token_reused`). Zwei gleichzeitige Anfragen derselben App (innerhalb von 30 Sekunden) ergeben nur 401 `refresh_token_already_used`, die Sitzung bleibt. Clients tauschen deshalb nie parallel, sondern warten auf den laufenden Tausch.
+* **Fehler beim Tausch:** 401 `invalid_refresh_token`, `refresh_token_reused`, `session_revoked`, `session_expired` → neu anmelden; `refresh_token_already_used` → mit dem zuletzt erhaltenen Token weiterarbeiten. Zugriffstokens einer beendeten Sitzung lehnt jede Anfrage mit 401 `session_revoked` ab.
+* **Geräteliste:** `GET /auth/sessions` (seitenweise) zeigt die aktiven Gerätesitzungen, `current: true` markiert die eigene. `DELETE /auth/sessions/:id` meldet ein Gerät ab, `DELETE /auth/sessions/current` das eigene (Abmelden in der App). Die Web-App zeigt die Liste unter Einstellungen → Sicherheit.
+* **Alle Geräte:** Passwortänderung, Passwort-Reset und `POST /auth/users/:id/revoke-all` („Auf allen Geräten abmelden“) beenden auch alle Gerätesitzungen. Ändert eine App das Passwort, bekommt sie selbst eine neue Gerätesitzung (`refreshToken`, `session` in der Antwort).
+* `/auth/refresh` lehnt Tokens einer Gerätesitzung mit 400 `use_session_refresh` ab.
 
 ## Benutzer & Admin-Rechte
 
@@ -260,9 +280,19 @@ Healthcheck, ohne Auth.
 {
   "status": "healthy",
   "timestamp": "2025-12-23T09:00:00.000Z",
-  "service": "fuelstat-api-v2"
+  "service": "fuelstat-api-v2",
+  "version": "0.12.0",
+  "registration_enabled": true,
+  "beta_phase": true,
+  "terms_version": "2026-11-09",
+  "apps": {
+    "ios": { "minimum_version": null, "recommended_version": null },
+    "android": { "minimum_version": null, "recommended_version": null }
+  }
 }
 ```
+
+`apps` siehe [Mindest-App-Version](#mindest-app-version).
 
 ### GET /db-ping
 
@@ -631,7 +661,7 @@ Die **Eintragsliste** eines Fahrzeugs: Tank-/Ladevorgänge, Ausgaben und Fahrten
 
 ## Passwort und 2FA (Auth required)
 
-* `POST /auth/password` `{ "currentPassword", "newPassword" }` – widerruft alle bestehenden Tokens und gibt `{ "token" }` zurück. Fehler: 401 `invalid_current_password`, 400 `password_too_short`
+* `POST /auth/password` `{ "currentPassword", "newPassword" }` – widerruft alle bestehenden Tokens und Gerätesitzungen und gibt `{ "token" }` zurück (aus einer App zusätzlich `refreshToken`, `expiresIn`, `session`). Fehler: 401 `invalid_current_password`, 400 `password_too_short`
 * `POST /auth/mfa/setup` – erzeugt ein TOTP-Secret `{ "secret", "otpauthUrl" }` (noch nicht aktiv)
 * `POST /auth/mfa/enable` `{ "code" }` – aktiviert 2FA nach korrektem Code
 * `POST /auth/mfa/disable` `{ "password", "code" }` – deaktiviert 2FA
@@ -785,13 +815,57 @@ Ladestationen im Umkreis von [Open Charge Map](https://openchargemap.org) (Lizen
 
 Fehler: 400 `invalid_coordinates` bzw. `invalid_radius`, 429 `too_many_requests`, 502 `charging_stations_unavailable` (Open Charge Map nicht erreichbar), 503 `charging_stations_not_configured` (kein Key gesetzt).
 
-## Common error format
+## API-Vertrag (#118)
+
+Ab der ersten App-Version laufen Clients bei Nutzern, die nicht sofort aktualisieren. `/api/v1` ist deshalb ein Versprechen.
+
+**Erlaubt unter `/api/v1`** (abwärtskompatibel):
+
+* neue Endpunkte, neue Felder in Antworten, neue optionale Parameter und Felder in Anfragen
+* neue Fehlercodes; Clients behandeln unbekannte Codes wie einen allgemeinen Fehler und zeigen `message`, falls vorhanden
+* neue Werte in Aufzählungen, wo die Doku es ankündigt (z. B. Kategorien, Sorten); Clients zeigen Unbekanntes neutral an
+
+**Nicht erlaubt** – nur über eine neue Version (`/api/v2`), die `/api/v1` eine Weile parallel weiterlaufen lässt:
+
+* Felder oder Endpunkte entfernen oder umbenennen, Typen ändern (z. B. Zahl ↔ Text), optionale Felder zu Pflichtfeldern machen
+* die Bedeutung eines Felds oder Statuscodes ändern
+
+**Pflichten der Clients:** unbekannte Felder ignorieren, mit `null` bei als `nullable` beschriebenen Feldern rechnen, Listen über `pagination.has_more` blättern statt Längen anzunehmen.
+
+**Während der Beta (bis 1.0.0)** dürfen veraltete Felder und Endpunkte entfallen, wenn Web-App und iOS-App sie nicht mehr nutzen oder im selben Zug angepasst werden. Dann wird die **Mindest-App-Version** angehoben (siehe unten), und das CHANGELOG nennt es unter „Hinweise zum Update“.
+
+**Prüfung:** `backend/test/contract.test.js` spielt den Ablauf der App durch (Registrieren, Anmelden mit Gerät, Fahrzeug, Einträge, Statistik, Listen …) und prüft jede Antwort gegen `docs/openapi.1.0.0.yaml`. Wer einen Endpunkt ändert, den Apps nutzen, ergänzt ihn dort. `tests/openapi_abgleich.py` stellt sicher, dass jede Route in der OpenAPI steht.
+
+### Fehlerformat
+
+Jede Fehlerantwort (Status 400–599) ist JSON mit einem festen Code in `error`, je nach Fehler mit weiteren Feldern:
 
 ```json
-{ "error": "some_error_code" }
+{ "error": "plan_required", "message": "…", "feature": "maxVehicles", "limit": 1, "plan": "free" }
 ```
 
-Interne Fehler (500) enthalten keine Details mehr; sie stehen nur im Log der API.
+* `error`: fester Schlüssel für Clients (englisch, `snake_case`); er ändert sich nicht.
+* `message`: lesbarer Hinweis auf Deutsch, wo vorhanden – zum Anzeigen, nicht zum Auswerten.
+* `detail`: technischer Zusatz, wo vorhanden.
+* Allgemein: 400 `invalid_json` (Anfragekörper kein JSON), 413 `payload_too_large`, 401 `missing_token` / `invalid_token` / `token_revoked` / `session_revoked`, 404 `not_found` (auch unbekannte Pfade), 426 `app_update_required`, 429 `too_many_requests` bzw. `too_many_attempts`, 500 `server_error` (ohne Details, die stehen nur im Log der API).
+
+### Mindest-App-Version
+
+Apps schicken bei jeder Anfrage `X-Fuelstat-Client: ios/0.2.0` (Plattform `ios` oder `android`, Version `x.y.z`, optional dahinter die Build-Nummer). `GET /health` liefert je Plattform:
+
+```json
+{ "apps": { "ios": { "minimum_version": "0.2.0", "recommended_version": "0.3.0" }, "android": { "minimum_version": null, "recommended_version": null } } }
+```
+
+* `minimum_version`: Ältere Apps verstehen diese API nicht mehr. Sie bekommen auf jede Anfrage außer `/health` 426 `app_update_required` (mit `minimum_version` und `recommended_version`) und sollten zum Update auffordern.
+* `recommended_version`: Diese App-Version nutzt alle Funktionen dieser API-Version. Ältere Apps funktionieren, können aber auf ein Update hinweisen.
+* `null`: keine Vorgabe. Die Werte stehen im Code (`backend/src/lib/appVersions.js`), weil die API ihre Brüche kennt; sie werden mit dem Release angehoben, das ältere Apps bricht.
+
+### Abkündigen (Deprecation)
+
+1. Feld oder Endpunkt in der OpenAPI mit `deprecated: true` und in dieser Doku als „veraltet“ markieren, mit dem Ersatz.
+2. Im CHANGELOG unter **Abgekündigt** eintragen, mit der Version, ab der es entfallen darf.
+3. Entfernen frühestens, wenn Web-App und aktuelle App es nicht mehr nutzen und die Mindest-App-Version das abdeckt – während der Beta im nächsten Minor-Release, ab 1.0.0 erst mit `/api/v2`.
 
 ## Quick curl examples
 

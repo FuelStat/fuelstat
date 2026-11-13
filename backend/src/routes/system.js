@@ -8,6 +8,7 @@ const { API_VERSION, isBetaPhase, termsVersion } = require('../config');
 const { pool } = require('../db');
 const { serverError } = require('../lib/http');
 const { auth, isAdmin } = require('../middleware/auth');
+const { appVersionsForHealth } = require('../lib/appVersions');
 
 const router = express.Router();
 
@@ -21,7 +22,9 @@ router.get('/health', (req, res) => {
     registration_enabled: process.env.REGISTRATION_ENABLED !== 'false',
     beta_phase: isBetaPhase(),
     // Gültige Fassung der Nutzungsbedingungen (#135); null = keine Zustimmung nötig
-    terms_version: termsVersion()
+    terms_version: termsVersion(),
+    // Mindest- und empfohlene App-Version je Plattform (#118); null = keine Vorgabe
+    apps: appVersionsForHealth()
   });
 });
 

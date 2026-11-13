@@ -100,6 +100,10 @@
     --fs-status-soon-rgb: 138, 90, 0;
     --fs-status-overdue-rgb: 185, 58, 12;
     --fs-info-rgb: 14, 116, 144;
+    /* Dunkle Flächen in beiden Modi gleich (docs/design.md 5): Verlauf auf Fotos, Willkommensseite – BrandDeep des
+       hellen Modus –, Text darauf weiß */
+    --fs-scrim-rgb: 10, 28, 51;
+    --fs-on-scrim-rgb: 255, 255, 255;
     /* Brand-Fläche beim Überfahren/Drücken und getönte Flächen für Status */
     --fs-brand-hover: color-mix(in srgb, var(--fs-brand) 86%, var(--fs-brand-deep));
     --fs-schatten: 0 .5rem 1.5rem rgba(10, 28, 51, .14);
@@ -115,8 +119,8 @@
     --fs-status-soon-rgb: 245, 197, 66;
     --fs-status-overdue-rgb: 255, 138, 91;
     --fs-info-rgb: 63, 214, 238;
-    --fs-brand-hover: color-mix(in srgb, var(--fs-brand) 86%, #fff);
-    --fs-schatten: 0 .5rem 1.5rem rgba(0, 0, 0, .45);
+    --fs-brand-hover: color-mix(in srgb, var(--fs-brand) 86%, rgb(var(--fs-on-scrim-rgb)));
+    --fs-schatten: 0 .5rem 1.5rem rgba(var(--fs-scrim-rgb), .45);
 }
 
 :root,
@@ -266,7 +270,15 @@ a { text-underline-offset: .15em; }
     --bs-btn-padding-x: .75rem;
     --bs-btn-padding-y: .25rem;
     --bs-btn-font-size: .875rem;
-    min-height: 2.25rem;
+    /* Auch kleine Buttons sind 44 px hoch (docs/design.md 10, Tippflächen) */
+    min-height: 2.75rem;
+}
+
+/* Textlinks in Sätzen: Trefferfläche auf 44 px vergrößern, ohne die Zeile zu verschieben (#158) */
+.tipp-link {
+    display: inline-block;
+    padding-block: .8125rem;
+    margin-block: -.8125rem;
 }
 .btn-lg { --bs-btn-border-radius: var(--fs-radius-tile); --bs-btn-font-size: 1.0625rem; min-height: 3rem; }
 .btn-primary {
@@ -587,6 +599,7 @@ footer {
 }
 
 .kopf-marke {
+    min-height: 2.75rem;
     display: inline-flex;
     align-items: center;
     gap: var(--fs-space-xs);
@@ -860,7 +873,7 @@ body.mit-tabbar {
     border-radius: var(--fs-radius-card);
     background: var(--fs-card-tint);
     /* Text auf dem Foto ist in beiden Modi hell: der Verlauf darunter ist immer Navy */
-    color: #fff;
+    color: rgb(var(--fs-on-scrim-rgb));
 }
 
 .fahrzeug-hero > img {
@@ -873,7 +886,7 @@ body.mit-tabbar {
     content: "";
     position: absolute;
     inset: 35% 0 0;
-    background: linear-gradient(to bottom, rgba(10, 28, 51, 0), rgba(10, 28, 51, .82));
+    background: linear-gradient(to bottom, rgba(var(--fs-scrim-rgb), 0), rgba(var(--fs-scrim-rgb), .82));
     pointer-events: none;
 }
 
@@ -891,13 +904,13 @@ body.mit-tabbar {
 .fahrzeug-hero-name {
     margin: 0;
     font: var(--fs-font-screen-title);
-    color: #fff;
-    text-shadow: 0 1px 2px rgba(10, 28, 51, .5);
+    color: rgb(var(--fs-on-scrim-rgb));
+    text-shadow: 0 1px 2px rgba(var(--fs-scrim-rgb), .5);
 }
 
 .fahrzeug-hero-zeile {
     font: var(--fs-font-label);
-    color: rgba(255, 255, 255, .92);
+    color: rgba(var(--fs-on-scrim-rgb), .92);
 }
 
 /* Aktionen auf dem Foto: runde Knöpfe (Bearbeiten) */
@@ -1622,7 +1635,7 @@ body.seite-laedt .hauptinhalt {
     justify-content: center;
     background: var(--bs-body-bg);
     color: var(--bs-secondary-color);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, .18);
+    box-shadow: 0 2px 8px rgba(var(--fs-scrim-rgb), .18);
     opacity: 0;
     transform: translate(-50%, 0);
     transition: transform .2s ease, opacity .2s ease;
@@ -1818,30 +1831,30 @@ details > summary {
    Markenfläche (docs/design.md 2): Navy wie das App-Icon in beiden Modi, weiße Schrift, Teal-Akzente.
    Die festen Werte hier sind die Markenwerte aus Abschnitt 2 (BrandDeep hell, Brand dunkel). */
 .willkommen-hero {
-    --willkommen-navy: #0A1C33;
+    --willkommen-navy: rgb(var(--fs-scrim-rgb));
     --willkommen-teal: #5ED3CF;
     padding: var(--fs-space-xl) var(--fs-space-l);
     border-radius: var(--fs-radius-card);
     background: var(--willkommen-navy);
-    color: #fff;
+    color: rgb(var(--fs-on-scrim-rgb));
 }
 
 .willkommen-hero h1 {
-    color: #fff;
+    color: rgb(var(--fs-on-scrim-rgb));
     font-size: clamp(1.75rem, 1.2rem + 2.4vw, 2.75rem);
 }
 
 .willkommen-text {
     max-width: 40rem;
     font-size: 1.0625rem;
-    color: rgba(255, 255, 255, .85);
+    color: rgba(var(--fs-on-scrim-rgb), .85);
 }
 
 .willkommen-logo {
     width: 96px;
     height: 96px;
     border-radius: 22px;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, .12), 0 .75rem 2rem rgba(0, 0, 0, .35);
+    box-shadow: 0 0 0 1px rgba(var(--fs-on-scrim-rgb), .12), 0 .75rem 2rem rgba(var(--fs-scrim-rgb), .35);
 }
 
 .willkommen-beta {
@@ -1850,7 +1863,7 @@ details > summary {
     gap: var(--fs-space-xs);
     padding: .375rem .875rem;
     border-radius: var(--fs-radius-capsule);
-    background: rgba(255, 255, 255, .1);
+    background: rgba(var(--fs-on-scrim-rgb), .1);
     color: var(--willkommen-teal);
     font: var(--fs-font-unit);
 }
@@ -1860,22 +1873,22 @@ details > summary {
     --bs-btn-bg: var(--willkommen-teal);
     --bs-btn-border-color: var(--willkommen-teal);
     --bs-btn-hover-color: var(--willkommen-navy);
-    --bs-btn-hover-bg: #fff;
-    --bs-btn-hover-border-color: #fff;
+    --bs-btn-hover-bg: rgb(var(--fs-on-scrim-rgb));
+    --bs-btn-hover-border-color: rgb(var(--fs-on-scrim-rgb));
     --bs-btn-active-color: var(--willkommen-navy);
-    --bs-btn-active-bg: #fff;
-    --bs-btn-active-border-color: #fff;
+    --bs-btn-active-bg: rgb(var(--fs-on-scrim-rgb));
+    --bs-btn-active-border-color: rgb(var(--fs-on-scrim-rgb));
 }
 
 .willkommen-knopf-rahmen {
-    --bs-btn-color: #fff;
-    --bs-btn-border-color: rgba(255, 255, 255, .5);
+    --bs-btn-color: rgb(var(--fs-on-scrim-rgb));
+    --bs-btn-border-color: rgba(var(--fs-on-scrim-rgb), .5);
     --bs-btn-hover-color: var(--willkommen-navy);
-    --bs-btn-hover-bg: #fff;
-    --bs-btn-hover-border-color: #fff;
+    --bs-btn-hover-bg: rgb(var(--fs-on-scrim-rgb));
+    --bs-btn-hover-border-color: rgb(var(--fs-on-scrim-rgb));
     --bs-btn-active-color: var(--willkommen-navy);
-    --bs-btn-active-bg: #fff;
-    --bs-btn-active-border-color: #fff;
+    --bs-btn-active-bg: rgb(var(--fs-on-scrim-rgb));
+    --bs-btn-active-border-color: rgb(var(--fs-on-scrim-rgb));
 }
 
 .willkommen-schritt {

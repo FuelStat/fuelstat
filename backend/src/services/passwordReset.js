@@ -4,6 +4,7 @@
 // in der Datenbank liegt nur der SHA-256-Hash. POST /auth/reset-password { token, password } setzt das Passwort,
 // widerruft alle Tokens (auf allen Geräten abgemeldet) und bestätigt die Adresse (der Link beweist das Postfach).
 // Eine aktive 2FA bleibt aktiv: Anmelden geht danach nur mit Passwort und Code.
+const { revokeAllForUser } = require('./deviceSessions');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const { sendUserMail, loadDefaultSmtp, withDefaultSmtp } = require('./mail');
@@ -96,11 +97,7 @@ async function resetPassword(pool, token, password) {
       [row.user_id, hash]
     );
     // Auf allen Geräten abmelden: wer das alte Passwort kannte, soll mit alten Tokens nichts mehr anfangen können
-    await client.query(
-      `INSERT INTO user_token_revocations (user_id, revoked_after, reason) VALUES ($1, now(), 'password_reset')
-       ON CONFLICT (user_id) DO UPDATE SET revoked_after = now(), reason = 'password_reset'`,
-      [row.user_id]
-    );
+    await revokeAllForUser(client, row.user_id, 'password_reset');
     await client.query('COMMIT');
     return { userId: row.user_id };
   } catch (e) {

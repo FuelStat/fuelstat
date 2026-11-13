@@ -13,6 +13,7 @@ const { storedMediaPath } = require('../middleware/upload');
 const emailVerification = require('../services/emailVerification');
 const sharing = require('../services/sharing');
 
+const deviceSessions = require('../services/deviceSessions');
 const router = express.Router();
 
 // List all users (Admin-Endpoint)
@@ -312,20 +313,13 @@ router.post('/auth/users/:userId/revoke-all', auth, requireSelfOrAdmin, async (r
       return res.status(404).json({ error: 'user_not_found' });
     }
 
-    const r = await pool.query(
-      `INSERT INTO user_token_revocations (user_id, revoked_after, reason)
-       VALUES ($1, now(), $2)
-       ON CONFLICT (user_id) DO UPDATE
-         SET revoked_after = now(),
-             reason = COALESCE(EXCLUDED.reason, user_token_revocations.reason)
-       RETURNING user_id, revoked_after, reason`,
-      [userId, reason]
-    );
+    // Alle Tokens und alle Gerätesitzungen der Apps (#117)
+    const row = await deviceSessions.revokeAllForUser(pool, userId, reason);
 
     res.status(201).json({
-      userId: r.rows[0].user_id,
-      revokedAfter: r.rows[0].revoked_after,
-      reason: r.rows[0].reason,
+      userId: row.user_id,
+      revokedAfter: row.revoked_after,
+      reason: row.reason,
       message:
         'Alle bestehenden Tokens dieses Benutzers wurden widerrufen. Neue Logins erhalten wieder gültige Tokens.'
     });

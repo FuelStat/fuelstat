@@ -479,6 +479,7 @@ router.get('/vehicles/:vehicleId/fillups', auth, async (req, res) => {
     res.json(await queryPage(pool, {
       sql: `SELECT
          id,
+         vehicle_id,
          odometer_km,
          amount,
          unit,

@@ -58,7 +58,7 @@ $bearbeitenUrl = '../pages/fahrzeug_bearbeiten.php?id=' . urlencode($fahrzeug_id
                         <?php endforeach; ?>
                     </dl>
                     <?php if ($leer >= 3 && $istBesitzer): ?>
-                        <p class="small text-body-secondary mb-2"><a href="<?= htmlspecialchars($bearbeitenUrl . '#' . $abschnitt) ?>">Fehlende Angaben ergänzen</a> – sie verbessern Termine und Auswertungen.</p>
+                        <p class="small text-body-secondary mb-2"><a class="tipp-link" href="<?= htmlspecialchars($bearbeitenUrl . '#' . $abschnitt) ?>">Fehlende Angaben ergänzen</a> – sie verbessern Termine und Auswertungen.</p>
                     <?php endif; ?>
                 </div>
             </div>

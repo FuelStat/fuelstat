@@ -1,5 +1,5 @@
 <?php
-// Warnung bei unplausiblem Tachostand (Formulare "Neuer Eintrag" und "Eintrag bearbeiten").
+// Warnung bei unplausiblem Tachostand (Formulare „Eintrag erfassen“ und „Eintrag bearbeiten“).
 // Erwartet: $api, $fahrzeug_id; optional $tachoAusnahmeId (der gerade bearbeitete Eintrag)
 // und $tachoAnschaffung (Tachostand bei Anschaffung).
 // Die Warnung blockiert nicht: Beim Speichern wird nur einmal nachgefragt (z. B. nach einem Tachotausch).

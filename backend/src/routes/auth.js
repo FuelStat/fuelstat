@@ -15,13 +15,23 @@ const emailVerification = require('../services/emailVerification');
 const passwordReset = require('../services/passwordReset');
 const { loadDefaultSmtp } = require('../services/mail');
 const { passwordResetLimiter } = require('../middleware/rateLimits');
+const deviceSessions = require('../services/deviceSessions');
 
 const router = express.Router();
+
+// Antwort auf einen erfolgreichen Login: Web-App wie bisher (7-Tage-Token), Apps mit Gerätesitzung (#117)
+async function loginAntwort(user, device) {
+  if (!device) return { token: signToken(user), user };
+  const s = await deviceSessions.createSession(pool, user, device);
+  return { token: s.token, refreshToken: s.refreshToken, expiresIn: s.expiresIn, session: s.session, user };
+}
 
 // Anmeldung verlängern (#56): gültiges Token gegen ein neues mit wieder 7 Tagen Laufzeit tauschen.
 // Das Frontend ruft das bei aktiver Nutzung höchstens einmal am Tag auf. Widerrufene Tokens kommen hier gar
 // nicht an (auth), und spätestens MAX_SESSION_DAYS nach dem letzten Login ist eine neue Anmeldung nötig.
 router.post('/auth/refresh', auth, async (req, res) => {
+  // Apps mit Gerätesitzung verlängern über ihr Refresh-Token (#117), nicht über ein 7-Tage-Token
+  if (req.user.sid) return res.status(400).json({ error: 'use_session_refresh' });
   const authTime = Number(req.user.auth_time || req.user.iat || 0);
   if (!authTime || Date.now() / 1000 - authTime > MAX_SESSION_DAYS * 86400) {
     return res.status(401).json({ error: 'reauth_required' });
@@ -44,6 +54,8 @@ router.post('/auth/register', async (req, res) => {
 
   if (!email || !email.includes('@')) return res.status(400).json({ error: 'invalid_email' });
   if (password.length < 8) return res.status(400).json({ error: 'password_too_short' });
+  const geraet = deviceSessions.parseDevice(req.body?.device);
+  if (geraet.error) return res.status(400).json({ error: geraet.error });
 
   try {
     const passwordHash = await bcrypt.hash(password, 12);
@@ -70,7 +82,7 @@ router.post('/auth/register', async (req, res) => {
         console.error('[register] Bestätigungsmail fehlgeschlagen:', e.code || e.message);
       }
     }
-    res.status(201).json({ token: signToken(user), user });
+    res.status(201).json(await loginAntwort(user, geraet.device));
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'email_already_exists' });
     serverError(res, e);
@@ -164,6 +176,9 @@ router.post('/auth/login', async (req, res) => {
   const password = String(req.body?.password || '');
 
   if (!email || !password) return res.status(400).json({ error: 'missing_credentials' });
+  // Apps melden ihr Gerät mit an und bekommen eine Gerätesitzung (#117)
+  const geraet = deviceSessions.parseDevice(req.body?.device);
+  if (geraet.error) return res.status(400).json({ error: geraet.error });
 
   try {
     const r = await pool.query(
@@ -196,7 +211,7 @@ router.post('/auth/login', async (req, res) => {
     if (user.mfa_enabled) {
       // Ohne Code: 401 mfa_required mit mfaToken. Das Token erlaubt nur den zweiten Schritt (POST /auth/login/mfa)
       // mit gültigem TOTP-Code und hängt nicht von der Eingabe ab – es wird deshalb immer erzeugt.
-      const mfaToken = jwt.sign({ sub: user.id }, MFA_TOKEN_SECRET, { expiresIn: '5m' });
+      const mfaToken = jwt.sign({ sub: user.id, ...(geraet.device ? { device: geraet.device } : {}) }, MFA_TOKEN_SECRET, { expiresIn: '5m' });
       const code = typeof req.body?.code === 'string' || typeof req.body?.code === 'number' ? String(req.body.code).trim() : '';
       if (!code) return res.status(401).json({ error: 'mfa_required', mfaToken });
       const mfaKey = `mfa:${user.id}`;
@@ -211,7 +226,7 @@ router.post('/auth/login', async (req, res) => {
     delete user.password_hash;
     delete user.mfa_secret;
     await recordLogin(user.id);
-    res.json({ token: signToken(user), user });
+    res.json(await loginAntwort(user, geraet.device));
   } catch (e) {
     serverError(res, e);
   }
@@ -227,6 +242,9 @@ router.post('/auth/login/mfa', async (req, res) => {
   }
   const mfaKey = `mfa:${payload.sub}`;
   if (isLockedOut(mfaKey, MFA_MAX_FAILURES)) return tooManyAttempts(res);
+  // Gerät aus dem ersten Schritt oder hier angegeben (#117)
+  const geraet = deviceSessions.parseDevice(req.body?.device ?? payload.device);
+  if (geraet.error) return res.status(400).json({ error: geraet.error });
   try {
     const r = await pool.query(
       `SELECT id, email, username, mfa_enabled, mfa_secret, profile_image_url, created_at, updated_at,
@@ -243,7 +261,7 @@ router.post('/auth/login/mfa', async (req, res) => {
     clearFailures(mfaKey);
     delete user.mfa_secret;
     await recordLogin(user.id);
-    res.json({ token: signToken(user), user });
+    res.json(await loginAntwort(user, geraet.device));
   } catch (e) {
     serverError(res, e);
   }
@@ -270,14 +288,19 @@ router.post('/auth/password', auth, async (req, res) => {
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
     await pool.query('UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2', [passwordHash, req.user.sub]);
-    await pool.query(
-      `INSERT INTO user_token_revocations (user_id, revoked_after, reason)
-       VALUES ($1, now(), 'password_changed')
-       ON CONFLICT (user_id) DO UPDATE SET revoked_after = now(), reason = 'password_changed'`,
-      [req.user.sub]
-    );
+    // Auf allen Geräten abmelden, auch alle Gerätesitzungen (#117)
+    await deviceSessions.revokeAllForUser(pool, req.user.sub, 'password_changed');
     // JWT-iat hat Sekundengenauigkeit: kurz warten, damit das neue Token nach revoked_after liegt
     await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Eine App behält ihr Gerät: neue Gerätesitzung mit denselben Angaben
+    if (req.user.sid) {
+      const alt = await pool.query('SELECT name, platform, app_version FROM device_sessions WHERE id = $1', [req.user.sid]);
+      if (alt.rowCount) {
+        const d = alt.rows[0];
+        const neu = await deviceSessions.createSession(pool, r.rows[0], { name: d.name, platform: d.platform, appVersion: d.app_version });
+        return res.json({ token: neu.token, refreshToken: neu.refreshToken, expiresIn: neu.expiresIn, session: neu.session });
+      }
+    }
     res.json({ token: signToken(r.rows[0]) });
   } catch (e) {
     serverError(res, e);

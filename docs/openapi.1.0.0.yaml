@@ -237,6 +237,8 @@ paths:
               properties:
                 mfaToken: { type: string }
                 code: { type: string, example: "123456" }
+                device:
+                  $ref: "#/components/schemas/DeviceInfo"
               required: [mfaToken, code]
       responses:
         "200":
@@ -423,15 +425,113 @@ paths:
       operationId: postAuthRefresh
       responses:
         "200":
-          description: "OK ({ token })"
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  token: { type: string }
+                required: [token]
+        "400":
+          description: "use_session_refresh: Token einer Gerätesitzung (Apps verlängern über POST /auth/session/refresh)"
         "401":
           description: "missing_token, invalid_token, token_revoked oder reauth_required (letzter Login mit Passwort > 90 Tage)"
+
+  /api/v1/auth/session/refresh:
+    post:
+      tags: [Auth]
+      summary: Exchange a refresh token of a device session for a new token pair (#117)
+      description: >
+        Ohne Bearer-Token. Jedes Refresh-Token gilt genau einmal (Rotation). Kommt ein schon getauschtes Token später
+        noch einmal, wird die ganze Gerätesitzung beendet (refresh_token_reused). Innerhalb von 30 Sekunden nach dem
+        Tausch (zwei gleichzeitige Anfragen derselben App) gibt es nur refresh_token_already_used, die Sitzung bleibt;
+        Clients tauschen deshalb nie parallel. Eine Sitzung endet nach 180 Tagen ohne Tausch.
+      operationId: postAuthSessionRefresh
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                refreshToken: { type: string }
+                appVersion: { type: string, maxLength: 30, description: "Optional: aktuelle App-Version für die Geräteliste" }
+              required: [refreshToken]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  token: { type: string }
+                  refreshToken: { type: string }
+                  expiresIn: { type: integer, example: 1800 }
+                required: [token, refreshToken, expiresIn]
+        "400":
+          description: missing_refresh_token
+        "401":
+          description: "invalid_refresh_token | refresh_token_already_used | refresh_token_reused (Sitzung beendet) | session_revoked | session_expired – außer bei already_used neu anmelden"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: too_many_requests
+
+  /api/v1/auth/sessions:
+    get:
+      tags: [Auth]
+      summary: Own active device sessions (apps), most recently used first (#117)
+      operationId: getAuthSessions
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Eine Seite (#160)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, pagination]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DeviceSession"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/sessions/{sessionId}:
+    delete:
+      tags: [Auth]
+      summary: Sign out one device (own session); "current" = the session of this token (#117)
+      operationId: deleteAuthSession
+      parameters:
+        - { name: sessionId, in: path, required: true, schema: { type: string }, description: "UUID der Sitzung oder current" }
+      responses:
+        "204":
+          description: Abgemeldet; Zugriffs- und Refresh-Token des Geräts gelten sofort nicht mehr
+        "400":
+          description: "no_device_session (current ohne Gerätesitzung, z. B. Web-App)"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: session_not_found
 
   /api/v1/auth/password:
     post:
       tags: [Users]
       summary: Change own password
-      description: "Prüft das aktuelle Passwort, setzt das neue, widerruft alle bestehenden Tokens und gibt ein neues Token zurück."
+      description: "Prüft das aktuelle Passwort, setzt das neue, widerruft alle bestehenden Tokens und Gerätesitzungen und gibt ein neues Token zurück. Aus einer App (Token mit Gerätesitzung) kommt eine neue Gerätesitzung mit refreshToken, expiresIn und session (#117)."
       operationId: postAuthPassword
       requestBody:
         required: true
@@ -449,6 +549,12 @@ paths:
                 properties:
                   token:
                     type: string
+                  refreshToken:
+                    type: string
+                  expiresIn:
+                    type: integer
+                  session:
+                    $ref: "#/components/schemas/DeviceSession"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -600,7 +706,7 @@ paths:
       tags: [Tokens, Users]
       summary: Revoke all Tokens of User
       operationId: postAuthUsersRevokeAll
-      description: "Nur für den eigenen User oder Admins (ADMIN_USER_IDS)."
+      description: "Nur für den eigenen User oder Admins (ADMIN_USER_IDS). Beendet auch alle Gerätesitzungen der Apps (#117)."
       parameters:
         - $ref: "#/components/parameters/UserId"
       requestBody:
@@ -1957,6 +2063,49 @@ paths:
       responses:
         "200":
           description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [groups, categories, custom]
+                properties:
+                  groups:
+                    type: array
+                    items:
+                      type: object
+                      required: [key, name, icon, color]
+                      properties:
+                        key: { type: string }
+                        name: { type: string }
+                        icon: { type: string }
+                        color: { type: string }
+                  categories:
+                    type: array
+                    items:
+                      type: object
+                      required: [key, name, icon, color, group, form, countsAsCost, plan, custom, selectable, available]
+                      properties:
+                        key: { type: string, description: "Schlüssel für category in /entries" }
+                        name: { type: string }
+                        icon: { type: string }
+                        color: { type: string }
+                        group: { type: string }
+                        form: { type: string, description: "fillup, expense, odometer oder trip" }
+                        countsAsCost: { type: boolean }
+                        plan: { type: string }
+                        custom: { type: boolean }
+                        selectable: { type: boolean }
+                        available: { type: boolean }
+                  custom:
+                    type: object
+                    required: [max, used, canCreate]
+                    properties:
+                      max: { type: integer, nullable: true }
+                      used: { type: integer }
+                      canCreate: { type: boolean }
+                      icons: { type: array, items: { type: string } }
+                      colors: { type: array, items: { type: string } }
+                      nameMaxLength: { type: integer }
         "304":
           description: Not Modified (If-None-Match)
         "401":
@@ -2581,7 +2730,17 @@ paths:
               required: [category, message]
       responses:
         "201":
-          description: "Gespeichert ({ id, saved: true, mailed })"
+          description: Gespeichert
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [id, saved, mailed]
+                properties:
+                  id: { type: string, format: uuid }
+                  saved: { type: boolean }
+                  mailed: { type: boolean, description: Benachrichtigung an den Betreiber verschickt }
         "400":
           description: invalid_category | invalid_message | invalid_page
         "401":
@@ -2937,7 +3096,26 @@ components:
           type: string
           nullable: true
           description: Gültige Fassung der Nutzungsbedingungen (TERMS_VERSION, #135); null = keine Zustimmung nötig
-      required: [status, timestamp, service, version]
+        apps:
+          type: object
+          additionalProperties: false
+          description: >
+            Mindest- und empfohlene App-Version je Plattform (#118). minimum_version: ältere Apps verstehen die API
+            nicht mehr und bekommen auf jede Anfrage (außer /health) 426 app_update_required, wenn sie den Header
+            X-Fuelstat-Client schicken. recommended_version: nutzt alle Funktionen dieser API-Version (Hinweis „Update
+            verfügbar“). null = keine Vorgabe.
+          properties:
+            ios: { $ref: "#/components/schemas/AppVersionInfo" }
+            android: { $ref: "#/components/schemas/AppVersionInfo" }
+      required: [status, timestamp, service, version, apps]
+
+    AppVersionInfo:
+      type: object
+      additionalProperties: false
+      properties:
+        minimum_version: { type: string, nullable: true, example: "0.2.0" }
+        recommended_version: { type: string, nullable: true, example: "0.3.0" }
+      required: [minimum_version, recommended_version]
 
     DbPingResponse:
       type: object
@@ -3053,6 +3231,8 @@ components:
         termsVersion:
           type: string
           description: Fassung aus GET /health (terms_version). Ohne Zustimmung wird sie nach der Anmeldung nachgeholt.
+        device:
+          $ref: "#/components/schemas/DeviceInfo"
       required: [email, password]
 
     LoginRequest:
@@ -3069,17 +3249,62 @@ components:
           type: string
           example: "123456"
           description: "6-stelliger TOTP-Code. Nur bei aktiver 2FA nötig (fehlt er, kommt 401 mfa_required); ohne aktive 2FA wird er ignoriert."
+        device:
+          $ref: "#/components/schemas/DeviceInfo"
       required: [email, password]
 
     AuthResponse:
       type: object
       additionalProperties: false
+      description: "Ohne device (Web-App): token mit 7 Tagen Laufzeit. Mit device (Apps, #117): kurzlebiges token plus refreshToken, expiresIn und session."
       properties:
         token:
           type: string
+          description: Zugriffstoken (Bearer)
+        refreshToken:
+          type: string
+          description: "Nur mit device: einmal verwendbar, gegen ein neues Paar tauschen über POST /auth/session/refresh. Sicher speichern (Keychain)."
+        expiresIn:
+          type: integer
+          description: "Nur mit device: Laufzeit des Zugriffstokens in Sekunden (1800)"
+          example: 1800
+        session:
+          $ref: "#/components/schemas/DeviceSession"
         user:
           $ref: "#/components/schemas/User"
       required: [token, user]
+
+    DeviceInfo:
+      type: object
+      additionalProperties: false
+      description: "Angaben zum Gerät (#117). Wer sie mitschickt, bekommt eine Gerätesitzung mit Refresh-Token statt eines 7-Tage-Tokens."
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          example: "iPhone von Mario"
+        platform:
+          type: string
+          enum: [ios, android, other]
+        appVersion:
+          type: string
+          maxLength: 30
+          example: "0.2.0"
+      required: [name, platform]
+
+    DeviceSession:
+      type: object
+      additionalProperties: false
+      description: Gerätesitzung einer App (#117)
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        platform: { type: string, enum: [ios, android, other] }
+        app_version: { type: string, nullable: true }
+        created_at: { type: string, format: date-time, description: Anmeldung (Login mit Passwort) }
+        last_used_at: { type: string, format: date-time, description: Zuletzt ein Refresh-Token getauscht }
+        current: { type: boolean, description: "Nur in GET /auth/sessions: die Sitzung des anfragenden Tokens" }
+      required: [id, name, platform, created_at, last_used_at]
 
     User:
       type: object

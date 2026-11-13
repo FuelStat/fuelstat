@@ -118,7 +118,7 @@ $heute = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->form
 ?>
 
 <div class="container eintrag-formular mt-3 mt-lg-5">
-    <h1 class="h3 d-none d-lg-block mb-3">Neuer Eintrag <small class="text-body-secondary fw-normal">· <?= htmlspecialchars($vehicle['name'] ?? '') ?></small></h1>
+    <h1 class="h3 d-none d-lg-block mb-3">Eintrag erfassen <small class="text-body-secondary fw-normal">· <?= htmlspecialchars($vehicle['name'] ?? '') ?></small></h1>
     <form method="post" action="eintrag_speichern.php" id="eintragFormular">
         <input type="hidden" name="fahrzeug_id" value="<?= htmlspecialchars($fahrzeug_id) ?>">
         <input type="hidden" name="eintragstyp" id="eintragstyp" value="<?= htmlspecialchars($arten[$startArt][2]) ?>">

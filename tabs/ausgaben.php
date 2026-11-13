@@ -328,6 +328,7 @@ $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'gesamt';
 </div>
 
 <script src="<?= htmlspecialchars(assetUrl($baseUrl, 'vendor/chartjs/chart.umd.min.js')) ?>"></script>
+<script src="<?= htmlspecialchars(assetUrl($baseUrl, 'js/diagramm-text.js')) ?>"></script>
 <script>
 (function () {
     if (!window.Chart) return;

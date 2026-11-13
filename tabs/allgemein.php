@@ -171,7 +171,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                                         <br>laut Fahrzeugangaben
                                     <?php endif; ?>
                                 <?php else: ?>
-                                    <a href="<?= htmlspecialchars($eintragUrl) ?>&kategorie=<?= urlencode($f['kategorie']) ?>">Letzten Termin erfassen</a>, um erinnert zu werden
+                                    <a class="tipp-link" href="<?= htmlspecialchars($eintragUrl) ?>&kategorie=<?= urlencode($f['kategorie']) ?>">Letzten Termin erfassen</a>, um erinnert zu werden
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -187,7 +187,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                                     letzter Wechsel am <?= date('d.m.Y', strtotime($letzterReifen['datum'])) ?><?php if (!empty($letzterReifen['tachostand'])): ?> bei <?= number_format((int)$letzterReifen['tachostand'], 0, ',', '.') ?> km<?php endif; ?>
                                     <?php if (!empty($letzterReifen['beschreibung'])): ?> · <?= htmlspecialchars($letzterReifen['beschreibung']) ?><?php endif; ?>
                                 <?php else: ?>
-                                    <a href="<?= htmlspecialchars($eintragUrl) ?>&kategorie=Reifen">Reifenwechsel erfassen</a>
+                                    <a class="tipp-link" href="<?= htmlspecialchars($eintragUrl) ?>&kategorie=Reifen">Reifenwechsel erfassen</a>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -200,22 +200,17 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
             <div class="card mt-3">
                 <div class="card-body">
                     <h2 class="mb-2">Letzte 6 Monate</h2>
-                    <div class="diagramm-mini"><canvas id="verlaufMini" aria-label="Kosten und Verbrauch der letzten 6 Monate" role="img"></canvas></div>
+                    <div class="diagramm-mini"><canvas id="verlaufMini" role="img" aria-label="Kosten und Verbrauch der letzten 6 Monate"></canvas></div>
                 </div>
             </div>
             <?php endif; ?>
 
             <?php if ($istBesitzer): ?>
+            <!-- Löschen steht abgesetzt im Reiter „Einstellungen“ (#158) -->
             <div class="d-flex flex-wrap gap-2 mt-3">
                 <a href="../pages/fahrzeug_bearbeiten.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>" class="btn btn-secondary">
                     <i class="fas fa-pen" aria-hidden="true"></i>Fahrzeug bearbeiten
                 </a>
-                <form method="post" action="../pages/fahrzeug_loeschen.php" onsubmit="return confirm('Möchtest du dieses Fahrzeug wirklich löschen? Alle zugehörigen Einträge werden ebenfalls entfernt!');">
-                    <input type="hidden" name="fahrzeug_id" value="<?= htmlspecialchars($fahrzeug_id) ?>">
-                    <button type="submit" class="btn btn-outline-danger">
-                        <i class="fas fa-trash-alt" aria-hidden="true"></i>Fahrzeug löschen
-                    </button>
-                </form>
             </div>
             <?php endif; ?>
         </div>
@@ -223,8 +218,10 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
 </div>
 
 <?php if ($hatVerlauf): ?>
+<!-- Mini-Diagramm (#48). Seit die übrigen Reiter erst beim Öffnen laden (#160), bringt „Allgemein“ Chart.js selbst mit. -->
+<script src="<?= htmlspecialchars(assetUrl($baseUrl, 'vendor/chartjs/chart.umd.min.js')) ?>"></script>
+<script src="<?= htmlspecialchars(assetUrl($baseUrl, 'js/diagramm-text.js')) ?>"></script>
 <script>
-// Mini-Diagramm (#48); Chart.js wird vom Statistik-Reiter derselben Seite geladen
 document.addEventListener('DOMContentLoaded', function () {
   var ctx = document.getElementById('verlaufMini');
   if (!ctx || !window.Chart) return;

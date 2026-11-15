@@ -21,7 +21,24 @@ API-Änderungen, die Apps anpassen müssen). Die geplanten Versionen sind die Mi
    `## [Unreleased]` ein (Kategorien: Neu, Verbessert, Behoben, Sicherheit, Abgekündigt, Technik). Die Release-Notes
    lesen auch Nutzer: **keine SQL-Befehle, Migrationen oder Server-Einstellungen** darin. Was Betreiber beim
    Ausrollen tun müssen, steht in `docs/update-hinweise.md` unter `## [Unreleased]`.
-2. **Release vorbereiten** in einem eigenen PR:
+2. **Mindest-App-Version prüfen – bei jedem Release, bevor der Release-PR entsteht.** Die Werte stehen in
+   `backend/src/lib/appVersions.js` (`minimum`/`recommended` je Plattform, `GET /health` meldet sie, ältere Apps
+   bekommen 426). Die Frage lautet: *Kommt die zuletzt veröffentlichte App-Version (neuester Tag in
+   [FuelStat/fuelstat-ios](https://github.com/FuelStat/fuelstat-ios), `git ls-remote --tags`) mit allem zurecht, was
+   dieses Release an der API ändert?* Dazu den CHANGELOG-Abschnitt (vor allem „Technik“) und die gemergten PRs seit dem
+   letzten Tag durchgehen. Eine Anhebung ist nötig bei:
+   - entfernten oder umbenannten Feldern und Endpunkten, geänderten Typen, geschlossenen Enums, die neue Werte
+     bekommen, neuen Fehlercodes, die die App nicht kennt (z. B. `409 vehicle_archived`), und Verhalten, das sich für
+     die App ändert (schreibgeschützte Fahrzeuge, geänderte Reihenfolge, neue Pflichtfelder);
+   - `minimum` anheben, wenn die alte App damit nicht mehr arbeiten kann oder falsche Dinge tut; `recommended`, wenn
+     sie läuft, aber Neues nicht nutzt.
+   Die Zielversion muss in fuelstat-ios **schon getaggt** sein (sonst sperrt das Release alle Geräte aus; sonst zuerst
+   dort ein Issue und die App-Version abwarten). Wird angehoben: `appVersions.js`, Beispiel in `docs/api.md`,
+   Vertragstest (`backend/test/contract.test.js`, `emailVerification.test.js`), CHANGELOG „Technik“ und ein Punkt in
+   `docs/update-hinweise.md` („Erst ausrollen, wenn die iOS-App X.Y.Z installiert ist“). **Das Ergebnis steht immer im
+   Text des Release-PRs**, auch wenn nichts zu tun ist („Mindest-App-Version: unverändert 0.2.2, weil …“) – ein
+   Release-PR ohne diese Zeile ist nicht fertig.
+3. **Release vorbereiten** in einem eigenen PR:
 
    ```bash
    node backend/scripts/neue-version.js X.Y.Z
@@ -29,8 +46,8 @@ API-Änderungen, die Apps anpassen müssen). Die geplanten Versionen sind die Mi
 
    Das setzt `VERSION`, `backend/package.json` und `backend/package-lock.json` und schließt
    `[Unreleased]` als `## [X.Y.Z] - JJJJ-MM-TT` ab. Vor dem PR `php tests/VersionTest.php`.
-3. **PR mergen.**
-4. **Tag setzen** auf dem gemergten `main` – das löst `.github/workflows/release.yml` aus, der
+4. **PR mergen.**
+5. **Tag setzen** auf dem gemergten `main` – das löst `.github/workflows/release.yml` aus, der
    Tag, `VERSION`, `package.json` und CHANGELOG prüft und das GitHub-Release mit dem Text aus dem
    CHANGELOG anlegt (0.x als „Pre-release“):
 
@@ -40,7 +57,7 @@ API-Änderungen, die Apps anpassen müssen). Die geplanten Versionen sind die Mi
    ```
 
    Der Tag baut außerdem das API-Image `ghcr.io/fuelstat/fuelstat-api:X.Y.Z` (#134).
-5. **Ausrollen** auf dem Server, genau in der Reihenfolge aus `docs/betrieb.md` („Aktualisieren“):
+6. **Ausrollen** auf dem Server, genau in der Reihenfolge aus `docs/betrieb.md` („Aktualisieren“):
    sichern → `sudo infra/ausrollen.sh X.Y.Z`. Das Skript zeigt die Hinweise aus `docs/update-hinweise.md`, neue
    Migrationen und geänderte Beispieldateien, lädt das Image, stellt den Code aufs Tag um, spielt
    **Migrationen ein, bevor die API neu startet**, fragt nach `.env`/nginx, startet die API, lädt
@@ -57,7 +74,10 @@ darauf hin, wenn
 - unter `## [Unreleased]` Einträge stehen, die seit dem letzten Tag nicht veröffentlicht sind –
   mit Vorschlag für die nächste Versionsnummer;
 - ein Release-PR gemergt ist, aber das Tag `vX.Y.Z` fehlt (`git tag`, `git ls-remote --tags origin`);
-- ein Tag existiert, der Server aber noch nicht ausgerollt ist (Schritt 5).
+- ein Tag existiert, der Server aber noch nicht ausgerollt ist (Schritt 6);
+- ein Release-PR ohne die Zeile zur Mindest-App-Version geöffnet werden soll (Schritt 2), oder ein Tag gesetzt wird,
+  ohne dass sie geprüft ist: erst nachholen. Ein veröffentlichtes Tag nicht verschieben; muss die Mindestversion
+  nachträglich angehoben werden, ist das ein Patch-Release (der Maintainer entscheidet).
 
 Tags setzt und pusht Claude nur, wenn der Maintainer ausdrücklich darum bittet.
 
@@ -67,6 +87,11 @@ Vor dem PR prüfen und am Ende einer Aufgabe daran erinnern, was davon fehlt:
 
 - **CHANGELOG:** sichtbare Änderung unter `## [Unreleased]` eingetragen (ohne SQL und Betreiber-Details). Die CI
   (`changelog.yml`) prüft den Eintrag; ohne sichtbare Änderung das Label `kein changelog` setzen.
+- **Mindest-App-Version:** ändert der PR etwas, das die veröffentlichte App nicht versteht (siehe Release-Prozess,
+  Schritt 2: Felder, Fehlercodes, Enums, Verhalten), im PR-Text nennen, in `docs/api.md` unter „API-Vertrag“ festhalten
+  und beim Release `appVersions.js` anheben. Ist die App dafür noch nicht fertig, ein Issue in FuelStat/fuelstat-ios
+  anlegen (mit der benötigten Backend-Version) und die Änderung abwärtskompatibel halten, bis die App-Version getaggt
+  ist.
 - **Update-Hinweise für Betreiber:** bei allem, was beim Ausrollen über `ausrollen.sh` hinaus zu tun ist (einmaliger
   Befehl, neue Einstellung in `infra/.env`, nginx), ein Punkt mit dem genauen Befehl in `docs/update-hinweise.md`
   unter `## [Unreleased]`. Nie in den CHANGELOG.

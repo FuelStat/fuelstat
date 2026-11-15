@@ -6,6 +6,9 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+### Technik
+- Hinweise für Betreiber (einmalige Befehle, Einstellungen) stehen nicht mehr im CHANGELOG, sondern in `docs/update-hinweise.md`; `infra/ausrollen.sh` zeigt sie von dort an, `node backend/scripts/neue-version.js` schließt beide Dateien ab.
+
 ## [0.13.0] - 2026-11-15
 
 ### Neu

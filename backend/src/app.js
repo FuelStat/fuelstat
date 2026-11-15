@@ -68,6 +68,7 @@ app.use('/api/v1', require('./routes/trips')); // Fahrtenbuch (#52)
 app.use('/api/v1', require('./routes/timeline')); // Eintragsliste: alles gemischt, seitenweise (#160)
 app.use('/api/v1', require('./routes/import')); // CSV-Import je Fahrzeug
 app.use('/api/v1', require('./routes/statistics')); // Kennzahlen, Verbrauch, Kosten, Fälligkeiten
+app.use('/api/v1', require('./routes/export')); // CSV-Export der Einträge (#184)
 app.use('/api/v1', require('./routes/stations')); // Tankstellen und Ladestationen
 app.use('/api/v1', require('./routes/media')); // Profil- und Fahrzeugbilder
 app.use('/api/v1', require('./routes/feedback'));

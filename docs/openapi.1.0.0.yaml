@@ -2436,6 +2436,39 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/vehicles/{vehicleId}/export:
+    get:
+      tags: [Entries]
+      summary: Entries as CSV (#184)
+      description: >
+        Tank-/Ladevorgänge, Ausgaben und Kilometerstände des Fahrzeugs als CSV, ohne Fahrten (die stehen im Export des Fahrtenbuchs).
+        Semikolon-getrennt, UTF-8 mit BOM für Excel, deutsches Zahlenformat (Komma, ohne Tausendertrennung), Datum TT.MM.JJJJ in
+        Europe/Berlin, Zeilen aufsteigend nach Datum, Felder wie PHP fputcsv eingefasst, Zellen, die mit = + - @ beginnen, werden
+        entschärft. Der Dateiname steht im Content-Disposition (Fahrzeugname, bei year mit Jahr). Spalten: Datum, Kategorie,
+        Tachostand (km), Menge (Einheit), [Sorte bei mehreren Sorten], [Einheit beim Plug-in-Hybrid], Kosten (EUR), Voll-Spalte je
+        Antriebsart, Lücke davor, [Ladeart, Ladestand vorher/nachher (%), Ladedauer (min) bei Elektro und Plug-in-Hybrid],
+        Verbrauch je 100 km, Ort/Anbieter, Beschreibung, [Bauteile]. Nie an einen Tarif gebunden. Archivierte Fahrzeuge bleiben
+        exportierbar.
+      operationId: getVehicleExport
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+        - { name: year, in: query, required: false, schema: { type: integer, minimum: 1900, maximum: 2100 } }
+      responses:
+        "200":
+          description: CSV
+          headers:
+            Content-Disposition:
+              schema: { type: string, example: 'attachment; filename="Mein_Auto_2026.csv"' }
+          content:
+            text/csv:
+              schema: { type: string }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/vehicles/{vehicleId}/trips/export:
     get:
       tags: [Trips]

@@ -86,6 +86,36 @@ class FuelstatApi
         return (string)$body;
     }
 
+    /**
+     * CSV-Export der Einträge eines Fahrzeugs (#184), gebaut von der API.
+     * @return array{0: string, 1: string} Dateiinhalt und Dateiname aus Content-Disposition
+     */
+    public function getEntriesCsv(string $vehicleId, ?int $jahr = null): array
+    {
+        $url = $this->baseUrl . '/vehicles/' . rawurlencode($vehicleId) . '/export' . ($jahr !== null ? '?year=' . $jahr : '');
+        $dateiname = 'fuelstat.csv';
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt_array($ch, $this->curlOptionen('GET', ['Accept: text/csv']));
+        curl_setopt($ch, CURLOPT_HEADERFUNCTION, function ($ch, $zeile) use (&$dateiname) {
+            if (preg_match('/^content-disposition:.*filename="([A-Za-z0-9_.-]+)"/i', $zeile, $m)) {
+                $dateiname = $m[1];
+            }
+            return strlen($zeile);
+        });
+        $body = curl_exec($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        curl_close($ch);
+        if ($body === false) {
+            throw new RuntimeException('API request failed');
+        }
+        if ($code >= 400) {
+            $daten = json_decode((string)$body, true) ?: [];
+            throw new FuelstatApiException((string)($daten['error'] ?? 'HTTP ' . $code), $code, null, $daten);
+        }
+        return [(string)$body, $dateiname];
+    }
+
     /** Fahrzeuge teilen (#53) */
     public function getVehicleMembers(string $vehicleId): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/members'); }
     public function postVehicleInvitation(string $vehicleId, string $email, string $role): array { return $this->request('POST', '/vehicles/' . rawurlencode($vehicleId) . '/invitations', ['email' => $email, 'role' => $role]); }

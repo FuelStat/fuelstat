@@ -77,6 +77,14 @@ function parseFilter(query = {}) {
 // Suchtext als ILIKE-Muster; % und _ im Text gelten wörtlich
 const pattern = (q) => (q === null ? null : `%${q.replace(/[\\%_]/g, (c) => '\\' + c)}%`);
 
+// Verbrauch je Tank-/Ladevorgang aus den Abschnitten (#82); nebenbei getankte Energiearten ohne Wert (#140): Map Eintrag-ID → l/100 km
+async function consumptionByFillup(db, userId, vehicleId) {
+  const stats = await getVehicleStats(db, userId, vehicleId);
+  return new Map((stats.segments || [])
+    .filter((s) => s.l_per_100km !== null && !stats.energies?.[s.energy]?.minor)
+    .map((s) => [String(s.full_id), Number(s.l_per_100km)]));
+}
+
 /**
  * Eine Seite der Eintragsliste.
  * @param p Seitenangaben aus lib/pagination
@@ -118,13 +126,7 @@ async function getTimeline(db, userId, vehicleId, filter, p) {
   }
 
   // Verbrauch je Tank-/Ladevorgang aus den Abschnitten (#82); nebenbei getankte Energiearten ohne Wert (#140)
-  let consumption = new Map();
-  if (rows.rows.some((r) => r.type === 'fillup')) {
-    const stats = await getVehicleStats(db, userId, vehicleId);
-    consumption = new Map((stats.segments || [])
-      .filter((s) => s.l_per_100km !== null && !stats.energies?.[s.energy]?.minor)
-      .map((s) => [String(s.full_id), Number(s.l_per_100km)]));
-  }
+  const consumption = rows.rows.some((r) => r.type === 'fillup') ? await consumptionByFillup(db, userId, vehicleId) : new Map();
 
   // Bauteile (#78): Namen aus dem Katalog des Fahrzeugs (eingebaut und eigene)
   let katalog = {};
@@ -145,4 +147,4 @@ async function getTimeline(db, userId, vehicleId, filter, p) {
   };
 }
 
-module.exports = { KINDS, parseFilter, getTimeline };
+module.exports = { KINDS, UNION, FILTER, parseFilter, getTimeline, consumptionByFillup };

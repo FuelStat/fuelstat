@@ -75,6 +75,7 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | POST | `/invitations/:invitationId/accept` · `/decline` | ✓ | Einladung annehmen bzw. ablehnen |
 | GET | `/vehicles/:vehicleId/trips?year=&purpose=` | ✓ | Fahrtenbuch: Fahrten eines Fahrzeugs (#52) |
 | GET | `/vehicles/:vehicleId/trips/summary?year=` | ✓ | km je Zweck und Monat, Anteil dienstlich, geschätzte Kosten |
+| GET | `/vehicles/:vehicleId/export?year=` | ✓ | Einträge (Tanken/Laden, Ausgaben, Kilometerstände) als CSV (#184) |
 | GET | `/vehicles/:vehicleId/trips/export?year=` | ✓ (Plus) | Fahrtenbuch als CSV |
 | POST | `/trips` | ✓ | Fahrt anlegen |
 | GET · PATCH · DELETE | `/trips/:tripId` | ✓ | Fahrt lesen, ändern, löschen |
@@ -547,6 +548,15 @@ Authorization: Bearer <jwt>
 * 401: `missing_token` | `invalid_token`
 * 404: `vehicle_not_found`
 * 500: `server_error`
+
+### GET /vehicles/:vehicleId/export?year=2026
+
+CSV der Einträge eines Fahrzeugs (#184): Tank-/Ladevorgänge, Ausgaben und Kilometerstände, **ohne Fahrten** (die stehen im Export des Fahrtenbuchs, `/trips/export`). Web-App (`pages/export.php`) und Apps bekommen dieselbe Datei aus der API. Ohne `year` alle Jahre. Nie an einen Tarif gebunden, auch für archivierte Fahrzeuge und für Mitglieder mit „Nur ansehen“.
+
+* **Format:** `Content-Type: text/csv; charset=utf-8`, UTF-8 **mit BOM** (Excel), Trennzeichen `;`, deutsches Zahlenformat (Komma, ohne Tausendertrennung, Preise und Mengen mit zwei Nachkommastellen), Datum `TT.MM.JJJJ` in Europe/Berlin, Zeilen aufsteigend nach Datum (dann nach Erfassung), Zeilenende `\n`. Felder werden wie bei PHP `fputcsv` mit `"` eingefasst, wenn sie `;`, `"`, `\`, Leerzeichen, Tab oder Zeilenumbruch enthalten. Texte, die mit `=`, `+`, `-`, `@`, Tab oder Zeilenumbruch beginnen, bekommen ein `'` vorangestellt (Schutz vor Formeln).
+* **Dateiname** im `Content-Disposition`: Fahrzeugname (nur `A–Z a–z 0–9 _ -`, Rest `_`), bei `year` mit `_JJJJ`, z. B. `Mein_Auto_2026.csv`.
+* **Spalten:** `Datum`, `Kategorie` (Anzeigename, Tank-/Ladevorgänge je nach Antriebsart „Tankfüllung“ oder „Ladevorgang“), `Tachostand (km)`, `Menge (l|kWh|kg)`, bei mehreren Sorten `Sorte`, beim Plug-in-Hybrid `Einheit` (statt der Einheit in der Überschrift steht dort `Menge`), `Kosten (EUR)`, `Vollgetankt`/`Vollgeladen`/`Voll getankt/geladen`/`Voll` (je Antriebsart; `ja`/`nein`), `Lücke davor` (`ja`/`nein`), bei Elektro und Plug-in-Hybrid `Ladeart`, `Ladestand vorher (%)`, `Ladestand nachher (%)`, `Ladedauer (min)`, `Verbrauch (l/100km)` (je Abschnitt aus `/stats`, leer ohne Wert), `Ort/Anbieter`, `Beschreibung` und, wenn mindestens ein Eintrag Bauteile hat, `Bauteile` (Namen mit ` | ` getrennt). Der CSV-Import der Web-App erkennt diese Spalten wieder.
+* Antworten: 200, 400 `invalid_year`, 401, 404 `vehicle_not_found`.
 
 ### GET /vehicles/:vehicleId/tco
 

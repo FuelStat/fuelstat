@@ -6,10 +6,10 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
-### Neu
-- **Anmelden mit Passkey** (#2): Unter „Profil“ → „Passkeys“ richtest du Face ID, Fingerabdruck, Windows Hello oder einen Sicherheitsschlüssel ein. Danach meldest du dich mit „Mit Passkey anmelden“ oder direkt aus den Vorschlägen im E-Mail-Feld an – ohne Passwort und ohne 2FA-Code. Das Passwort bleibt als Rückfallweg. Fuelstat speichert nur den öffentlichen Schlüssel.
+## [0.13.0] - 2026-11-15
 
 ### Neu
+- **Anmelden mit Passkey** (#2): Unter „Profil“ → „Passkeys“ richtest du Face ID, Fingerabdruck, Windows Hello oder einen Sicherheitsschlüssel ein. Danach meldest du dich mit „Mit Passkey anmelden“ oder direkt aus den Vorschlägen im E-Mail-Feld an – ohne Passwort und ohne 2FA-Code. Das Passwort bleibt als Rückfallweg. Fuelstat speichert nur den öffentlichen Schlüssel.
 - **Gesamtkosten und Wertverlust** (#79): Im Reiter „Ausgaben“ zeigt die Karte „Gesamtkosten“, was das Fahrzeug über die ganze Besitzzeit gekostet hat: laufende Kosten (Tanken/Laden, Versicherung, Steuer, Wartung, Reparatur, Reifen, Sonstiges, auch gebuchte Leasing- und Finanzierungsraten) plus Wertverlust (Kaufpreis minus geschätzter Restwert bzw. Verkaufserlös), dazu Kosten pro Monat und pro km, Wertverlust pro Jahr und die Anteile der Kostengruppen. Fehlen Kaufpreis oder Restwert/Erlös, bleibt der Wertverlust leer und die Karte sagt es, nichts wird geschätzt. Neues Feld „Geschätzter Restwert“ unter „Fahrzeug bearbeiten“ → „Kauf und Termine“; der „Gesamtkosten-Bericht“ lässt sich drucken oder als PDF speichern (Menü „Export und Import“ im Reiter „Einträge“ bzw. Knopf „Bericht“ an der Karte). Für alle Tarife.
 
 ### Verbessert
@@ -41,6 +41,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ### Hinweise zum Update
 - Sichern (`sudo systemctl start fuelstat-backup.service`), dann ausrollen.
+
 - Einmalig Orte „null“ aufräumen, die das Bearbeiten ohne Ort früher geschrieben hat:
 
   ```bash
@@ -48,27 +49,11 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
   sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "UPDATE fillups SET station = NULL WHERE station = '"'"'null'"'"'"'
   ```
 
-- Migration `028_residual_value` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich). Von Hand:
+- Migration `024_passkeys` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich). Von Hand:
 
   ```bash
   cd infra
-  sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_028_residual_value.sql
-  ```
-
-- Migration `027_vehicle_status` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich, alle Fahrzeuge bleiben aktiv). Von Hand:
-
-  ```bash
-  cd infra
-  sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_027_vehicle_status.sql
-  ```
-
-- Die neuen Grenzen für aktive und archivierte Fahrzeuge (Free 1+1, Plus 5+5, Flotte 25+25) gelten erst mit `PLAN_LIMITS_ENABLED=true`; bis dahin ändert sich beim Ausrollen nichts.
-
-- Migration `026_parts` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich, bestehende Einträge bleiben unverändert). Von Hand:
-
-  ```bash
-  cd infra
-  sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_026_parts.sql
+  sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_024_passkeys.sql
   ```
 
 - Migration `025_charging` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich, bestehende Einträge bleiben unverändert). Von Hand:
@@ -78,12 +63,28 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
   sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_025_charging.sql
   ```
 
-- Migration `024_passkeys` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich). Von Hand:
+- Migration `026_parts` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich, bestehende Einträge bleiben unverändert). Von Hand:
 
   ```bash
   cd infra
-  sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_024_passkeys.sql
+  sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_026_parts.sql
   ```
+
+- Migration `027_vehicle_status` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich, alle Fahrzeuge bleiben aktiv). Von Hand:
+
+  ```bash
+  cd infra
+  sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_027_vehicle_status.sql
+  ```
+
+- Migration `028_residual_value` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich). Von Hand:
+
+  ```bash
+  cd infra
+  sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_028_residual_value.sql
+  ```
+
+- Die neuen Grenzen für aktive und archivierte Fahrzeuge (Free 1+1, Plus 5+5, Flotte 25+25) gelten erst mit `PLAN_LIMITS_ENABLED=true`; bis dahin ändert sich beim Ausrollen nichts.
 
 - Passkeys brauchen `APP_URL` mit `https://` in `infra/.env` (oder `WEBAUTHN_RP_ID`/`WEBAUTHN_ORIGINS`, siehe `infra/.env.example`). Prüfen: `curl -s https://<domain>/api/v1/health` zeigt `"passkeys_enabled":true`.
 
@@ -311,7 +312,8 @@ Erste Version mit Versionsnummer: alles, was Fuelstat bis zu diesem Stand kann.
 - Einmalig vorhandene Bilder umstellen: `sudo docker compose exec api node scripts/bilder-optimieren.js`
 - nginx: `/uploads/` sperren, `FUELSTAT_API_BASE_URL` direkt auf `127.0.0.1:3000` setzen (`docs/installation.md`)
 
-[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v0.12.2...HEAD
+[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/FuelStat/fuelstat/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/FuelStat/fuelstat/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/FuelStat/fuelstat/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/FuelStat/fuelstat/compare/v0.11.0...v0.12.0

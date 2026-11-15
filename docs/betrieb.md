@@ -6,8 +6,8 @@ Updates, Datenbank-Migrationen, Datensicherung und Sicherheitsdetails einer lauf
 
 Fuelstat folgt [Semantic Versioning](https://semver.org/lang/de/) (`MAJOR.MINOR.PATCH`); während der Beta bleibt die Hauptversion 0. Die **einzige Quelle** der Versionsnummer ist die Datei `VERSION`. Das Frontend zeigt sie im Footer und unter „Neuigkeiten“, die API unter `GET /api/v1/health` (`version`, aus `backend/package.json`). Die CI prüft, dass alle Stellen übereinstimmen (`tests/VersionTest.php`).
 
-- **Laufend:** Jeder PR mit sichtbarer Änderung trägt sie in `CHANGELOG.md` unter `## [Unreleased]` ein.
-- **Release vorbereiten** (setzt `VERSION`, `backend/package.json` und schließt `[Unreleased]` als neue Version ab):
+- **Laufend:** Jeder PR mit sichtbarer Änderung trägt sie in `CHANGELOG.md` unter `## [Unreleased]` ein. Der CHANGELOG ist die Release-Note für Nutzer (auch in der App unter „Neuigkeiten“, GitHub-Release): **ohne SQL, Migrationen und Server-Einstellungen**. Was Betreiber beim Ausrollen tun müssen (einmalige Befehle, `.env`, nginx), steht in [`update-hinweise.md`](update-hinweise.md) unter `## [Unreleased]`.
+- **Release vorbereiten** (setzt `VERSION`, `backend/package.json` und schließt `[Unreleased]` in `CHANGELOG.md` und `update-hinweise.md` als neue Version ab):
 
   ```bash
   node backend/scripts/neue-version.js 0.10.0
@@ -45,7 +45,7 @@ Live läuft immer genau eine **veröffentlichte Version** (Tag `vX.Y.Z`) mit dem
    ```
 
    Das Skript
-   - holt die Tags und zeigt die „Hinweise zum Update“ der Version, die neuen Migrationen und geänderte Beispiel-Konfigurationen (`infra/.env.example`, nginx, Backup) an und fragt, ob es weitergehen soll;
+   - holt die Tags und zeigt die Hinweise der Version aus [`update-hinweise.md`](update-hinweise.md), die neuen Migrationen und geänderte Beispiel-Konfigurationen (`infra/.env.example`, nginx, Backup) an und fragt, ob es weitergehen soll;
    - lädt das API-Image der Version (die alte API läuft dabei weiter);
    - stellt den Code auf das Tag um (Git läuft als Besitzer des Projektordners);
    - spielt die neuen Migrationen der Reihe nach ein – **vor** dem Neustart der API;
@@ -64,7 +64,7 @@ Der Code steht danach auf dem Tag (detached HEAD). Ein bloßes `git pull` geht d
 sudo infra/ausrollen.sh main
 ```
 
-Gleiche Reihenfolge wie oben: zeigt die neuen Commits, die Hinweise unter `[Unreleased]`, neue Migrationen und geänderte Beispiel-Konfiguration, stellt den Code auf `main`, **baut** das API-Image aus dem Code (`FUELSTAT_VERSION=main`), spielt die Migrationen vor dem Neustart ein, startet die API und lädt PHP-FPM neu. Nachgefragt wird nur, wenn Migrationen oder Konfigurationsänderungen anstehen; ist `main` schon ausgerollt, tut das Skript nichts. Zurück auf ein Release: `sudo infra/ausrollen.sh X.Y.Z`. Ein Zwischenstand ist nicht durch ein Release geprüft – Datensicherung vorher wie oben.
+Gleiche Reihenfolge wie oben: zeigt die neuen Commits, die Hinweise unter `[Unreleased]` in [`update-hinweise.md`](update-hinweise.md), neue Migrationen und geänderte Beispiel-Konfiguration, stellt den Code auf `main`, **baut** das API-Image aus dem Code (`FUELSTAT_VERSION=main`), spielt die Migrationen vor dem Neustart ein, startet die API und lädt PHP-FPM neu. Nachgefragt wird nur, wenn Migrationen oder Konfigurationsänderungen anstehen; ist `main` schon ausgerollt, tut das Skript nichts. Zurück auf ein Release: `sudo infra/ausrollen.sh X.Y.Z`. Ein Zwischenstand ist nicht durch ein Release geprüft – Datensicherung vorher wie oben.
 
 **Das Image ist öffentlich?** Beim ersten Release legt GitHub das Paket `fuelstat-api` an. Unter GitHub → Organisation → Packages → `fuelstat-api` → Package settings die Sichtbarkeit auf „Public“ stellen. Bleibt es privat, braucht der Server einmalig `sudo docker login ghcr.io` mit einem Token (Recht `read:packages`).
 
@@ -74,7 +74,7 @@ Wer einen eigenen Stand betreibt (Fork, Entwicklung) oder kein Image laden kann,
 
 1. **Sichern** (siehe oben).
 2. **Code holen:** `git fetch --tags && git checkout vX.Y.Z` (oder `git pull` für den neuesten Stand von `main`).
-3. **Prüfen, was zu tun ist:** „Hinweise zum Update“ der neuen Version(en) in `CHANGELOG.md` lesen und nachsehen, ob Migrationen, Beispiel-Konfigurationen oder nginx-Beispiele dazugekommen sind:
+3. **Prüfen, was zu tun ist:** die Hinweise der neuen Version(en) in [`update-hinweise.md`](update-hinweise.md) lesen und nachsehen, ob Migrationen, Beispiel-Konfigurationen oder nginx-Beispiele dazugekommen sind:
 
    ```bash
    git diff --stat ORIG_HEAD -- backend/database infra/.env.example infra/nginx-sicherheit.conf.example infra/nginx/fuelstat.conf.example infra/backup/backup.env.example

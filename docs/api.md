@@ -952,7 +952,7 @@ Ab der ersten App-Version laufen Clients bei Nutzern, die nicht sofort aktualisi
 
 **Pflichten der Clients:** unbekannte Felder ignorieren, mit `null` bei als `nullable` beschriebenen Feldern rechnen, Listen über `pagination.has_more` blättern statt Längen anzunehmen.
 
-**Während der Beta (bis 1.0.0)** dürfen veraltete Felder und Endpunkte entfallen, wenn Web-App und iOS-App sie nicht mehr nutzen oder im selben Zug angepasst werden. Dann wird die **Mindest-App-Version** angehoben (siehe unten), und das CHANGELOG nennt es unter „Hinweise zum Update“.
+**Während der Beta (bis 1.0.0)** dürfen veraltete Felder und Endpunkte entfallen, wenn Web-App und iOS-App sie nicht mehr nutzen oder im selben Zug angepasst werden. Dann wird die **Mindest-App-Version** angehoben (siehe unten), und [`update-hinweise.md`](update-hinweise.md) nennt es für Betreiber (der CHANGELOG unter „Technik“).
 
 **Prüfung:** `backend/test/contract.test.js` spielt den Ablauf der App durch (Registrieren, Anmelden mit Gerät, Fahrzeug, Einträge, Statistik, Listen …) und prüft jede Antwort gegen `docs/openapi.1.0.0.yaml`. Wer einen Endpunkt ändert, den Apps nutzen, ergänzt ihn dort. `tests/openapi_abgleich.py` stellt sicher, dass jede Route in der OpenAPI steht.
 

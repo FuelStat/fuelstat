@@ -18,16 +18,15 @@ if ($istAdmin) {
     }
 }
 
-// Abschnitte mit Symbol; Technik und Update-Hinweise richten sich an Betreiber, daher nur für Admins
+// Abschnitte mit Symbol; Technik richtet sich an Betreiber, daher nur für Admins (Update-Hinweise stehen in docs/update-hinweise.md)
 $symbole = [
     'Neu' => ['fa-star', 'text-primary'],
     'Verbessert' => ['fa-arrow-trend-up', 'text-success'],
     'Behoben' => ['fa-screwdriver-wrench', 'text-warning'],
     'Sicherheit' => ['fa-shield-halved', 'text-danger'],
     'Technik' => ['fa-gears', 'text-body-secondary'],
-    'Hinweise zum Update' => ['fa-circle-info', 'text-info'],
 ];
-$nurAdmins = ['Technik', 'Hinweise zum Update'];
+$nurAdmins = ['Technik'];
 $monate = [1 => 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 $datumText = fn(?string $d) => $d ? (int)substr($d, 8, 2) . '. ' . $monate[(int)substr($d, 5, 2)] . ' ' . substr($d, 0, 4) : '';
 ?>

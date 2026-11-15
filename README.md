@@ -36,6 +36,7 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 - Individuelle Reifengrößen
 - Startseite mit dem gewählten Fahrzeug: Kennzahlen, nächste Termine und letzte Einträge auf einen Blick
 - Frei sortierbare Übersicht aller Fahrzeuge
+- Fahrzeug-Lebenszyklus: verkaufte (mit Datum, Tachostand, Erlös) und stillgelegte Fahrzeuge wandern ins Archiv – alle Daten bleiben lesbar, Erinnerungen und Monatsbericht entfallen; wieder aktivieren geht jederzeit
 - Fahrzeuge mit anderen Konten teilen: Mitfahrer erfassen mit, „Nur ansehen“ sieht alles; Einladung per E-Mail
 - Hinweise auf anstehende und überfällige Termine
 

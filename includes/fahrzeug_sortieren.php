@@ -23,12 +23,15 @@ try {
     $api = getApiClient();
     // Die API liefert die Fahrzeuge bereits in der gespeicherten Reihenfolge
     // Nur eigene Fahrzeuge: geteilte (#53) stehen immer dahinter und lassen sich nicht umsortieren
-    $ids = array_column(array_filter($api->getVehicles(), fn($v) => ($v['role'] ?? 'owner') === 'owner'), 'id');
+    $eigene = array_filter($api->getVehicles(), fn($v) => ($v['role'] ?? 'owner') === 'owner');
+    // Umsortiert werden nur aktive Fahrzeuge; archivierte (#79) stehen im Archiv und behalten ihre Plätze dahinter
+    $ids = array_column(array_filter($eigene, fn($v) => ($v['status'] ?? 'active') === 'active'), 'id');
+    $archiv = array_column(array_filter($eigene, fn($v) => ($v['status'] ?? 'active') !== 'active'), 'id');
     $pos = array_search($id, $ids, true);
     $ziel = $richtung === 'hoch' ? $pos - 1 : $pos + 1;
     if ($pos !== false && $ziel >= 0 && $ziel < count($ids)) {
         [$ids[$pos], $ids[$ziel]] = [$ids[$ziel], $ids[$pos]];
-        foreach ($ids as $i => $vehicleId) {
+        foreach (array_merge($ids, $archiv) as $i => $vehicleId) {
             $api->patchVehicle($vehicleId, ['sortOrder' => $i]);
         }
     }

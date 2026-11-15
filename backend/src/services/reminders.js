@@ -40,6 +40,9 @@ function addMonths(date, months) {
 async function getVehicleReminders(pool, userId, vehicleId, warnDays = 30, today = new Date()) {
   // Zugriff (#53): Besitzer und Mitglieder; ohne Zugriff keine Termine
   if (!(await canAccessVehicle(pool, userId, vehicleId, 'read'))) return [];
+  // Verkaufte und stillgelegte Fahrzeuge (#79) haben keine Termine mehr
+  const status = await pool.query('SELECT status FROM vehicles WHERE id = $1', [vehicleId]);
+  if (status.rows[0] && status.rows[0].status !== 'active') return [];
   const categories = RULES.flatMap((r) => r.categories);
   const last = await pool.query(
     `SELECT DISTINCT ON (category) category, occurred_at, odometer_km, description

@@ -20,7 +20,13 @@ $abbrechenUrl = 'fahrzeug_detail.php?id=' . urlencode($fahrzeug_id);
 
 <div class="container mt-3 mt-lg-5" style="max-width: 820px;">
     <h1 class="h3 d-none d-lg-block mb-3">Fahrzeug bearbeiten</h1>
-    <?php include '../includes/form_fahrzeug.php'; ?>
+    <?php if (($fahrzeug['status'] ?? 'active') === 'active'): ?>
+        <?php include '../includes/form_fahrzeug.php'; ?>
+    <?php else: ?>
+        <!-- Archivierte Fahrzeuge (#79) sind nur lesbar: ändern lässt sich nur der Status -->
+        <div class="alert alert-secondary"><i class="fas fa-lock me-1" aria-hidden="true"></i>Dieses Fahrzeug ist archiviert. Zum Bearbeiten der Fahrzeugdaten aktiviere es wieder.</div>
+    <?php endif; ?>
+    <?php include '../includes/form_fahrzeug_status.php'; ?>
 
     <div class="card border-danger mt-5 mb-4">
         <div class="card-body">

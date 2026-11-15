@@ -179,10 +179,8 @@ $abschnittEnde = fn() => $istNeu ? '</section>' : '</div></div></div>';
     <?= $abschnittStart('termine') ?>
         <h3 class="h6 text-body-secondary">Kauf</h3>
         <div class="row g-3 mb-4">
-            <div class="col-6 col-md-3"><label for="purchaseDate" class="form-label">Kaufdatum</label><input type="date" id="purchaseDate" name="purchaseDate" class="form-control" value="<?= $wert('purchase_date') ?>"></div>
-            <div class="col-6 col-md-3"><label for="purchasePrice" class="form-label">Kaufpreis (€)</label><input type="number" id="purchasePrice" name="purchasePrice" class="form-control" min="0" step="0.01" inputmode="decimal" value="<?= $zahl('purchase_price') ?>"></div>
-            <div class="col-6 col-md-3"><label for="saleDate" class="form-label">Verkauft am</label><input type="date" id="saleDate" name="saleDate" class="form-control" value="<?= $wert('sale_date') ?>"></div>
-            <div class="col-6 col-md-3"><label for="salePrice" class="form-label">Verkaufspreis (€)</label><input type="number" id="salePrice" name="salePrice" class="form-control" min="0" step="0.01" inputmode="decimal" value="<?= $zahl('sale_price') ?>"></div>
+            <div class="col-6"><label for="purchaseDate" class="form-label">Kaufdatum</label><input type="date" id="purchaseDate" name="purchaseDate" class="form-control" value="<?= $wert('purchase_date') ?>"></div>
+            <div class="col-6"><label for="purchasePrice" class="form-label">Kaufpreis (€)</label><input type="number" id="purchasePrice" name="purchasePrice" class="form-control" min="0" step="0.01" inputmode="decimal" value="<?= $zahl('purchase_price') ?>"></div>
         </div>
         <h3 class="h6 text-body-secondary">Intervalle laut Hersteller</h3>
         <div class="row g-3 mb-1">

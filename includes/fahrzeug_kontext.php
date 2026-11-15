@@ -13,5 +13,9 @@ $begriffe = verbrauchsBegriffe($fuelType);
 // Geteilte Fahrzeuge (#53): owner, editor (Mitfahrer) oder viewer (nur ansehen); die API setzt die Rechte durch
 $rolle = (string)($fahrzeug['role'] ?? 'owner');
 $istBesitzer = $rolle === 'owner';
-$darfErfassen = in_array($rolle, ['owner', 'editor'], true);
+// Verkaufte und stillgelegte Fahrzeuge (#79) sind archiviert und nur lesbar; die API lehnt Änderungen mit 409 ab
+$archiviert = ($fahrzeug['status'] ?? 'active') !== 'active';
+$darfErfassen = in_array($rolle, ['owner', 'editor'], true) && !$archiviert;
+// Fahrzeugdaten, Intervalle, Import und Teilen ändern: nur der Besitzer, und nur solange das Fahrzeug aktiv ist
+$darfAendern = $istBesitzer && !$archiviert;
 $ichId = (string)($_SESSION['user_id'] ?? '');

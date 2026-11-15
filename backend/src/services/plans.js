@@ -5,9 +5,13 @@
 // Solange PLAN_LIMITS_ENABLED nicht "true" ist, bekommen alle Konten die Rechte von "plus" (Beta-Phase).
 // Datenexport (DSGVO Art. 20) ist nie an einen Tarif gebunden.
 
+// maxVehicles: aktive Fahrzeuge, maxArchivedVehicles: archivierte (verkaufte und stillgelegte, nur lesbar, #79). Beide zählen
+// nur Fahrzeuge des Kontos (nicht die mit ihm geteilten) und gelten erst mit PLAN_LIMITS_ENABLED=true; bis dahin sind sie
+// unbegrenzt (siehe featuresOf).
 const PLANS = {
   free: {
     maxVehicles: 1,
+    maxArchivedVehicles: 1,
     tripCategories: 2, // Fahrtenbuch: privat und dienstlich (#52, services/trips.js)
     tripExport: false, // Fahrtenbuch als CSV
     premiumCategories: false, // zusätzliche Ausgaben-Kategorien (Parken, Maut, Pflege, …), siehe services/categories.js
@@ -19,7 +23,8 @@ const PLANS = {
     fleet: false
   },
   plus: {
-    maxVehicles: null, // null = unbegrenzt
+    maxVehicles: 5, // null = unbegrenzt
+    maxArchivedVehicles: 5,
     tripCategories: null,
     tripExport: true,
     premiumCategories: true,
@@ -31,7 +36,8 @@ const PLANS = {
     fleet: false
   },
   fleet: {
-    maxVehicles: null,
+    maxVehicles: 25,
+    maxArchivedVehicles: 25,
     tripCategories: null,
     tripExport: true,
     premiumCategories: true,
@@ -65,7 +71,13 @@ function effectivePlan(user, now = new Date()) {
 }
 
 function featuresOf(user, now = new Date()) {
-  return { ...PLANS[effectivePlan(user, now)] };
+  const features = { ...PLANS[effectivePlan(user, now)] };
+  // Ohne aktive Tarifgrenzen (Beta) gibt es keine Obergrenze für Fahrzeuge, auch nicht die des Tarifs Plus
+  if (!limitsEnabled()) {
+    features.maxVehicles = null;
+    features.maxArchivedVehicles = null;
+  }
+  return features;
 }
 
 function hasFeature(user, feature) {

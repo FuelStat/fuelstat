@@ -486,8 +486,6 @@ function fahrzeugZusatzFelder(): array
         'firstRegistration' => ['datum', 'Erstzulassung'],
         'purchaseDate' => ['datum', 'Kaufdatum'],
         'purchasePrice' => ['zahl', 'Kaufpreis'],
-        'saleDate' => ['datum', 'Verkaufsdatum'],
-        'salePrice' => ['zahl', 'Verkaufspreis'],
         'serviceIntervalMonths' => ['ganzzahl', 'Wartungsintervall (Monate)'],
         'serviceIntervalKm' => ['ganzzahl', 'Wartungsintervall (km)'],
         'oilIntervalMonths' => ['ganzzahl', 'Ölwechsel (Monate)'],
@@ -527,7 +525,7 @@ function fahrzeugFehlerText(Throwable $e): string
     $code = $e->getMessage();
     if (str_starts_with($code, 'invalid_')) {
         $feld = substr($code, 8);
-        $namen = array_map(fn($f) => $f[1], fahrzeugZusatzFelder()) + ['year' => 'Baujahr', 'odometerKm' => 'Tachostand', 'tankCapacity' => 'Tank-/Akkugröße', 'batteryCapacity' => 'Akkugröße', 'name' => 'Name'];
+        $namen = array_map(fn($f) => $f[1], fahrzeugZusatzFelder()) + ['saleDate' => 'Verkaufsdatum', 'salePrice' => 'Verkaufspreis', 'saleOdometerKm' => 'Tachostand beim Verkauf', 'decommissionedFrom' => 'Stilllegung ab', 'decommissionedUntil' => 'Stilllegung bis', 'status' => 'Status', 'year' => 'Baujahr', 'odometerKm' => 'Tachostand', 'tankCapacity' => 'Tank-/Akkugröße', 'batteryCapacity' => 'Akkugröße', 'name' => 'Name'];
         if (isset($namen[$feld])) {
             return 'Bitte prüfen: ' . $namen[$feld] . '.';
         }
@@ -870,6 +868,7 @@ function tarifHinweis(Throwable $e): ?string
     }
     // Geteilte Fahrzeuge (#53)
     $zugriff = [
+        'vehicle_archived' => 'Dieses Fahrzeug ist verkauft oder stillgelegt und nur lesbar. Aktiviere es wieder, um etwas zu ändern.',
         'read_only' => 'Dieses Fahrzeug ist mit dir nur zum Ansehen geteilt.',
         'owner_only' => 'Das darf nur der Besitzer des Fahrzeugs.',
         'entry_not_editable' => 'Diesen Eintrag hat jemand anderes erfasst. Ändern kann ihn nur der Besitzer des Fahrzeugs.',
@@ -882,6 +881,7 @@ function tarifHinweis(Throwable $e): ?string
     }
     $texte = [
         'maxVehicles' => 'Dein Tarif umfasst %s. Weitere Fahrzeuge sind eine Premium-Funktion.',
+        'maxArchivedVehicles' => 'Dein Tarif umfasst %s im Archiv. Weitere verkaufte oder stillgelegte Fahrzeuge sind eine Premium-Funktion.',
         'sharing' => 'Fahrzeuge teilen ist eine Premium-Funktion.',
         'comparison' => 'Der Fahrzeugvergleich ist eine Premium-Funktion.',
         'pdfReport' => 'Der PDF-Bericht ist eine Premium-Funktion.',
@@ -892,6 +892,24 @@ function tarifHinweis(Throwable $e): ?string
     $feature = (string)($e->data['feature'] ?? '');
     $limit = (int)($e->data['limit'] ?? 1);
     return sprintf($texte[$feature] ?? 'Das ist eine Premium-Funktion.', $limit === 1 ? 'ein Fahrzeug' : $limit . ' Fahrzeuge');
+}
+
+/**
+ * Status eines archivierten Fahrzeugs (#79) als Text, z. B. „Verkauft am 12.03.2026“ oder „Stillgelegt bis 01.04.2026“.
+ */
+function fahrzeugStatusText(array $fahrzeug): string
+{
+    $datum = fn($d) => $d ? date('d.m.Y', strtotime((string)$d)) : null;
+    if (($fahrzeug['status'] ?? 'active') === 'sold') {
+        $am = $datum($fahrzeug['sale_date'] ?? null);
+        return $am ? 'Verkauft am ' . $am : 'Verkauft';
+    }
+    if (($fahrzeug['status'] ?? 'active') === 'decommissioned') {
+        $bis = $datum($fahrzeug['decommissioned_until'] ?? null);
+        $ab = $datum($fahrzeug['decommissioned_from'] ?? null);
+        return 'Stillgelegt' . ($bis ? ' bis ' . $bis : ($ab ? ' seit ' . $ab : ''));
+    }
+    return '';
 }
 
 /**

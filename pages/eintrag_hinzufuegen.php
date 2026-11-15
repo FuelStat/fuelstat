@@ -17,6 +17,13 @@ $einheit = 'l';
 $standortOptionen = [];
 try {
     $vehicle = $api->getVehicle($fahrzeug_id);
+    // Verkaufte und stillgelegte Fahrzeuge (#79) sind nur lesbar
+    if (($vehicle['status'] ?? 'active') !== 'active') {
+        echo '<div class="container mt-4"><div class="alert alert-secondary">Dieses Fahrzeug ist verkauft oder stillgelegt und nur lesbar. '
+            . '<a href="fahrzeug_detail.php?id=' . htmlspecialchars(rawurlencode($fahrzeug_id)) . '" class="alert-link">Zum Fahrzeug</a>, dort lässt es sich wieder aktivieren.</div></div>';
+        include '../includes/footer.php';
+        exit;
+    }
     $fahrzeugKraftstoff = $vehicle['fuel_type'] ?? 'diesel';
     $einheit = getEinheitFuerKraftstoff($fahrzeugKraftstoff);
     $stats = $api->getVehicleStats($fahrzeug_id);

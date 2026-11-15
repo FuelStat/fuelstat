@@ -79,10 +79,21 @@ CREATE TABLE IF NOT EXISTS vehicles (
   tire_size_summer text NULL,
   tire_size_winter text NULL,
   sort_order integer NOT NULL DEFAULT 0,
+  -- Lebenszyklus (#79, Migration 027): verkaufte und stillgelegte Fahrzeuge sind archiviert (nur lesbar)
+  status text NOT NULL DEFAULT 'active',
+  sale_odometer_km integer NULL,
+  decommissioned_from date NULL,
+  decommissioned_until date NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT vehicles_status_check CHECK (
+    status IN ('active', 'sold', 'decommissioned')
+    AND (sale_odometer_km IS NULL OR sale_odometer_km >= 0)
+    AND (decommissioned_until IS NULL OR decommissioned_from IS NULL OR decommissioned_until >= decommissioned_from)
+  )
 );
 
+CREATE INDEX IF NOT EXISTS idx_vehicles_user_status ON vehicles(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_vehicles_user_created ON vehicles(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_vehicles_user_sort ON vehicles(user_id, sort_order ASC, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_vehicles_user_brand_model ON vehicles(user_id, brand, model);

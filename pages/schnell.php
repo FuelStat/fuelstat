@@ -14,7 +14,8 @@ if (!isApiAuthenticated()) {
 $api = getApiClient();
 try {
     // Nur Fahrzeuge, bei denen man erfassen darf (geteilte zum Ansehen nicht, #53)
-    $fahrzeuge = array_values(array_filter($api->getVehicles(), fn($v) => ($v['role'] ?? 'owner') !== 'viewer'));
+    // Archivierte Fahrzeuge (#79) sind nur lesbar
+    $fahrzeuge = array_values(array_filter($api->getVehicles(), fn($v) => ($v['role'] ?? 'owner') !== 'viewer' && ($v['status'] ?? 'active') === 'active'));
 } catch (Throwable $e) {
     $fahrzeuge = [];
 }

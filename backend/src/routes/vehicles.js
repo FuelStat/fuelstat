@@ -12,6 +12,7 @@ const { parseFuelList, defaultFuelsFor, fuelTypeFor, catalog } = require('../ser
 const { VEHICLE_EXTRA_COLUMNS, parseVehicleExtras } = require('../services/vehicleFields');
 const { checkUnverifiedLimit } = require('../middleware/verified');
 const { accessibleVehicles, vehicleRole } = require('../services/vehicleAccess');
+const vehicleStatus = require('../services/vehicleStatus');
 
 const router = express.Router();
 
@@ -21,6 +22,7 @@ const VEHICLE_SELECT = `
   v.id, v.name, v.fuel_type, v.fuels, v.default_fuel, v.brand, v.model, v.year, v.image_url,
   v.odometer_km, v.mileage_km, v.tank_capacity, v.battery_capacity, v.sort_order,
   ${VEHICLE_EXTRA_COLUMNS.split(',').map((c) => 'v.' + c.trim()).join(', ')},
+  v.status, v.sale_odometer_km, v.decommissioned_from, v.decommissioned_until,
   v.created_at, v.updated_at,
   CASE WHEN v.user_id = $1 THEN 'owner'
        ELSE (SELECT m.role FROM vehicle_members m WHERE m.vehicle_id = v.id AND m.user_id = $1) END AS role,
@@ -94,9 +96,10 @@ router.post('/vehicles', auth, async (req, res) => {
   if (extras.error) return res.status(400).json({ error: extras.error });
 
   try {
-    // Tarifgrenze (nur aktiv mit PLAN_LIMITS_ENABLED=true). Herabstufen löscht nichts, es verhindert nur neue Fahrzeuge.
+    // Tarifgrenze (nur aktiv mit PLAN_LIMITS_ENABLED=true) für aktive Fahrzeuge; archivierte zählen nicht (#79).
+    // Herabstufen löscht nichts, es verhindert nur neue Fahrzeuge.
     const u = await pool.query(
-      `SELECT plan, plan_until, (SELECT COUNT(*)::int FROM vehicles WHERE user_id = $1) AS vehicle_count
+      `SELECT plan, plan_until, (SELECT COUNT(*)::int FROM vehicles WHERE user_id = $1 AND status = 'active') AS vehicle_count
        FROM users WHERE id = $1`,
       [req.user.sub]
     );
@@ -113,7 +116,7 @@ router.post('/vehicles', auth, async (req, res) => {
        )
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING id, name, fuel_type, fuels, default_fuel, brand, model, year, image_url,
-                 odometer_km, mileage_km, tank_capacity, battery_capacity, sort_order, ${VEHICLE_EXTRA_COLUMNS},
+                 odometer_km, mileage_km, tank_capacity, battery_capacity, sort_order, ${VEHICLE_EXTRA_COLUMNS}, ${vehicleStatus.STATUS_COLUMNS},
                  created_at, updated_at`,
       [req.user.sub, name, fuelType, brand, model, year, imageUrl, odometerKm, mileageKm, tankCapacity, batteryCapacity, sortOrder, fuels, defaultFuel]
     );
@@ -122,7 +125,7 @@ router.post('/vehicles', auth, async (req, res) => {
       const u2 = await pool.query(
         `UPDATE vehicles SET ${cols.map((c, i) => `${c} = $${i + 3}`).join(', ')} WHERE id = $1 AND user_id = $2
          RETURNING id, name, fuel_type, fuels, default_fuel, brand, model, year, image_url,
-                   odometer_km, mileage_km, tank_capacity, battery_capacity, sort_order, ${VEHICLE_EXTRA_COLUMNS},
+                   odometer_km, mileage_km, tank_capacity, battery_capacity, sort_order, ${VEHICLE_EXTRA_COLUMNS}, ${vehicleStatus.STATUS_COLUMNS},
                    created_at, updated_at`,
         [r.rows[0].id, req.user.sub, ...cols.map((c) => extras.values[c])]
       );
@@ -141,12 +144,16 @@ router.get('/vehicles', auth, async (req, res) => {
     // Seitenweise (#160)
     const p = pageOrReply(req, res);
     if (!p) return;
+    // ?status=active | archived | all (Standard all): archivierte Fahrzeuge (#79) bleiben in der Liste, Clients filtern
+    const filter = String(req.query.status ?? 'all');
+    if (!['active', 'archived', 'all'].includes(filter)) return res.status(400).json({ error: 'invalid_status' });
+    const statusSql = filter === 'active' ? "AND v.status = 'active'" : filter === 'archived' ? "AND v.status <> 'active'" : '';
     res.json(await queryPage(pool, {
       sql: `SELECT ${VEHICLE_SELECT}
             FROM vehicles v JOIN users o ON o.id = v.user_id
-            WHERE ${accessibleVehicles('v', 1)}
+            WHERE ${accessibleVehicles('v', 1)} ${statusSql}
             ORDER BY (v.user_id <> $1), v.sort_order ASC, v.created_at DESC, v.id`,
-      countSql: `SELECT COUNT(*)::int AS total FROM vehicles v WHERE ${accessibleVehicles('v', 1)}`,
+      countSql: `SELECT COUNT(*)::int AS total FROM vehicles v WHERE ${accessibleVehicles('v', 1)} ${statusSql}`,
       params: [req.user.sub]
     }, p));
   } catch (e) {
@@ -234,9 +241,13 @@ router.patch('/vehicles/:vehicleId', auth, async (req, res) => {
   }
   const extras = parseVehicleExtras(req.body);
   if (extras.error) return res.status(400).json({ error: extras.error });
+  // Lebenszyklus (#79): status, Tachostand beim Verkauf, Zeitraum der Stilllegung
+  const statusInput = vehicleStatus.parseStatusInput(req.body);
+  if (statusInput.error) return res.status(400).json({ error: statusInput.error });
 
   if (
     Object.keys(extras.values).length === 0 &&
+    Object.keys(statusInput.values).length === 0 &&
     name === undefined &&
     fuelType === undefined &&
     fuelsPatch === undefined &&
@@ -262,7 +273,24 @@ router.patch('/vehicles/:vehicleId', auth, async (req, res) => {
 
     // Sorten (#140): geänderte Antriebsart ohne Sortenliste setzt die Sorten der neuen Antriebsart; der Standard
     // bleibt, solange er in der Liste ist
-    const cur = (await pool.query('SELECT fuel_type, fuels, default_fuel FROM vehicles WHERE id = $1', [vehicleId])).rows[0];
+    const cur = (await pool.query(
+      'SELECT fuel_type, fuels, default_fuel, status, sale_date, decommissioned_from, decommissioned_until FROM vehicles WHERE id = $1', [vehicleId]
+    )).rows[0];
+    // Archivierte Fahrzeuge (#79) sind nur lesbar: erlaubt sind der Status, die Angaben zu Verkauf und Stilllegung und die
+    // Reihenfolge; alles andere erst nach dem Wiederaktivieren (auch zusammen mit dem Statuswechsel in einer Anfrage)
+    if (vehicleStatus.isArchived(cur.status)) {
+      const erlaubt = new Set(['sale_date', 'sale_price']);
+      const sonstiges = Object.keys(extras.values).some((c) => !erlaubt.has(c)) ||
+        [name, fuelType, fuelsPatch, defaultFuelPatch, brand, model, year, imageUrl, odometerKm, mileageKm, tankCapacity, batteryCapacity].some((v) => v !== undefined);
+      if (sonstiges && statusInput.values.status !== 'active') {
+        return res.status(409).json({ error: 'vehicle_archived', message: 'Dieses Fahrzeug ist archiviert (verkauft oder stillgelegt) und nur lesbar. Aktiviere es wieder, um etwas zu ändern.', status: cur.status });
+      }
+    }
+    const wechsel = await vehicleStatus.planTransition(pool, req.user.sub, cur, { ...statusInput.values, ...(extras.values.sale_date !== undefined ? { sale_date: extras.values.sale_date } : {}) });
+    if (wechsel.error) return res.status(400).json({ error: wechsel.error });
+    if (wechsel.limit) return plans.planRequired(res, wechsel.limit.feature, { limit: wechsel.limit.limit, plan: wechsel.limit.plan });
+    // Standarddatum beim Verkauf (heute) in die Zusatzangaben übernehmen
+    if (wechsel.values.sale_date !== undefined && extras.values.sale_date === undefined) extras.values.sale_date = wechsel.values.sale_date;
     let newFuels = fuelsPatch;
     if (newFuels === undefined && fuelType !== undefined && fuelType !== cur.fuel_type) newFuels = defaultFuelsFor(fuelType);
     const finalFuels = newFuels ?? (cur.fuels?.length ? cur.fuels : defaultFuelsFor(cur.fuel_type));
@@ -332,6 +360,12 @@ router.patch('/vehicles/:vehicleId', auth, async (req, res) => {
       fields.push(`${col} = $${idx++}`);
       values.push(value);
     }
+    // Status und Angaben zu Verkauf bzw. Stilllegung (sale_date steht schon bei den Zusatzangaben)
+    for (const [col, value] of Object.entries(wechsel.values)) {
+      if (col === 'sale_date') continue;
+      fields.push(`${col} = $${idx++}`);
+      values.push(value);
+    }
 
     fields.push(`updated_at = now()`);
     values.push(vehicleId);
@@ -342,7 +376,7 @@ router.patch('/vehicles/:vehicleId', auth, async (req, res) => {
        SET ${fields.join(', ')}
        WHERE id = $${idx++} AND user_id = $${idx}
        RETURNING id, name, fuel_type, fuels, default_fuel, brand, model, year, image_url,
-                 odometer_km, mileage_km, tank_capacity, battery_capacity, sort_order, ${VEHICLE_EXTRA_COLUMNS},
+                 odometer_km, mileage_km, tank_capacity, battery_capacity, sort_order, ${VEHICLE_EXTRA_COLUMNS}, ${vehicleStatus.STATUS_COLUMNS},
                  created_at, updated_at`,
       values
     );

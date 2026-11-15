@@ -40,6 +40,9 @@ app.use(express.json({ limit: '2mb' }));
 // Zu alte App-Versionen (Header X-Fuelstat-Client) bekommen 426 app_update_required (#118)
 app.use(requireSupportedApp());
 
+// Archivierte Fahrzeuge (#79) sind nur lesbar: eine Sperre für alle schreibenden Anfragen, die ein Fahrzeug betreffen
+app.use('/api/v1', require('./middleware/vehicleStatus').archivedMiddleware);
+
 // Bildadressen in allen Antworten signieren (#103): intern "/uploads/<datei>", nach außen "/api/v1/files/<datei>?exp=…&sig=…"
 app.use((req, res, next) => {
   const json = res.json.bind(res);

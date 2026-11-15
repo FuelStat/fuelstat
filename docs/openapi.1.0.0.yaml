@@ -1373,9 +1373,15 @@ paths:
       tags: [Vehicles]
       summary: Get Vehicles (list)
       operationId: getVehicles
+      description: "Eigene Fahrzeuge zuerst, dann geteilte; archivierte (verkaufte, stillgelegte) bleiben standardmäßig in der Liste (status je Fahrzeug, Filter ?status=)."
       parameters:
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/PerPage"
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [active, archived, all], default: all }
+          description: "active = nur aktive, archived = nur verkaufte und stillgelegte (#79); sonst 400 invalid_status"
       responses:
         "200":
           description: OK
@@ -1435,8 +1441,12 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: "plan_required beim Wiederaktivieren oder Archivieren über die Grenze (nur mit PLAN_LIMITS_ENABLED=true), feature: maxVehicles bzw. maxArchivedVehicles"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/VehicleArchived"
         "500":
           $ref: "#/components/responses/ServerError"
 
@@ -3563,6 +3573,25 @@ components:
           example:
             error: invalid_request
             detail: "Validation failed"
+    VehicleArchived:
+      description: >
+        Das Fahrzeug ist verkauft oder stillgelegt und nur lesbar (#79). Gilt für jede schreibende Anfrage zu einem
+        archivierten Fahrzeug (Einträge, Tanken/Laden, Fahrten, Import, Bilder, Bauteile, Teilen, Fahrzeugdaten).
+        Erlaubt bleiben Reihenfolge, Verkaufs-/Stilllegungsangaben, Wiederaktivieren, Löschen und das Entfernen von
+        Mitgliedern und Einladungen.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error: { type: string, enum: [vehicle_archived] }
+              message: { type: string }
+              status: { type: string, enum: [sold, decommissioned] }
+          example:
+            error: vehicle_archived
+            message: "Dieses Fahrzeug ist archiviert (verkauft oder stillgelegt) und nur lesbar. Aktiviere es wieder, um etwas zu ändern."
+            status: sold
     Forbidden:
       description: Forbidden
       content:
@@ -3910,7 +3939,7 @@ components:
           description: Werden Tarifgrenzen durchgesetzt (PLAN_LIMITS_ENABLED)?
         features:
           type: object
-          description: "Rechte des geltenden Tarifs: maxVehicles und tripCategories (Zahl oder null = unbegrenzt), sharing, comparison, pdfReport, pushReminders, fleet (boolean)"
+          description: "Rechte des geltenden Tarifs: maxVehicles (aktive Fahrzeuge), maxArchivedVehicles (verkaufte und stillgelegte, #79) und tripCategories (Zahl oder null = unbegrenzt), sharing, comparison, pdfReport, pushReminders, fleet (boolean). Die Fahrzeugzahlen gelten nur mit PLAN_LIMITS_ENABLED, sonst null."
           additionalProperties: true
         token:
           type: object
@@ -4222,6 +4251,31 @@ components:
         name:
           type: string
           minLength: 1
+        status:
+          type: string
+          enum: [active, sold, decommissioned]
+          description: >
+            Lebenszyklus (#79). sold und decommissioned archivieren das Fahrzeug: alle Daten bleiben lesbar, schreibende Anfragen
+            zum Fahrzeug antworten 409 vehicle_archived (erlaubt bleiben Reihenfolge, Angaben zu Verkauf und Stilllegung,
+            Wiederaktivieren, Löschen, Mitglieder und Einladungen entfernen). Beim Verkauf gilt ohne saleDate heute (bzw. ein
+            vorhandenes Datum), bei der Stilllegung ohne decommissionedFrom heute. Wieder aktivieren (active) prüft maxVehicles,
+            archivieren maxArchivedVehicles (403 plan_required, nur mit PLAN_LIMITS_ENABLED); ein Wechsel zwischen sold und
+            decommissioned braucht keinen weiteren Platz. Der Status wird nie geraten: ein Verkaufsdatum allein archiviert nicht.
+        saleOdometerKm:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: "Tachostand beim Verkauf (#79); sonst 400 invalid_saleOdometerKm"
+        decommissionedFrom:
+          type: string
+          format: date
+          nullable: true
+          description: "Stilllegung ab (#79); sonst 400 invalid_decommissionedFrom"
+        decommissionedUntil:
+          type: string
+          format: date
+          nullable: true
+          description: "Abgemeldet bis (#79), nicht vor decommissionedFrom (invalid_decommissionedUntil). Nur eine Angabe: das Fahrzeug wird nie automatisch wieder aktiv."
         brand:
           type: string
           nullable: true
@@ -4423,6 +4477,13 @@ components:
         sale_price:
           type: number
           nullable: true
+        status:
+          type: string
+          enum: [active, sold, decommissioned]
+          description: "Lebenszyklus (#79): sold und decommissioned = archiviert, nur lesbar"
+        sale_odometer_km: { type: integer, nullable: true, description: "Tachostand beim Verkauf (#79)" }
+        decommissioned_from: { type: string, format: date, nullable: true }
+        decommissioned_until: { type: string, format: date, nullable: true, description: "Abgemeldet bis (nur eine Angabe)" }
         service_interval_months:
           type: integer
           nullable: true

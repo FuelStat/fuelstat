@@ -42,7 +42,8 @@ async function loadUserSettings(pool, userId, defaults) {
 async function loadVehicles(pool, userId) {
   const r = await pool.query(
     // Eigene und geteilte Fahrzeuge (#53): Erinnerungen und Monatsbericht schaltet jedes Mitglied für sich ein
-    `SELECT id, name, fuel_type FROM vehicles v WHERE ${accessibleVehicles('v', 1)}
+    // Nur aktive Fahrzeuge (#79): für verkaufte und stillgelegte gibt es weder Erinnerungen noch Monatsbericht
+    `SELECT id, name, fuel_type FROM vehicles v WHERE ${accessibleVehicles('v', 1)} AND v.status = 'active'
      ORDER BY (v.user_id <> $1), sort_order ASC, created_at DESC`,
     [userId]
   );
@@ -90,7 +91,7 @@ async function collectMissingOdometers(pool, settings, now = new Date()) {
   const r = await pool.query(
     `SELECT f.id, f.vehicle_id, f.filled_at, f.amount, f.unit, f.odometer_estimated, v.name AS vehicle, v.fuel_type
      FROM fillups f JOIN vehicles v ON v.id = f.vehicle_id
-     WHERE f.user_id = $1 AND (f.odometer_km IS NULL OR f.odometer_estimated)
+     WHERE f.user_id = $1 AND (f.odometer_km IS NULL OR f.odometer_estimated) AND v.status = 'active'
        AND f.created_at <= $2::timestamptz - make_interval(hours => $3)
        AND f.filled_at >= $2::timestamptz - interval '14 days'
      ORDER BY f.filled_at`,
@@ -164,7 +165,7 @@ async function collectInactive(pool, settings, now = new Date()) {
             GREATEST((SELECT MAX(filled_at) FROM fillups WHERE vehicle_id = v.id),
                      (SELECT MAX(occurred_at) FROM expenses WHERE vehicle_id = v.id),
                      (SELECT MAX(started_at) FROM trips WHERE vehicle_id = v.id)) AS last_at
-       FROM vehicles v WHERE ${accessibleVehicles('v', 1)}`,
+       FROM vehicles v WHERE ${accessibleVehicles('v', 1)} AND v.status = 'active'`,
     [settings.user_id]
   );
   const grenze = now.getTime() - INACTIVE_DAYS * 86400000;

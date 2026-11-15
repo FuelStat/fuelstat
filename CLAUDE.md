@@ -18,8 +18,9 @@ nichts vergessen wird:
 API-Änderungen, die Apps anpassen müssen). Die geplanten Versionen sind die Milestones.
 
 1. **Laufend:** Jeder PR mit sichtbarer Änderung trägt sie in `CHANGELOG.md` unter
-   `## [Unreleased]` ein (Kategorien: Neu, Verbessert, Behoben, Sicherheit, Abgekündigt, Technik; dazu
-   „Hinweise zum Update“, wenn beim Ausrollen etwas zu tun ist).
+   `## [Unreleased]` ein (Kategorien: Neu, Verbessert, Behoben, Sicherheit, Abgekündigt, Technik). Die Release-Notes
+   lesen auch Nutzer: **keine SQL-Befehle, Migrationen oder Server-Einstellungen** darin. Was Betreiber beim
+   Ausrollen tun müssen, steht in `docs/update-hinweise.md` unter `## [Unreleased]`.
 2. **Release vorbereiten** in einem eigenen PR:
 
    ```bash
@@ -40,7 +41,7 @@ API-Änderungen, die Apps anpassen müssen). Die geplanten Versionen sind die Mi
 
    Der Tag baut außerdem das API-Image `ghcr.io/fuelstat/fuelstat-api:X.Y.Z` (#134).
 5. **Ausrollen** auf dem Server, genau in der Reihenfolge aus `docs/betrieb.md` („Aktualisieren“):
-   sichern → `sudo infra/ausrollen.sh X.Y.Z`. Das Skript zeigt die „Hinweise zum Update“, neue
+   sichern → `sudo infra/ausrollen.sh X.Y.Z`. Das Skript zeigt die Hinweise aus `docs/update-hinweise.md`, neue
    Migrationen und geänderte Beispieldateien, lädt das Image, stellt den Code aufs Tag um, spielt
    **Migrationen ein, bevor die API neu startet**, fragt nach `.env`/nginx, startet die API, lädt
    PHP-FPM neu und prüft `/api/v1/health`. Zurückrollen: dasselbe Skript mit der vorigen Version.
@@ -64,9 +65,11 @@ Tags setzt und pusht Claude nur, wenn der Maintainer ausdrücklich darum bittet.
 
 Vor dem PR prüfen und am Ende einer Aufgabe daran erinnern, was davon fehlt:
 
-- **CHANGELOG:** sichtbare Änderung unter `## [Unreleased]` eingetragen; bei allem, was beim
-  Ausrollen zu tun ist, ein Punkt unter „Hinweise zum Update“ mit dem genauen Befehl. Die CI
+- **CHANGELOG:** sichtbare Änderung unter `## [Unreleased]` eingetragen (ohne SQL und Betreiber-Details). Die CI
   (`changelog.yml`) prüft den Eintrag; ohne sichtbare Änderung das Label `kein changelog` setzen.
+- **Update-Hinweise für Betreiber:** bei allem, was beim Ausrollen über `ausrollen.sh` hinaus zu tun ist (einmaliger
+  Befehl, neue Einstellung in `infra/.env`, nginx), ein Punkt mit dem genauen Befehl in `docs/update-hinweise.md`
+  unter `## [Unreleased]`. Nie in den CHANGELOG.
 - **Neue oder geänderte API-Endpunkte:** `docs/api.md` (Übersichtstabelle und eigener Abschnitt)
   und `docs/openapi.1.0.0.yaml` angepasst (neue Felder auch in den Schemas, die `additionalProperties: false`
   haben); unter `/api/v1` abwärtskompatibel (Ausnahme während der Beta siehe Regeln). Die CI prüft mit `tests/openapi_abgleich.py`, dass jede Route
@@ -75,8 +78,9 @@ Vor dem PR prüfen und am Ende einer Aufgabe daran erinnern, was davon fehlt:
 - **Datenbankschema:** neue Migration `backend/database/postgres_0NN_name.sql` (in einer
   Transaktion, mehrfach ausführbar: `IF NOT EXISTS` u. Ä.), dieselbe Änderung in
   `postgres_init.sql` für Neuinstallationen, Zeile in der Migrationstabelle in `docs/betrieb.md`
-  (und dort den Stand „enthält alles bis einschließlich 0NN“), Einspiel-Befehl unter „Hinweise zum
-  Update“. Migrationen müssen vor dem Neustart der API laufen können, also mit dem alten
+  (und dort den Stand „enthält alles bis einschließlich 0NN“), kein
+  Einspiel-Befehl nötig (`ausrollen.sh` spielt sie ein, von Hand siehe `betrieb.md`), nur wenn zusätzlich etwas zu tun
+  ist, ein Punkt in `docs/update-hinweise.md`. Migrationen müssen vor dem Neustart der API laufen können, also mit dem alten
   API-Code verträglich sein.
 - **Konfiguration:** neue oder geänderte Variablen in `infra/.env.example` mit Kommentar
   (Zweck, Standardwert, ob Pflicht), ebenso `infra/backup/backup.env.example` und die

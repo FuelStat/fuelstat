@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Eine veröffentlichte Version ausrollen (#134), in der Reihenfolge aus docs/betrieb.md („Aktualisieren“):
-#   1. Tag holen, Hinweise zum Update und neue Migrationen anzeigen
+#   1. Tag holen, Hinweise für Betreiber (docs/update-hinweise.md) und neue Migrationen anzeigen
 #   2. API-Image der Version laden (die alte API läuft dabei weiter)
 #   3. Code auf das Tag umstellen
 #   4. neue Migrationen einspielen – vor dem Neustart der API
@@ -87,21 +87,34 @@ if [ "$zwischenstand" = 1 ]; then
   echo "== Neu seit dem bisherigen Stand"
   git_ log --oneline --no-merges "$stand..$ziel" | head -n 30 || true
   echo
-  echo "== Hinweise zum Update (CHANGELOG.md, [Unreleased])"
+  echo "== Hinweise zum Update (docs/update-hinweise.md, [Unreleased])"
   version_changelog="Unreleased"
 else
   echo "Bisher: $alt  →  neu: $version"
   echo
-  echo "== Hinweise zum Update (CHANGELOG.md, Version $version)"
+  echo "== Hinweise zum Update (docs/update-hinweise.md, Version $version)"
   version_changelog="$version"
 fi
-git_ show "$ziel:CHANGELOG.md" | awk -v v="$version_changelog" '
-  /^## \[/ { drin = (index($0, "## [" v "]") == 1); next }
-  drin && /^### Hinweise zum Update/ { h = 1; print; next }
-  drin && /^### / { h = 0 }
-  drin && h { print }
-' || true
-echo "(Bei mehreren übersprungenen Versionen auch deren Hinweise lesen: CHANGELOG.md)"
+# Die Hinweise für Betreiber stehen in docs/update-hinweise.md; ältere Tags (vor dieser Datei) hatten sie im CHANGELOG.md
+if git_ cat-file -e "$ziel:docs/update-hinweise.md" 2> /dev/null; then
+  hinweise="$(git_ show "$ziel:docs/update-hinweise.md" | awk -v v="$version_changelog" '
+    /^## \[/ { drin = (index($0, "## [" v "]") == 1); next }
+    drin { print }
+  ' || true)"
+else
+  hinweise="$(git_ show "$ziel:CHANGELOG.md" | awk -v v="$version_changelog" '
+    /^## \[/ { drin = (index($0, "## [" v "]") == 1); next }
+    drin && /^### Hinweise zum Update/ { h = 1; next }
+    drin && /^### / { h = 0 }
+    drin && h { print }
+  ' || true)"
+fi
+if [ -n "$(printf '%s' "$hinweise" | tr -d '[:space:]')" ]; then
+  printf '%s\n' "$hinweise"
+else
+  echo "Keine besonderen Hinweise."
+fi
+echo "(Bei mehreren übersprungenen Versionen auch deren Hinweise lesen: docs/update-hinweise.md)"
 
 # Vergleich mit dem Tag der bisherigen Version (nicht mit dem ausgecheckten Stand): Auch wer vorher per
 # "git pull" auf main stand, bekommt so alle Migrationen seit dem letzten Release. Sie sind mehrfach ausführbar.

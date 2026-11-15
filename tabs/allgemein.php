@@ -174,16 +174,20 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                     <?php foreach ($faelligkeiten as $f):
                         // Status kommt aus der API; hier nur der Abstand in Worten („in 12 Tagen“, „seit 5 Tagen überfällig“)
                         $text = isset($f['tage']) && !empty($f['faellig_datum'])
-                            ? terminAbstand((int)$f['tage'])
+                            ? (($f['quelle'] ?? '') === 'lebensdauer' ? 'ca. ' : '') . terminAbstand((int)$f['tage'])
                             : (['ueberfaellig' => 'überfällig', 'bald' => 'bald fällig', 'ok' => 'in Ordnung'][$f['status']] ?? 'Datum fehlt');
                         $info = $f['art'] === 'info';
                     ?>
                     <li class="list-group-item termin-zeile">
-                        <?= symbolKreis(getCategoryIcon($f['kategorie']), 'var(--fs-brand)') ?>
+                        <?= symbolKreis($f['symbol'] ?? getCategoryIcon($f['kategorie']), 'var(--fs-brand)') ?>
                         <div class="termin-text">
                             <div class="fs-headline"><?= htmlspecialchars($f['titel']) ?></div>
                             <div class="fs-label">
-                                <?php if ($info): ?>
+                                <?php if (!empty($f['teil'])): ?>
+                                    <?php // Bauteil (#78): nach Intervall oder, als Schätzung, aus der bisherigen Lebensdauer ?>
+                                    <?= ($f['quelle'] ?? '') === 'lebensdauer' ? 'geschätzt ' : '' ?><?= $f['faellig_datum'] ? 'am ' . date('d.m.Y', strtotime($f['faellig_datum'])) : '' ?><?= $f['faellig_datum'] && $f['faellig_km'] ? ' oder ' : '' ?><?= $f['faellig_km'] ? 'bei ' . number_format($f['faellig_km'], 0, ',', '.') . ' km' : '' ?>
+                                    <?php if (!empty($f['letzte'])): ?><br><?= $zuletzt($f) ?><?php endif; ?>
+                                <?php elseif ($info): ?>
                                     <?php if (!empty($f['letzte'])): ?>
                                         <?= $zuletzt($f, 'letzter Wechsel am') ?>
                                     <?php else: ?>

@@ -55,7 +55,8 @@ async function collectDueReminders(pool, settings) {
   for (const v of await loadVehicles(pool, settings.user_id)) {
     const reminders = await getVehicleReminders(pool, settings.user_id, v.id, settings.reminder_days);
     for (const r of reminders) {
-      if (r.status === 'bald' || r.status === 'ueberfaellig') {
+      // Eine Schätzung aus der Lebensdauer (#78) ist nur zur Anzeige da: keine Mail, kein Push
+      if ((r.status === 'bald' || r.status === 'ueberfaellig') && r.source !== 'lebensdauer') {
         due.push({ ...r, vehicle: v.name, vehicle_id: v.id, ref: `${v.id}:${r.category}:${r.due_date}:${r.status}` });
       }
     }

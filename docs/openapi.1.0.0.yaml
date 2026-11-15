@@ -5110,7 +5110,9 @@ components:
         due_km: { type: integer, nullable: true }
         status: { type: string, enum: [ok, bald, ueberfaellig, unbekannt] }
         days: { type: integer, nullable: true }
-        source: { type: string, nullable: true, enum: [eintrag, erstzulassung, faelligkeitsmonat, null] }
+        source: { type: string, nullable: true, enum: [eintrag, erstzulassung, faelligkeitsmonat, bauteil, lebensdauer, null], description: "bauteil und lebensdauer (#78) nur bei Zeilen zu Bauteilen: Intervall bzw. Schätzung aus der Ø-Lebensdauer (nie ueberfaellig, ohne Mail und Push)" }
+        part_key: { type: string, description: "Nur bei Bauteil-Zeilen (#78): Schlüssel des Bauteils; category ist dann part:<key>" }
+        icon: { type: string, description: "Nur bei Bauteil-Zeilen (#78): Font-Awesome-Symbol" }
 
     MailSettings:
       type: object

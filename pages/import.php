@@ -93,7 +93,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $schritt === 'upload') {
     $_SESSION[$sitzungsKey] = $daten;
 }
 
-$umgewandelt = $daten ? importWandleUm($daten['zeilen'], $zuordnung, $standardKategorie) : null;
+// Bauteile (#78): Name (klein) und Schlüssel => Schlüssel, für die Spalte "Bauteile"
+$bauteilNamen = [];
+try {
+    foreach ($api->getVehicleParts($fahrzeug_id)['parts'] ?? [] as $p) {
+        $bauteilNamen[mb_strtolower($p['name'], 'UTF-8')] = $p['key'];
+        $bauteilNamen[mb_strtolower($p['key'], 'UTF-8')] = $p['key'];
+    }
+} catch (Throwable $e) {
+}
+$umgewandelt = $daten ? importWandleUm($daten['zeilen'], $zuordnung, $standardKategorie, $bauteilNamen) : null;
 $kategorienKatalog = kategorienKatalog();
 if ($umgewandelt) {
     $umgewandelt = importKategorienZuordnen($umgewandelt, $kategorienKatalog, $eigeneAnlegen);

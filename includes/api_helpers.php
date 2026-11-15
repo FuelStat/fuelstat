@@ -207,6 +207,7 @@ function ladeMergedEintraegeFromApi($api, string $vehicleId): array
             'tachostand' => $e['odometer_km'] ?? null,
             'beschreibung' => $e['description'] ?? '',
             'standort' => $e['vendor'] ?? '',
+            'bauteile' => $e['parts'] ?? [], // (#78)
             'menge' => null,
             'vollgetankt' => false,
             'erfasst_von' => $e['created_by'] ?? null,
@@ -612,7 +613,9 @@ function getFaelligkeitenFromApi($api, string $vehicleId): array
         'faellig_km' => $r['due_km'],
         'status' => $r['status'],
         'tage' => $r['days'],
-        'quelle' => $r['source'] ?? null, // eintrag | erstzulassung | faelligkeitsmonat (#45)
+        'quelle' => $r['source'] ?? null, // eintrag | erstzulassung | faelligkeitsmonat (#45) | bauteil | lebensdauer (#78)
+        'teil' => $r['part_key'] ?? null, // nur bei Bauteil-Terminen (#78)
+        'symbol' => $r['icon'] ?? null,
         'art' => $r['kind'] ?? 'due', // due: Termin mit Fälligkeit, info: nur letzter Eintrag (Reifen)
         'letzte_km' => $r['last_odometer_km'] ?? null,
         'letzte_beschreibung' => $r['last_description'] ?? null,
@@ -685,6 +688,7 @@ function eintragAusTimeline(array $x): array
             : (string)($x['description'] ?? ''),
         'einheit' => $x['unit'] ?? null,
         'sorte' => $x['fuel'] ?? null,
+        'bauteile' => $x['parts'] ?? [], // (#78)
         'ladeart' => $x['charge_type'] ?? null,
         'soc_vorher' => $x['soc_before_pct'] ?? null,
         'soc_nachher' => $x['soc_after_pct'] ?? null,

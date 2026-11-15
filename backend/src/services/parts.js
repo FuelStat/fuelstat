@@ -262,7 +262,43 @@ async function getVehicleService(db, userId, vehicleId, { warnDays = 30, today =
   return { current_odometer_km: currentOdo, history_limit: HISTORY_LIMIT, parts };
 }
 
+/**
+ * Bauteile als Termine (#78) im Format von /reminders: nur Bauteile mit nächstem Wechsel (eigenes Intervall oder Ø-Lebensdauer
+ * ab zwei Wechseln). category "part:<key>", source "bauteil" (Intervall) oder "lebensdauer" (Schätzung: nie ueberfaellig,
+ * und der Notifier schickt dafür weder Mail noch Push).
+ */
+async function getPartReminders(db, vehicleId, { warnDays = 30, today = new Date() } = {}) {
+  const [catalog, intervals, changes, currentOdo] = await Promise.all([
+    loadCatalog(db, vehicleId), loadIntervals(db, vehicleId), loadChanges(db, vehicleId), currentOdometer(db, vehicleId)
+  ]);
+  const rows = [];
+  for (const p of catalog) {
+    const list = changes.filter((c) => c.part_key === p.key);
+    if (!list.length) continue;
+    const last = list[0];
+    const next = nextChange({ last, interval: intervals.get(p.key) ?? null, lifetime: lifetimeOf(list), currentOdo, warnDays, today });
+    if (!next) continue;
+    rows.push({
+      title: p.name,
+      category: `part:${p.key}`,
+      part_key: p.key,
+      icon: p.icon,
+      kind: 'due',
+      last: dayString(toDay(last.date)),
+      last_odometer_km: last.odometer_km,
+      last_description: last.description || null,
+      due_date: next.due_date,
+      due_km: next.due_km,
+      status: next.status,
+      days: next.days,
+      source: next.source === 'lifetime' ? 'lebensdauer' : 'bauteil'
+    });
+  }
+  return rows;
+}
+
 module.exports = {
+  getPartReminders,
   BUILTIN, BUILTIN_BY_KEY, GROUPS, CUSTOM_PREFIX, NAME_MAX, MAX_CUSTOM_PARTS, MAX_PARTS_PER_ENTRY, HISTORY_LIMIT, UUID_RE,
   isCustomKey, loadCatalog, parseParts, saveParts, partsByExpense, describeParts, lifetimeOf, nextChange, loadIntervals, loadChanges, getVehicleService
 };

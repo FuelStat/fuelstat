@@ -168,6 +168,38 @@ test('Einträge mit Bauteilen: nur in Werkstatt-Kategorien, Prüfungen, Kosten j
   await fehler({ parts: [eigenes.key] }, 'unknown_part');
 });
 
+test('Termine (#78): Bauteile mit Intervall oder Lebensdauer; Schätzungen nie überfällig und ohne Mail', async () => {
+  const { collectDueReminders } = require('../src/services/notifier');
+  const token = await newUser();
+  const v = await newVehicle(token);
+  const me = (await api('GET', '/whoami', { token })).body;
+  const wechsel = (datum, km, parts) => entry(token, v.id, { category: 'Wartung', occurredAt: `${datum}T10:00:00Z`, odometerKm: km, parts });
+  // Öl mit Intervall, lange überfällig; Zündkerzen zweimal gewechselt, ohne Intervall; Batterie nur einmal
+  await wechsel('2022-01-01', 1000, ['oil']);
+  await wechsel('2022-01-01', 1000, ['spark_plugs']);
+  await wechsel('2023-01-01', 31000, ['spark_plugs']);
+  await wechsel('2024-01-01', 40000, ['battery_12v']);
+  await api('PUT', `/vehicles/${v.id}/part-intervals/oil`, { token, body: { intervalMonths: 12, intervalKm: 15000 } });
+  const r = (await api('GET', `/vehicles/${v.id}/reminders`, { token })).body;
+  // Feste Termine bleiben, wie sie waren (vor den Bauteil-Zeilen)
+  assert.deepEqual(r.slice(0, 5).map((x) => x.title), ['TÜV', 'Wartung / Inspektion', 'Versicherung', 'Kfz-Steuer', 'Reifen']);
+  const teile = r.slice(5);
+  assert.deepEqual(teile.map((x) => x.category).sort(), ['part:oil', 'part:spark_plugs']);
+  const oel = teile.find((x) => x.part_key === 'oil');
+  assert.deepEqual([oel.source, oel.status, oel.kind, oel.title], ['bauteil', 'ueberfaellig', 'due', 'Motoröl & Filter']);
+  assert.equal(oel.last, '2022-01-01');
+  const kerzen = teile.find((x) => x.part_key === 'spark_plugs');
+  assert.equal(kerzen.source, 'lebensdauer');
+  assert.equal(kerzen.status, 'bald', 'Schätzung lange überschritten, trotzdem nicht überfällig');
+  // Batterie: ein Wechsel, kein Intervall: kein Termin
+  assert.equal(teile.some((x) => x.part_key === 'battery_12v'), false);
+  // Mail und Push nur für das Öl, nicht für die Schätzung
+  const faellig = await collectDueReminders(pool, { user_id: me.id, reminder_days: 30 });
+  const meine = faellig.filter((x) => x.vehicle_id === v.id && String(x.category).startsWith('part:'));
+  assert.deepEqual(meine.map((x) => x.category), ['part:oil']);
+  assert.ok(meine[0].ref.includes('part:oil'));
+});
+
 test('Service-Übersicht: Historie, Kosten, Lebensdauer, Intervall, nächster Wechsel', async () => {
   const token = await newUser();
   const v = await newVehicle(token);
@@ -217,4 +249,23 @@ test('Service-Übersicht: Historie, Kosten, Lebensdauer, Intervall, nächster We
   const fremd = await newUser();
   assert.equal((await api('GET', `/vehicles/${v.id}/service`, { token: fremd })).status, 404);
   assert.equal((await api('PUT', `/vehicles/${v.id}/part-intervals/oil`, { token: fremd, body: { intervalMonths: 6 } })).status, 404);
+});
+
+test('Import: Bauteile je Ausgabe; nur bei passender Kategorie und mit bekannten Schlüsseln', async () => {
+  const token = await newUser();
+  const v = await newVehicle(token);
+  const ok = await api('POST', `/vehicles/${v.id}/import`, { token, body: { entries: [
+    { occurredAt: '2025-02-01T10:00:00Z', category: 'Wartung', amountEur: 200, odometerKm: 5000, parts: ['oil', { key: 'cabin_filter', costShare: 30 }] },
+    { occurredAt: '2025-03-01T10:00:00Z', category: 'Versicherung', amountEur: 300 }
+  ] } });
+  assert.equal(ok.status, 201, JSON.stringify(ok.body));
+  const liste = (await api('GET', `/vehicles/${v.id}/entries`, { token })).body.data;
+  assert.deepEqual(liste.find((x) => x.category === 'Wartung').parts.map((p) => p.key), ['cabin_filter', 'oil']);
+  const falsch = await api('POST', `/vehicles/${v.id}/import`, { token, body: { entries: [{ occurredAt: '2025-04-01T10:00:00Z', category: 'Versicherung', amountEur: 10, parts: ['oil'] }] } });
+  assert.equal(falsch.status, 400);
+  assert.equal(falsch.body.rows[0].error, 'parts_not_allowed');
+  const unbekannt = await api('POST', `/vehicles/${v.id}/import`, { token, body: { entries: [{ occurredAt: '2025-04-02T10:00:00Z', category: 'Wartung', amountEur: 10, parts: ['kolben'] }] } });
+  assert.equal(unbekannt.body.rows[0].error, 'unknown_part');
+  // Nichts davon wurde gespeichert
+  assert.equal((await api('GET', `/vehicles/${v.id}/entries`, { token })).body.pagination.total, 2);
 });

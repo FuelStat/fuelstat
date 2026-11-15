@@ -83,7 +83,8 @@ try {
                 // Termine zu einem Hinweis zusammenfassen
                 $faellig = array_values(array_filter(
                     getFaelligkeitenFromApi($api, $vehicleId),
-                    fn($f) => in_array($f['status'], ['ueberfaellig', 'bald'], true)
+                    // Schätzungen aus der Lebensdauer (#78) sind nur ein Hinweis in „Allgemein“, kein Alarm auf der Karte
+                    fn($f) => in_array($f['status'], ['ueberfaellig', 'bald'], true) && ($f['quelle'] ?? '') !== 'lebensdauer'
                 ));
                 $ueberfaellig = count(array_filter($faellig, fn($f) => $f['status'] === 'ueberfaellig'));
                 $hinweis = null;

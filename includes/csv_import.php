@@ -24,6 +24,7 @@ function importFelder(): array
         'ladedauer' => 'Ladedauer (Minuten)',
         'ort' => 'Tankstelle / Ladestation / Ort',
         'beschreibung' => 'Beschreibung / Notiz',
+        'bauteile' => 'Bauteile (z. B. Motoröl & Filter | Bremsbeläge vorn)',
     ];
 }
 
@@ -59,6 +60,7 @@ function importErkenneZuordnung(array $kopfzeile): array
         'ladedauer' => ['ladedauer', 'chargeminutes', 'dauer', 'ladezeit'],
         'ort' => ['ort', 'tankstelle', 'ladestation', 'ladesaeule', 'station', 'ortanbieter', 'anbieter', 'vendor', 'location', 'standort'],
         'beschreibung' => ['beschreibung', 'notiz', 'bemerkung', 'note', 'notes', 'description', 'kommentar', 'comment'],
+        'bauteile' => ['bauteile', 'bauteil', 'parts', 'part'],
     ];
     $zuordnung = [];
     foreach ($kopfzeile as $index => $kopf) {
@@ -284,10 +286,29 @@ function importLadeangaben(array $zeile, callable $hole, ?string $ladeart): arra
 }
 
 /**
+ * Bauteile (#78) aus einer Zelle ("Motoröl & Filter | Bremsbeläge vorn"): Namen oder Schlüssel, getrennt mit | oder Komma.
+ * Nur bekannte Bauteile des Fahrzeugs (Name klein geschrieben => Schlüssel); Unbekanntes wird ausgelassen, die Ausgabe
+ * wird trotzdem importiert. Ob die Kategorie Bauteile erlaubt, prüft die API (sonst Fehler an der Zeile).
+ * @param array $namen Name in Kleinbuchstaben und Schlüssel => Schlüssel
+ * @return array ['keys' => string[], 'namen' => string[]]
+ */
+function importBauteile(?string $wert, array $namen): array
+{
+    $keys = [];
+    foreach (preg_split('/\s*[|,]\s*/u', trim((string)$wert), -1, PREG_SPLIT_NO_EMPTY) as $teil) {
+        $key = $namen[mb_strtolower($teil, 'UTF-8')] ?? null;
+        if ($key !== null && !in_array($key, $keys, true)) {
+            $keys[] = $key;
+        }
+    }
+    return ['keys' => $keys, 'namen' => array_map(fn($k) => array_search($k, $namen, true) ?: $k, $keys)];
+}
+
+/**
  * Alle Zeilen anhand der Zuordnung umwandeln.
  * @return array ['fillups' => [...], 'entries' => [...], 'fehler' => [zeilennummer => meldung], 'vorschau' => [...]]
  */
-function importWandleUm(array $zeilen, array $zuordnung, string $standardKategorie): array
+function importWandleUm(array $zeilen, array $zuordnung, string $standardKategorie, array $bauteilNamen = []): array
 {
     $hole = fn(array $zeile, string $feld) => isset($zuordnung[$feld]) && $zuordnung[$feld] !== '' ? ($zeile[(int)$zuordnung[$feld]] ?? null) : null;
     // zeilenNr: Zeilennummer der Datei je Eintrag in fillups bzw. entries (für Hinweise aus der API-Vorschau)
@@ -303,6 +324,7 @@ function importWandleUm(array $zeilen, array $zuordnung, string $standardKategor
         $art = importArt($hole($zeile, 'art'), $menge, $standardKategorie);
         $ort = trim((string)$hole($zeile, 'ort'));
         $beschreibung = trim((string)$hole($zeile, 'beschreibung'));
+        $bauteile = $art['typ'] === 'entry' ? importBauteile($hole($zeile, 'bauteile'), $bauteilNamen) : [];
         // Spalte "Einheit" vor der Art; die API übernimmt sie nur bei Fahrzeugen mit mehreren Einheiten (Plug-in-Hybrid)
         $einheit = importEinheit($hole($zeile, 'einheit')) ?? $art['einheit'];
         $sorte = $art['typ'] === 'fillup' ? importSorte($hole($zeile, 'sorte'), $sortenKatalog ??= (function_exists('sortenKatalog') ? sortenKatalog()['sorten'] : [])) : null;
@@ -325,7 +347,7 @@ function importWandleUm(array $zeilen, array $zuordnung, string $standardKategor
             'menge' => $art['typ'] === 'fillup' ? $menge : null, 'einheit' => $art['typ'] === 'fillup' ? $einheit : null, 'kosten' => $kosten,
             'vollgetankt' => $art['typ'] === 'fillup' ? importJaNein($hole($zeile, 'vollgetankt')) : null,
             'ladeart' => $art['typ'] === 'fillup' ? importLadeart($hole($zeile, 'ladeart')) : null,
-            'ort' => $ort, 'beschreibung' => $beschreibung, 'fehler' => $fehler,
+            'ort' => $ort, 'beschreibung' => $beschreibung, 'bauteile' => $bauteile['namen'] ?? [], 'fehler' => $fehler,
         ];
         $ergebnis['vorschau'][] = $vorschau;
         if ($fehler !== null) {
@@ -354,7 +376,7 @@ function importWandleUm(array $zeilen, array $zuordnung, string $standardKategor
                 'odometerKm' => $tacho,
                 'vendor' => $ort !== '' ? $ort : null,
                 'description' => $beschreibung !== '' ? $beschreibung : null,
-            ];
+            ] + (!empty($bauteile['keys']) ? ['parts' => $bauteile['keys']] : []);
         }
     }
     return $ergebnis;

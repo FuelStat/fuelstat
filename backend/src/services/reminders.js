@@ -11,6 +11,7 @@
 // - Fälligkeitsmonat von Versicherung und Steuer
 const { canAccessVehicle } = require('./vehicleAccess');
 const { currentOdometer } = require('./odometer');
+const { getPartReminders } = require('./parts');
 
 const RULES = [
   { title: 'TÜV', categories: ['TUV'], months: 24, km: null },
@@ -66,7 +67,7 @@ async function getVehicleReminders(pool, userId, vehicleId, warnDays = 30, today
     return d;
   };
 
-  return RULES.map((rule) => {
+  const regeln = RULES.map((rule) => {
     // Neuesten Eintrag aller Kategorien der Regel nehmen (Wartung oder Inspektion)
     const latest = last.rows
       .filter((r) => rule.categories.includes(r.category))
@@ -127,6 +128,8 @@ async function getVehicleReminders(pool, userId, vehicleId, warnDays = 30, today
     else row.status = 'ok';
     return row;
   });
+  // Bauteile mit Intervall oder Ø-Lebensdauer (#78) hinter den festen Terminen
+  return [...regeln, ...(await getPartReminders(pool, vehicleId, { warnDays, today }))];
 }
 
 module.exports = { getVehicleReminders, RULES };

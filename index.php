@@ -172,12 +172,12 @@ endif;
                 <ul class="list-group list-group-flush">
                     <?php foreach ($naechste as $t): ?>
                     <li class="list-group-item termin-zeile">
-                        <?= symbolKreis(getCategoryIcon($t['kategorie']), 'var(--fs-brand)') ?>
+                        <?= symbolKreis($t['symbol'] ?? getCategoryIcon($t['kategorie']), 'var(--fs-brand)') ?>
                         <div class="termin-text">
                             <div class="fs-headline"><?= htmlspecialchars($t['titel']) ?></div>
-                            <div class="fs-label"><?= date('d.m.Y', strtotime($t['faellig_datum'])) ?><?php if (!empty($t['faellig_km'])): ?> oder bei <?= number_format((int)$t['faellig_km'], 0, ',', '.') ?> km<?php endif; ?></div>
+                            <div class="fs-label"><?= ($t['quelle'] ?? '') === 'lebensdauer' ? 'ca. ' : '' ?><?= date('d.m.Y', strtotime($t['faellig_datum'])) ?><?php if (!empty($t['faellig_km'])): ?> oder bei <?= number_format((int)$t['faellig_km'], 0, ',', '.') ?> km<?php endif; ?></div>
                         </div>
-                        <?= statusBadge((string)$t['status'], isset($t['tage']) ? terminAbstand((int)$t['tage']) : '', 'ms-auto') ?>
+                        <?= statusBadge((string)$t['status'], isset($t['tage']) ? (($t['quelle'] ?? '') === 'lebensdauer' ? 'ca. ' : '') . terminAbstand((int)$t['tage']) : '', 'ms-auto') ?>
                     </li>
                     <?php endforeach; ?>
                 </ul>

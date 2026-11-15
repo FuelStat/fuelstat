@@ -109,6 +109,53 @@ $f2 = fn($v) => number_format((float)$v, 2, ',', '.');
     </table>
     <?php endforeach; ?>
 
+    <?php
+    // Serviceheft (#78): Wechsel je Bauteil mit Datum, Tachostand, Kosten und Anbieter; Lebensdauer und nächster Wechsel aus der API
+    $serviceTeile = [];
+    try {
+        $serviceTeile = $api->getVehicleService($fahrzeug_id)['parts'] ?? [];
+    } catch (Throwable $e) {
+    }
+    $wechsel = [];
+    foreach ($serviceTeile as $st) {
+        foreach ($st['history'] ?? [] as $h) {
+            if ($jahr === null || (int)substr($h['date'], 0, 4) === $jahr) {
+                $wechsel[] = $h + ['name' => $st['name']];
+            }
+        }
+    }
+    usort($wechsel, fn($a, $b) => strcmp($a['date'], $b['date']));
+    if ($wechsel): ?>
+    <h2 class="h5">Service je Bauteil</h2>
+    <table class="table table-sm table-bordered mb-3">
+        <thead><tr><th>Bauteil</th><th>Wechsel</th><th>Ø Lebensdauer</th><th>Nächster Wechsel</th></tr></thead>
+        <tbody>
+        <?php foreach ($serviceTeile as $st): $n = $st['next'] ?? null; $l = $st['lifetime'] ?? null; ?>
+            <tr>
+                <td><?= htmlspecialchars($st['name']) ?></td>
+                <td><?= (int)$st['changes'] ?></td>
+                <td><?= $l && $l['avgKm'] !== null ? number_format($l['avgKm'], 0, ',', '.') . ' km' : '–' ?><?= $l && $l['avgMonths'] !== null ? ' / ' . $f2($l['avgMonths']) . ' Monate' : '' ?></td>
+                <td><?php if ($n): ?><?= $n['source'] === 'lifetime' ? 'ca. ' : '' ?><?= $n['due_date'] ? date('d.m.Y', strtotime($n['due_date'])) : '' ?><?= $n['due_date'] && $n['due_km'] !== null ? ' oder ' : '' ?><?= $n['due_km'] !== null ? 'bei ' . number_format($n['due_km'], 0, ',', '.') . ' km' : '' ?><?php else: ?>–<?php endif; ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <table class="table table-sm table-striped mb-4">
+        <thead><tr><th>Datum</th><th>Bauteil</th><th>km</th><th>Kosten</th><th>Anbieter</th></tr></thead>
+        <tbody>
+        <?php foreach ($wechsel as $h): ?>
+            <tr>
+                <td><?= date('d.m.Y', strtotime($h['date'])) ?></td>
+                <td><?= htmlspecialchars($h['name']) ?></td>
+                <td><?= $h['odometer_km'] !== null ? number_format($h['odometer_km'], 0, ',', '.') : '' ?></td>
+                <td><?= $h['cost'] !== null ? $f2($h['cost']) . ' €' : 'unbekannt' ?></td>
+                <td><?= htmlspecialchars((string)($h['vendor'] ?? '')) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php endif; ?>
+
     <h2 class="h5">Kosten nach Kategorie</h2>
     <table class="table table-sm table-bordered mb-4">
         <thead><tr><th>Kategorie</th><th>Einträge</th><th>Anteil</th><th>Summe</th></tr></thead>

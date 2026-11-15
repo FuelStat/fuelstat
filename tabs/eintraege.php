@@ -214,6 +214,7 @@ $filterArten = array_filter([
       <ul class="dropdown-menu dropdown-menu-end">
         <li><a class="dropdown-item" download href="../pages/export.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?><?= $jahr !== null ? '&jahr=' . $jahr : '' ?>"><i class="fas fa-file-csv fa-fw" aria-hidden="true"></i>Als CSV für Excel herunterladen</a></li>
         <li><a class="dropdown-item" href="../pages/bericht.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?><?= $jahr !== null ? '&jahr=' . $jahr : '' ?>" target="_blank"><i class="fas fa-file-pdf fa-fw" aria-hidden="true"></i>Bericht drucken oder als PDF speichern</a></li>
+        <li><a class="dropdown-item" href="../pages/bericht_gesamtkosten.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>" target="_blank"><i class="fas fa-scale-balanced fa-fw" aria-hidden="true"></i>Gesamtkosten-Bericht (mit Wertverlust)</a></li>
         <?php if ($darfAendern): ?>
         <li><hr class="dropdown-divider"></li>
         <li><a class="dropdown-item" href="../pages/import.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>"><i class="fas fa-file-import fa-fw" aria-hidden="true"></i>Einträge aus CSV-Datei importieren</a></li>

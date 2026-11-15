@@ -58,6 +58,7 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | GET · PATCH · DELETE | `/vehicles/:vehicleId` | ✓ | Fahrzeug lesen, ändern, löschen (samt Einträgen) |
 | GET | `/vehicles/:vehicleId/stats` | ✓ | Tachostand, Ø Preis, Verbrauchsabschnitte, Trend je Einheit und je Energieart |
 | GET | `/vehicles/:vehicleId/costs?year=` | ✓ | Kosten: Summen, Kosten pro km, laufender Monat, Monats- und Kategoriesummen |
+| GET | `/vehicles/:vehicleId/tco` | ✓ | Gesamtkosten (TCO): laufende Kosten, Wertverlust, pro Monat, pro km, Anteile (#79) |
 | GET | `/vehicles/:vehicleId/consumption` | ✓ | Verbrauch je Energieart (und je Einheit): Abschnitte, Monate, Jahre, Ø/Min/Max, Mengen, CO₂, Stromanteil; Preise je Sorte |
 | GET | `/stations?lat=&lng=&radius=&type=` | ✓ | Tankstellen in der Nähe mit aktuellen Preisen (Tankerkönig) |
 | GET | `/charging-stations?lat=&lng=&radius=` | ✓ | Ladestationen in der Nähe (Open Charge Map) |
@@ -546,6 +547,17 @@ Authorization: Bearer <jwt>
 * 401: `missing_token` | `invalid_token`
 * 404: `vehicle_not_found`
 * 500: `server_error`
+
+### GET /vehicles/:vehicleId/tco
+
+Gesamtkosten und Wertverlust eines Fahrzeugs (#79), für **alle Tarife** (ein Tarif dafür ist später möglich, #59). Alles wird in der API gerechnet.
+
+* **Laufende Kosten** (`running`): alle gebuchten Tank-/Ladevorgänge und Ausgaben, die als Kosten zählen, mit `groups` (Kostengruppen wie in `/costs`) und `categories`. Es gibt keine eigenen Raten- oder Laufzeitfelder: **Leasing- und Finanzierungsraten** (Kategorie „Leasing“), Anzahlung und Schlussrate zählen mit, wenn sie als Ausgabe gebucht sind. Wer ein finanziertes Fahrzeug so erfasst, trägt den Kaufpreis nur ein, wenn er nicht zugleich als Raten gebucht ist, sonst zählt er doppelt.
+* **Wertverlust** (`valueLoss`) = Kaufpreis (`purchasePrice`, #45) minus Verkaufserlös (`salePrice`, verkauftes Fahrzeug, `valueBasis: "sale"`) bzw. minus geschätztem Restwert (`residualValue`, `valueBasis: "residual"`). **Fehlt eine der Angaben, ist `valueLoss` `null`** (nie 0, nie geschätzt: es gibt keine Wertverlust-Kurve) und `complete` ist `false`; `total` enthält dann nur die laufenden Kosten. Der Restwert ist ein Fahrzeugfeld (`residualValue` bei `POST`/`PATCH /vehicles`), bei verkauften Fahrzeugen zählt nur der Erlös. Ein negativer Wertverlust (Gewinn) ist möglich.
+* **Gesamtkosten** `total` = `running.total` + `valueLoss` (falls bekannt). `perMonth`, `perKm` und `valueLossPerYear` teilen durch die Besitzzeit bzw. die Strecke (null ohne Besitzzeit/Strecke, `valueLossPerYear` erst ab 30 Tagen).
+* **Besitzzeit** (`from`, `to`, `ownershipDays`, `ownershipMonths`): vom Kaufdatum (sonst vom ersten Eintrag) bis zum Verkaufsdatum (sonst heute), Europe/Berlin. Auch `/costs` zählt „Ø je Monat“ bei einem Fahrzeug mit Verkaufsdatum nur bis zum Verkaufsmonat.
+* `shares`: Anteile an den Gesamtkosten je Kostengruppe und `wertverlust` (nur ein Verlust), größte zuerst; `categories`: Summe, Anzahl und Anteil je Kategorie.
+* Antworten: 200, 401, 404 `vehicle_not_found`. Archivierte Fahrzeuge bleiben lesbar.
 
 ### GET /vehicles/:vehicleId/costs?year=2026
 

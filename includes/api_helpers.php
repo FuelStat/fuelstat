@@ -486,6 +486,7 @@ function fahrzeugZusatzFelder(): array
         'firstRegistration' => ['datum', 'Erstzulassung'],
         'purchaseDate' => ['datum', 'Kaufdatum'],
         'purchasePrice' => ['zahl', 'Kaufpreis'],
+        'residualValue' => ['zahl', 'Restwert'],
         'serviceIntervalMonths' => ['ganzzahl', 'Wartungsintervall (Monate)'],
         'serviceIntervalKm' => ['ganzzahl', 'Wartungsintervall (km)'],
         'oilIntervalMonths' => ['ganzzahl', 'Ölwechsel (Monate)'],

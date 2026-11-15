@@ -155,6 +155,8 @@ class FuelstatApi
     /** Verbrauch, Mengen und CO₂ je Einheit (#82) */
     public function getVehicleConsumption(string $vehicleId): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/consumption'); }
     /** Kosten je Fahrzeug (#124): Summen, Kosten pro km, Monate; $jahr = null für den gesamten Zeitraum */
+    /** Gesamtkosten (TCO) und Wertverlust (#79) */
+    public function getVehicleTco(string $vehicleId): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/tco'); }
     public function getVehicleCosts(string $vehicleId, ?int $jahr = null): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/costs' . ($jahr !== null ? '?year=' . $jahr : '')); }
     public function getVehicleEntries(string $vehicleId, int $anzahl = 50): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/entries?per_page=' . $anzahl)['data'] ?? []; }
 

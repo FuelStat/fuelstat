@@ -9,6 +9,9 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 ### Neu
 - **Anmelden mit Passkey** (#2): Unter „Profil“ → „Passkeys“ richtest du Face ID, Fingerabdruck, Windows Hello oder einen Sicherheitsschlüssel ein. Danach meldest du dich mit „Mit Passkey anmelden“ oder direkt aus den Vorschlägen im E-Mail-Feld an – ohne Passwort und ohne 2FA-Code. Das Passwort bleibt als Rückfallweg. Fuelstat speichert nur den öffentlichen Schlüssel.
 
+### Neu
+- **Gesamtkosten und Wertverlust** (#79): Im Reiter „Ausgaben“ zeigt die Karte „Gesamtkosten“, was das Fahrzeug über die ganze Besitzzeit gekostet hat: laufende Kosten (Tanken/Laden, Versicherung, Steuer, Wartung, Reparatur, Reifen, Sonstiges, auch gebuchte Leasing- und Finanzierungsraten) plus Wertverlust (Kaufpreis minus geschätzter Restwert bzw. Verkaufserlös), dazu Kosten pro Monat und pro km, Wertverlust pro Jahr und die Anteile der Kostengruppen. Fehlen Kaufpreis oder Restwert/Erlös, bleibt der Wertverlust leer und die Karte sagt es, nichts wird geschätzt. Neues Feld „Geschätzter Restwert“ unter „Fahrzeug bearbeiten“ → „Kauf und Termine“; der „Gesamtkosten-Bericht“ lässt sich drucken oder als PDF speichern (Menü „Export und Import“ im Reiter „Einträge“ bzw. Knopf „Bericht“ an der Karte). Für alle Tarife.
+
 ### Verbessert
 - **Verkaufte und stillgelegte Fahrzeuge** (#79): Unter „Fahrzeug bearbeiten“ → „Status“ markierst du ein Fahrzeug als verkauft (mit Datum, Tachostand und Erlös) oder stillgelegt (mit Zeitraum). Es wandert in „Meine Fahrzeuge“ in den eingeklappten Bereich „Archiv“, alle Daten, Statistiken und Exporte bleiben lesbar, ändern lässt sich nichts, bis du es wieder aktivierst. Für archivierte Fahrzeuge gibt es keine Termin-Erinnerungen, keine Mails und keinen Monatsbericht; Wechsler, Start und Schnellerfassung zeigen nur aktive Fahrzeuge. Mit Tarifgrenzen (siehe unten) zählen aktive und archivierte Fahrzeuge getrennt.
 - **Kostengruppen, Wartung je 10.000 km und größte Ausgaben kommen aus der API** (#180): `GET /vehicles/:id/costs` liefert Summen je Kostengruppe (insgesamt, je Monat und je Jahr), die Wartungskosten je 10.000 km und die fünf größten Einzelausgaben. Der Reiter „Ausgaben“ zeigt dieselben Zahlen wie bisher, rechnet „Wartung je 10.000 km“ und „Größte Einzelausgaben“ aber nicht mehr selbst. Bestehende Werte ändern sich nicht.
@@ -24,6 +27,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - **Passwort zurücksetzen meldet kein fremdes Konto mehr ab** (#175): Setzt du im Browser das Passwort eines anderen Kontos zurück, als dort angemeldet ist, bleibst du angemeldet; die Meldung nennt beide Konten. Nur das zurückgesetzte Konto wird auf allen Geräten abgemeldet.
 
 ### Technik
+- Gesamtkosten (#79): neuer Endpunkt `GET /vehicles/:id/tco` (laufende Kosten mit Gruppen und Kategorien, `valueLoss` = Kaufpreis minus Erlös/Restwert oder `null`, `complete`, `perMonth`, `perKm`, `valueLossPerYear`, `shares`), neues Fahrzeugfeld `residualValue` (Spalte `residual_value`, Migration 028). `/costs` zählt „Ø je Monat“ bei einem Fahrzeug mit Verkaufsdatum nur bis zum Verkaufsmonat.
 - Fahrzeug-Lebenszyklus (#79): neue Spalten `status`, `sale_odometer_km`, `decommissioned_from`, `decommissioned_until` an `vehicles` (Migration 027). `PATCH /vehicles/:id` setzt sie über `status` (`active`, `sold`, `decommissioned`), `saleOdometerKm`, `decommissionedFrom`, `decommissionedUntil`; `GET /vehicles?status=active|archived|all`. Jede schreibende Anfrage zu einem archivierten Fahrzeug antwortet mit **409** `vehicle_archived` (zentrale Prüfung, Ausnahmen: Reihenfolge, Verkaufs-/Stilllegungsangaben, Wiederaktivieren, Löschen, Mitglieder und Einladungen entfernen). `/reminders` ist für archivierte Fahrzeuge leer. `/whoami` `features` enthält `maxArchivedVehicles` (Free 1, Plus 5, Flotte 25; wie `maxVehicles` nur mit `PLAN_LIMITS_ENABLED=true`, sonst `null`).
 - `/vehicles/:id/consumption` und `/vehicles/:id/stats` liefern `primary` (Hauptkennzahl, von der API je Antriebsart festgelegt), `/consumption` zusätzlich `costPer100kmPeriods` (€/100 km je Monat und Jahr, günstigster und teuerster Monat) (#156). Keine Migration.
 - `/costs` (#180): neue Felder `groups`, `maintenancePer10000Km`, `largestExpenses`, `byYear` und `months[].byGroup`, alle abwärtskompatibel. OpenAPI: `sortOrder`, `odometerKm`, `brand`, `model`, `year`, `imageUrl`, `mileageKm` in `VehicleCreateRequest` und `VehiclePatchRequest` (#181).
@@ -40,6 +44,13 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
   ```bash
   cd infra
   sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "UPDATE fillups SET station = NULL WHERE station = '"'"'null'"'"'"'
+  ```
+
+- Migration `028_residual_value` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich). Von Hand:
+
+  ```bash
+  cd infra
+  sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_028_residual_value.sql
   ```
 
 - Migration `027_vehicle_status` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich, alle Fahrzeuge bleiben aktiv). Von Hand:

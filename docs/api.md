@@ -348,6 +348,8 @@ Authorization: Bearer <jwt>
 ```
 
 * `odometerKm`: Tachostand bei Anschaffung (Basis für die Fahrleistung)
+* `sortOrder` (Zahl, Standard 0): Reihenfolge in der Fahrzeugübersicht, aufsteigend. `GET /vehicles` sortiert **eigene Fahrzeuge vor geteilten**, dann nach `sortOrder`, dann neueste zuerst. Der Wert gehört zum Fahrzeug, nicht zum Konto: Ändern darf ihn nur der Besitzer, Mitglieder sehen die Reihenfolge des Besitzers. Zum Umordnen die neuen Werte je Fahrzeug per `PATCH` setzen (z. B. 0, 1, 2 …); die Web-App ordnet so (#181)
+* `brand`, `model` (Text), `year` (Baujahr), `imageUrl` (Bildadresse), `mileageKm` (wird gespeichert, nicht ausgewertet) sind ebenfalls Felder von `POST`/`PATCH`
 * `tankCapacity`: Tank in l bzw. kg, bei Elektroautos der Akku in kWh
 * `batteryCapacity`: Akku in kWh, nur für Plug-in-Hybride
 * `PATCH /vehicles/:vehicleId` nimmt dieselben Felder (alle optional, `null` leert optionale Felder)
@@ -378,7 +380,7 @@ Authorization: Bearer <jwt>
 
 **Errors**
 
-* 400: `missing_name` | `invalid_fuelType` | `invalid_year` | `invalid_odometerKm` | `invalid_tankCapacity` | `invalid_batteryCapacity`
+* 400: `missing_name` | `invalid_fuelType` | `invalid_year` | `invalid_odometerKm` | `invalid_sortOrder` | `invalid_tankCapacity` | `invalid_batteryCapacity`
 * 401: `missing_token` | `invalid_token`
 * 500: `server_error`
 

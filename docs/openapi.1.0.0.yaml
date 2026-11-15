@@ -4054,6 +4054,37 @@ components:
         name:
           type: string
           minLength: 1
+        brand:
+          type: string
+          nullable: true
+        model:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          nullable: true
+          description: Baujahr; sonst 400 invalid_year
+        imageUrl:
+          type: string
+          nullable: true
+          description: "Bildadresse, z. B. die Antwort von POST /vehicles/{vehicleId}/media/upload; eine signierte Adresse aus einer Antwort wird wieder in die interne umgewandelt"
+        odometerKm:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: "Tachostand bei Anschaffung (Basis für die Fahrleistung in /stats); sonst 400 invalid_odometerKm"
+        mileageKm:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: "Laufleistung beim Anlegen; wird gespeichert, die API wertet sie nicht aus"
+        sortOrder:
+          type: number
+          description: >
+            Reihenfolge in der Fahrzeugübersicht (#181), aufsteigend; sonst 400 invalid_sortOrder. GET /vehicles sortiert eigene
+            Fahrzeuge vor geteilten, dann nach sortOrder, dann neueste zuerst. Der Wert gehört zum Fahrzeug (nicht je Konto):
+            ändern darf ihn nur der Besitzer, geteilte Konten sehen die Reihenfolge des Besitzers. Zum Umordnen die neuen Werte
+            je Fahrzeug per PATCH setzen (z. B. 0, 1, 2 …); Standard beim Anlegen 0.
         fuelType:
           $ref: "#/components/schemas/VehicleFuelType"
         fuels:
@@ -4147,6 +4178,37 @@ components:
         name:
           type: string
           minLength: 1
+        brand:
+          type: string
+          nullable: true
+        model:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          nullable: true
+          description: Baujahr; sonst 400 invalid_year
+        imageUrl:
+          type: string
+          nullable: true
+          description: "Bildadresse, z. B. die Antwort von POST /vehicles/{vehicleId}/media/upload; eine signierte Adresse aus einer Antwort wird wieder in die interne umgewandelt"
+        odometerKm:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: "Tachostand bei Anschaffung (Basis für die Fahrleistung in /stats); sonst 400 invalid_odometerKm"
+        mileageKm:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: "Laufleistung beim Anlegen; wird gespeichert, die API wertet sie nicht aus"
+        sortOrder:
+          type: number
+          description: >
+            Reihenfolge in der Fahrzeugübersicht (#181), aufsteigend; sonst 400 invalid_sortOrder. GET /vehicles sortiert eigene
+            Fahrzeuge vor geteilten, dann nach sortOrder, dann neueste zuerst. Der Wert gehört zum Fahrzeug (nicht je Konto):
+            ändern darf ihn nur der Besitzer, geteilte Konten sehen die Reihenfolge des Besitzers. Zum Umordnen die neuen Werte
+            je Fahrzeug per PATCH setzen (z. B. 0, 1, 2 …); Standard beim Anlegen 0.
         fuelType:
           $ref: "#/components/schemas/VehicleFuelType"
           description: Eine geänderte Antriebsart ohne fuels setzt die Sorten der neuen Antriebsart; dieselbe Antriebsart lässt die Sorten unverändert

@@ -30,6 +30,7 @@ include '../includes/fahrzeug_kontext.php';
         <li class="nav-item" role="presentation"><a class="nav-link" id="eintraege-tab" data-bs-toggle="tab" data-bs-target="#reiter-eintraege" href="#eintraege" role="tab">Einträge</a></li>
         <li class="nav-item" role="presentation"><a class="nav-link" id="statistiken-tab" data-bs-toggle="tab" data-bs-target="#reiter-statistiken" href="#statistiken" role="tab">Statistiken</a></li>
         <li class="nav-item" role="presentation"><a class="nav-link" id="ausgaben-tab" data-bs-toggle="tab" data-bs-target="#reiter-ausgaben" href="#ausgaben" role="tab">Ausgaben</a></li>
+        <li class="nav-item" role="presentation"><a class="nav-link" id="service-tab" data-bs-toggle="tab" data-bs-target="#reiter-service" href="#service" role="tab">Service</a></li>
         <li class="nav-item" role="presentation"><a class="nav-link" id="fahrten-tab" data-bs-toggle="tab" data-bs-target="#reiter-fahrten" href="#fahrten" role="tab">Fahrten</a></li>
         <li class="nav-item" role="presentation"><a class="nav-link" id="einstellungen-tab" data-bs-toggle="tab" data-bs-target="#reiter-einstellungen" href="#einstellungen" role="tab">Einstellungen</a></li>
     </ul>
@@ -40,7 +41,7 @@ include '../includes/fahrzeug_kontext.php';
         <div class="tab-pane fade" id="reiter-allgemein" role="tabpanel"><?php include '../tabs/allgemein.php'; ?></div>
         <?php // Die übrigen Reiter lädt die Seite erst beim Öffnen (pages/reiter.php, #160): sonst käme bei vielen
               // Einträgen alles auf einmal (mehrere MB HTML) ?>
-        <?php foreach (['eintraege', 'statistiken', 'ausgaben', 'fahrten', 'einstellungen'] as $reiterName): ?>
+        <?php foreach (['eintraege', 'statistiken', 'ausgaben', 'service', 'fahrten', 'einstellungen'] as $reiterName): ?>
         <div class="tab-pane fade" id="reiter-<?= $reiterName ?>" role="tabpanel" data-reiter="<?= $reiterName ?>">
             <div class="reiter-laden text-center text-body-secondary py-5" role="status">
                 <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Wird geladen …

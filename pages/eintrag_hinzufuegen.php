@@ -251,6 +251,11 @@ $heute = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->form
                 <label for="beschreibung" class="form-label">Beschreibung</label>
                 <textarea id="beschreibung" name="beschreibung" class="form-control" rows="2"></textarea>
             </div>
+            <?php
+            // Bauteile (#78): nur bei Werkstatt, Wartung, Reparatur, Inspektion und Reifen
+            try { $bauteilKatalog = $api->getVehicleParts($fahrzeug_id); } catch (Throwable $e) { $bauteilKatalog = ['parts' => [], 'groups' => []]; }
+            $bauteilSichtbar = kategorieErlaubtBauteile($vorgegebeneKategorie);
+            if ($bauteilKatalog['parts']) { include __DIR__ . '/../includes/bauteile_felder.php'; } ?>
         </div>
 
         <!-- Fahrt -->

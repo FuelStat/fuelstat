@@ -59,6 +59,7 @@ try {
             header('Location: eintrag_hinzufuegen.php?fahrzeug_id=' . rawurlencode($fahrzeug_id));
             exit;
         }
+        $bauteile = bauteileAusFormular($api, $fahrzeug_id, $_POST, $kategorie);
         $api->postEntry([
             'vehicleId' => $fahrzeug_id,
             'category' => $kategorie,
@@ -66,7 +67,7 @@ try {
             'odometerKm' => $tachostand,
             'occurredAt' => $dateTime,
             'description' => $beschreibung !== '' ? $beschreibung : null,
-        ]);
+        ] + ($bauteile !== null ? ['parts' => $bauteile] : []));
     } elseif ($eintragstyp === 'Fahrt') {
         // Fahrtenbuch (#52): Tachostand ist der Stand am Ende der Fahrt; Start aus "km" oder dem Feld Startstand
         $km = trim(str_replace(',', '.', (string)($_POST['gefahrene_km'] ?? '')));

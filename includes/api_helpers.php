@@ -801,6 +801,42 @@ function ladeangabenAusFormular(array $post, string $einheit): array
     ];
 }
 
+/**
+ * Bauteile (#78) aus dem Formular für die API: angehakte Bauteile (bauteil[]), Kostenanteile (anteil[<key>]) und ein
+ * neues eigenes Bauteil (bauteil_neu, wird bei Bedarf angelegt). Nur bei Kategorien mit allowsParts; sonst null
+ * (nichts senden, die API entfernt Bauteile beim Wechsel der Kategorie selbst).
+ * @return array|null Liste für `parts` oder null
+ */
+function bauteileAusFormular($api, string $fahrzeugId, array $post, string $kategorie): ?array
+{
+    if (!kategorieErlaubtBauteile($kategorie)) {
+        return null;
+    }
+    $keys = array_values(array_filter((array)($post['bauteil'] ?? []), fn($k) => is_string($k) && $k !== ''));
+    $neu = trim((string)($post['bauteil_neu'] ?? ''));
+    if ($neu !== '') {
+        try {
+            $keys[] = $api->postVehiclePart($fahrzeugId, $neu)['key'];
+        } catch (FuelstatApiException $e) {
+            // Gibt es schon (auch ein eingebautes mit diesem Namen): das vorhandene nehmen
+            if ($e->getMessage() !== 'part_exists') {
+                throw $e;
+            }
+            foreach ($api->getVehicleParts($fahrzeugId)['parts'] ?? [] as $p) {
+                if (mb_strtolower($p['name']) === mb_strtolower($neu)) {
+                    $keys[] = $p['key'];
+                }
+            }
+        }
+    }
+    $teile = [];
+    foreach (array_unique($keys) as $key) {
+        $anteil = trim(str_replace(',', '.', (string)(($post['anteil'] ?? [])[$key] ?? '')));
+        $teile[] = ['key' => $key, 'costShare' => is_numeric($anteil) ? (float)$anteil : null];
+    }
+    return $teile;
+}
+
 /** Kurztext der Ladeangaben (#25) für die Eintragsliste, z. B. "Schnelllader, DC · 20 → 80 % · 35 min"; ohne Angaben leer */
 function ladeangabenText(array $e): string
 {

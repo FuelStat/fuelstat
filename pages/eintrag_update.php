@@ -38,6 +38,11 @@ if ($type === 'entry') {
         ];
     }
     try {
+        // Bauteile (#78): bei Kategorien mit Bauteilen die angehakten (leer = keine); sonst nichts senden
+        $bauteile = $art === 'expense' ? bauteileAusFormular($api, $fahrzeug_id, $_POST, $kategorie) : null;
+        if ($bauteile !== null) {
+            $daten['parts'] = $bauteile;
+        }
         $api->patchEntry($eintrag_id, $daten);
         $_SESSION['success_message'] = (['trip' => 'Fahrt', 'odometer' => 'Kilometerstand'][$art] ?? 'Ausgabe') . ' aktualisiert.';
     } catch (Throwable $e) {

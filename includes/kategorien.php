@@ -88,6 +88,12 @@ function kategorieFormular(?string $kategorie): string
     return kategorieInfo($kategorie)['form'] ?? 'expense';
 }
 
+/** Lassen sich an Einträgen dieser Kategorie Bauteile angeben (#78)? Die API legt das fest (allowsParts). */
+function kategorieErlaubtBauteile(?string $kategorie): bool
+{
+    return !empty(kategorieInfo($kategorie)['allowsParts']);
+}
+
 /**
  * Kategorien für die Auswahl einer Ausgabe, nach Gruppen sortiert.
  * Gesperrte (Tarif) sind enthalten und als nicht verfügbar markiert; $aktuell bleibt immer wählbar.
@@ -122,7 +128,7 @@ function kategorieOptionen(?string $aktuell = null, bool $mitLeer = true): strin
             $html .= '<option value="' . htmlspecialchars($k['key']) . '"'
                 . ($k['key'] === $aktuell ? ' selected' : '')
                 . ($gesperrt ? ' disabled' : '')
-                . ' data-icon="' . htmlspecialchars($k['icon']) . '">'
+                . ' data-icon="' . htmlspecialchars($k['icon']) . '"' . (!empty($k['allowsParts']) ? ' data-bauteile="1"' : '') . '>'
                 . htmlspecialchars($k['name']) . ($gesperrt ? ' 🔒 Plus' : '')
                 . '</option>';
         }

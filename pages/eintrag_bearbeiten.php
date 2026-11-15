@@ -76,6 +76,12 @@ if ($type === 'entry') {
             <label class="form-label" for="beschreibung">Beschreibung</label>
             <textarea class="form-control" id="beschreibung" name="beschreibung" rows="2" placeholder="optional"><?= htmlspecialchars($eintrag['description'] ?? '') ?></textarea>
         </div>
+        <?php
+        // Bauteile (#78): nur bei Werkstatt, Wartung, Reparatur, Inspektion und Reifen
+        try { $bauteilKatalog = $api->getVehicleParts($fahrzeug_id); } catch (Throwable $e) { $bauteilKatalog = ['parts' => [], 'groups' => []]; }
+        $bauteilGewaehlt = $eintrag['parts'] ?? [];
+        $bauteilSichtbar = kategorieErlaubtBauteile($kategorie);
+        if ($bauteilKatalog['parts']) { include __DIR__ . '/../includes/bauteile_felder.php'; } ?>
         <?php elseif ($art === 'trip'): ?>
         <div class="row g-2 mb-3">
             <div class="col-6"><label for="startort" class="form-label">Von</label><input type="text" id="startort" name="startort" class="form-control" value="<?= htmlspecialchars($fahrt['startort']) ?>"></div>

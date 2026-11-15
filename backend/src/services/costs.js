@@ -16,6 +16,7 @@ const { canAccessVehicle } = require('./vehicleAccess');
 
 const { NON_COST_KEYS } = require('./categories');
 const { ENERGIES, ENERGY_ORDER, energyOf } = require('./fuels');
+const { GROUPS, BUILTIN_BY_KEY, customIdOf } = require('./categories');
 
 const TZ = 'Europe/Berlin';
 const round2 = (x) => Math.round(x * 100) / 100;
@@ -53,18 +54,35 @@ async function loadRows(db, userId, vehicleId) {
   if (!(await canAccessVehicle(db, userId, vehicleId, 'read'))) return null;
   const r = await db.query(
     `SELECT 'fillup' AS src, unit AS kind, fuel, total_cost_eur::float8 AS cost,
-            CASE WHEN odometer_estimated THEN NULL ELSE odometer_km END AS odo, filled_at AS at, created_at
+            CASE WHEN odometer_estimated THEN NULL ELSE odometer_km END AS odo, filled_at AS at, created_at,
+            id, NULL::text AS vendor, NULL::text AS description
        FROM fillups WHERE vehicle_id = $1
      UNION ALL
-     SELECT 'expense', category, NULL, amount_eur::float8, odometer_km, occurred_at, created_at
+     SELECT 'expense', category, NULL, amount_eur::float8, odometer_km, occurred_at, created_at,
+            id, vendor, description
        FROM expenses WHERE vehicle_id = $1`,
     [vehicleId]
   );
+  // Kostengruppen eigener Kategorien (custom:<id>), nur wenn es solche Einträge gibt
+  const customIds = [...new Set(r.rows.filter((x) => x.src === 'expense').map((x) => customIdOf(x.kind)).filter(Boolean))];
+  const customGroups = new Map();
+  if (customIds.length) {
+    const g = await db.query('SELECT id, group_key FROM expense_categories WHERE id = ANY($1::uuid[])', [customIds]);
+    for (const row of g.rows) customGroups.set(row.id, row.group_key);
+  }
   return r.rows.map((row) => {
     const at = new Date(row.at);
     const month = monthOf(at);
     const type = typeOf(row);
     return {
+      id: row.id ?? null,
+      vendor: row.vendor ?? null,
+      description: row.description ?? null,
+      // Kostengruppe (#180): Tanken/Laden, sonst die Gruppe der Kategorie aus /categories (eigene Kategorien: ihre Gruppe,
+      // freie Texte aus alten Importen: sonstiges); Fahrten und Kilometerstand haben keine
+      group: row.src === 'fillup' ? 'kraftstoff'
+        : type !== 'expense' ? null
+          : BUILTIN_BY_KEY[row.kind]?.group ?? customGroups.get(customIdOf(row.kind)) ?? 'sonstiges',
       type,
       // Kategorie-Schlüssel wie in /categories; Tank-/Ladevorgänge je Einheit ("Tankfuellung:l", "Tankfuellung:kwh")
       category: row.src === 'fillup' ? `Tankfuellung:${row.kind}` : row.kind,
@@ -118,6 +136,19 @@ function energyCostPerKm(rows) {
   return round4(f.slice(1).reduce((s, r) => s + r.cost, 0) / span);
 }
 
+// Summe und Anzahl je Kostengruppe (#180) über Zeilen, die als Kosten zählen; alle Gruppen aus /categories, auch ohne Kosten
+const GROUP_KEYS = GROUPS.map((g) => g.key);
+function groupTotals(costRows, totalAll) {
+  const map = Object.fromEntries(GROUP_KEYS.map((k) => [k, { key: k, total: 0, count: 0 }]));
+  for (const r of costRows) {
+    const g = map[r.group] ?? map.sonstiges;
+    g.total += r.cost;
+    g.count += 1;
+  }
+  return GROUP_KEYS.map((k) => ({ key: k, total: round2(map[k].total), count: map[k].count, share: totalAll > 0 ? Math.round((map[k].total / totalAll) * 1000) / 10 : null }));
+}
+const byGroupMap = (list) => Object.fromEntries(list.map((g) => [g.key, g.total]));
+
 function sums(rows) {
   const energy = rows.filter((r) => r.countsAsCost && r.type !== 'expense').reduce((s, r) => s + r.cost, 0);
   const expenses = rows.filter((r) => r.countsAsCost && r.type === 'expense').reduce((s, r) => s + r.cost, 0);
@@ -167,10 +198,17 @@ async function getVehicleCosts(db, userId, vehicleId, { year = null, now = new D
     }
     byMonth.set(r.month, m);
   }
+  const groupsOfMonth = new Map();
+  for (const r of costRows) {
+    const m = groupsOfMonth.get(r.month) ?? [];
+    m.push(r);
+    groupsOfMonth.set(r.month, m);
+  }
   const months = [...byMonth.values()]
     .sort((a, b) => (a.month < b.month ? 1 : -1))
     .map((m) => ({
       ...m,
+      byGroup: byGroupMap(groupTotals(groupsOfMonth.get(m.month) ?? [], 0)),
       energy: round2(m.energy),
       expenses: round2(m.expenses),
       total: round2(m.total),
@@ -189,6 +227,19 @@ async function getVehicleCosts(db, userId, vehicleId, { year = null, now = new D
   const categories = [...catMap.values()]
     .map((c) => ({ ...c, total: round2(c.total) }))
     .sort((a, b) => b.total - a.total || a.key.localeCompare(b.key));
+
+  const groups = groupTotals(costRows, total.total);
+  const largestExpenses = costRows
+    .filter((r) => r.type === 'expense')
+    .sort((a, b) => b.cost - a.cost || b.at - a.at)
+    .slice(0, 5)
+    .map((r) => ({ id: r.id, at: r.at.toISOString(), category: r.category, cost: round2(r.cost), vendor: r.vendor, description: r.description }));
+  const costYears = [...new Set(all.filter((r) => r.countsAsCost).map((r) => r.year))].sort((a, b) => b - a);
+  const byYear = costYears.map((y) => {
+    const list = all.filter((r) => r.countsAsCost && r.year === y);
+    const t = sums(list);
+    return { year: y, total: t.total, count: list.length, byGroup: byGroupMap(groupTotals(list, 0)) };
+  });
 
   const monthSums = (month) => ({ month, ...sums(all.filter((r) => r.month === month)) });
 
@@ -219,6 +270,14 @@ async function getVehicleCosts(db, userId, vehicleId, { year = null, now = new D
     currentMonth: monthSums(currentMonth),
     previousMonth: monthSums(previousMonth(currentMonth)),
     categories,
+    // Kostengruppen im Zeitraum (#180); share in % der Gesamtkosten
+    groups,
+    // Wartungskosten (Gruppe wartung) je 10.000 km im Zeitraum; null ohne Strecke
+    maintenancePer10000Km: distance ? round2((groups.find((g) => g.key === 'wartung').total / distance) * 10000) : null,
+    // Die fünf größten Einzelausgaben im Zeitraum ohne Tank-/Ladevorgänge, Fahrten und Kilometerstand
+    largestExpenses,
+    // Kosten je Jahr und Gruppe über den gesamten Zeitraum (Jahresvergleich), neueste zuerst, unabhängig von year
+    byYear,
     energies,
     // Jahre mit Kosten (gesamter Zeitraum), neueste zuerst – für die Jahresauswahl
     years: [...new Set(all.filter((r) => r.countsAsCost).map((r) => r.year))].sort((a, b) => b - a),

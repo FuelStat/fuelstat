@@ -97,7 +97,7 @@ $km = $kosten['distanceKm'] ?? null;
 $proMonat = $kosten['perMonth'] ?? null;
 $monate = (int)($kosten['monthCount'] ?? 0);
 $proKm = $kosten['costPerKm']['total'] ?? null;
-$wartungPro10k = $km ? $gruppenSummen['wartung'] / $km * 10000 : null;
+$wartungPro10k = $kosten['maintenancePer10000Km'] ?? null; // rechnet die API (#180)
 $groessteKategorie = array_key_first($kategorien);
 // Leere Gruppen (z. B. "Sonstiges" ohne Einträge) nicht anzeigen
 $sichtbareGruppen = array_filter($gruppen, fn($g) => $gruppenSummen[$g] > 0, ARRAY_FILTER_USE_KEY);
@@ -130,10 +130,11 @@ if ($selectedYear === null) {
 }
 $vergleichsGruppen = array_filter($gruppen, fn($g) => array_sum(array_map(fn($z) => $z['gruppen'][$g], $jahresVergleich)) > 0, ARRAY_FILTER_USE_KEY);
 
-// Größte Einzelausgaben (ohne Tankfüllungen)
-$groesste = array_filter($eintraege, fn($e) => $e['kategorie'] !== 'Tankfuellung');
-usort($groesste, fn($a, $b) => (float)$b['kosten'] <=> (float)$a['kosten']);
-$groesste = array_slice($groesste, 0, 5);
+// Größte Einzelausgaben (ohne Tankfüllungen): die fünf größten liefert die API (#180)
+$groesste = array_map(fn($x) => [
+    'kategorie' => $x['category'], 'kosten' => $x['cost'], 'datum' => (new DateTimeImmutable((string)$x['at']))->setTimezone(new DateTimeZone('Europe/Berlin'))->format('Y-m-d'),
+    'beschreibung' => (string)($x['description'] ?? ''), 'standort' => (string)($x['vendor'] ?? ''),
+], $kosten['largestExpenses'] ?? []);
 
 $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'gesamt';
 ?>

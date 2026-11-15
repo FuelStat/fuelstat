@@ -138,11 +138,12 @@ test('Antworten passen zur OpenAPI (Ablauf wie in der App)', async () => {
   const email = `vertrag-${unique()}@example.test`;
   const health = await vertrag('GET', '/health', {}, { status: 200 });
   // Mindestversion iOS (lib/appVersions.js): 0.1.x bekommt 426, /health aber immer
-  assert.deepEqual(health.body.apps.ios, { minimum_version: '0.2.0', recommended_version: '0.2.0' });
+  assert.deepEqual(health.body.apps.ios, { minimum_version: '0.2.2', recommended_version: '0.2.2' });
   const alt = await vertrag('GET', '/fuels', {}, { client: 'ios/0.1.0 (3)', status: 426 });
-  assert.equal(alt.body.minimum_version, '0.2.0');
+  assert.equal(alt.body.minimum_version, '0.2.2');
   await vertrag('GET', '/health', {}, { client: 'ios/0.1.0', status: 200 });
-  await vertrag('GET', '/fuels', {}, { client: 'ios/0.2.0 (7)', status: 200 });
+  await vertrag('GET', '/fuels', {}, { client: 'ios/0.2.1 (7)', status: 426 });
+  await vertrag('GET', '/fuels', {}, { client: 'ios/0.2.2 (7)', status: 200 });
   const reg = await vertrag('POST', '/auth/register', {}, { body: { email, password: 'Passwort123', device }, status: 201 });
   await pool.query('UPDATE users SET email_verified_at = now() WHERE id = $1', [reg.body.user.id]);
   await vertrag('POST', '/auth/login', {}, { body: { email, password: 'falsch123' }, status: 401 });

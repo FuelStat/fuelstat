@@ -334,7 +334,7 @@ test('Mail-Links (#175): mit quelle=app nur, wenn die Anfrage aus der App kommt'
       for (let i = 0; i < 50 && !postfach.slice(vorher).some((m) => m.includes(u.email) && m.includes('Passwort')); i++) await warte(50);
       return postfach.slice(vorher).find((m) => m.includes(u.email)).replace(/=\r\n/g, '').replace(/=3D/g, '=');
     };
-    assert.match(await neueMail('ios/0.2.0 (7)'), /quelle=app/);
+    assert.match(await neueMail('ios/0.2.2 (7)'), /quelle=app/);
     assert.doesNotMatch(await neueMail(undefined), /quelle=app/);
   } finally {
     delete process.env.APP_URL;

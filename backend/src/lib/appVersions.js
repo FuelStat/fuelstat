@@ -8,7 +8,9 @@
 // zeigen kann.
 const APP_VERSIONS = {
   // iOS 0.2.0: erste Version mit Listen in Seiten (#160) und Gerätesitzungen (#117); 0.1.0 versteht die API nicht mehr
-  ios: { minimum: '0.2.0', recommended: '0.2.0' },
+  // iOS 0.2.2: kommt mit der Archivierung von Fahrzeugen (409 vehicle_archived, Status, Archiv), den Bauteil-Terminen und den
+  // neuen Feldern von 0.13.0 zurecht; ältere Apps zeigen archivierte Fahrzeuge als normale und scheitern beim Erfassen
+  ios: { minimum: '0.2.2', recommended: '0.2.2' },
   android: { minimum: null, recommended: null }
 };
 

@@ -306,7 +306,7 @@ Healthcheck, ohne Auth.
   "beta_phase": true,
   "terms_version": "2026-11-09",
   "apps": {
-    "ios": { "minimum_version": "0.2.0", "recommended_version": "0.2.0" },
+    "ios": { "minimum_version": "0.2.2", "recommended_version": "0.2.2" },
     "android": { "minimum_version": null, "recommended_version": null }
   },
   "passkeys_enabled": true

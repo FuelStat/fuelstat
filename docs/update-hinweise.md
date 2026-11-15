@@ -10,6 +10,8 @@ Was beim Ausrollen einer Version zu tun ist, soweit es über `sudo infra/ausroll
 
 ## [0.13.0] - 2026-11-15
 
+- **Erst ausrollen, wenn die iOS-App 0.2.2 auf allen genutzten Geräten installiert ist:** Die Mindestversion für iOS steigt von 0.2.0 auf 0.2.2 (`backend/src/lib/appVersions.js`); Apps darunter bekommen danach nur noch „Update nötig“ (426). Prüfen nach dem Ausrollen: `curl -s https://<domain>/api/v1/health` zeigt `"minimum_version":"0.2.2"` bei `ios`.
+
 - Sichern (`sudo systemctl start fuelstat-backup.service`), dann ausrollen.
 
 - Einmalig Orte „null“ aufräumen, die das Bearbeiten ohne Ort früher geschrieben hat:

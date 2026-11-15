@@ -100,7 +100,7 @@ $serviceUrl = '../pages/service_speichern.php';
                     <?php if ((int)$t['changes'] > count($t['history'])): ?><p class="fs-label mb-0">Die letzten <?= count($t['history']) ?> von <?= (int)$t['changes'] ?> Wechseln.</p><?php endif; ?>
                     <?php endif; ?>
 
-                    <?php if ($istBesitzer): ?>
+                    <?php if ($darfAendern): ?>
                     <form method="post" action="<?= htmlspecialchars($serviceUrl) ?>" class="row g-2 align-items-end mt-2">
                         <input type="hidden" name="aktion" value="intervall">
                         <input type="hidden" name="fahrzeug_id" value="<?= htmlspecialchars($fahrzeug_id) ?>">

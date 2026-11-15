@@ -48,7 +48,7 @@ $bearbeitenUrl = '../pages/fahrzeug_bearbeiten.php?id=' . urlencode($fahrzeug_id
             <div class="card border-0 shadow-sm h-100 angaben-karte">
                 <div class="card-header bg-transparent d-flex justify-content-between align-items-center py-3">
                     <h3 class="h6 mb-0"><i class="fas <?= $icon ?> me-2 text-primary"></i><?= $titel ?></h3>
-                    <?php if ($istBesitzer): ?><a href="<?= htmlspecialchars($bearbeitenUrl . '#' . $abschnitt) ?>" class="btn btn-sm btn-outline-primary"><i class="fas fa-pen me-1"></i>Bearbeiten</a><?php endif; ?>
+                    <?php if ($darfAendern): ?><a href="<?= htmlspecialchars($bearbeitenUrl . '#' . $abschnitt) ?>" class="btn btn-sm btn-outline-primary"><i class="fas fa-pen me-1"></i>Bearbeiten</a><?php endif; ?>
                 </div>
                 <div class="card-body pb-2">
                     <dl class="row mb-0">
@@ -57,7 +57,7 @@ $bearbeitenUrl = '../pages/fahrzeug_bearbeiten.php?id=' . urlencode($fahrzeug_id
                             <dd class="col-7"><?= $w !== '' && $w !== null ? htmlspecialchars((string)$w) : '<span class="text-body-tertiary">–</span>' ?></dd>
                         <?php endforeach; ?>
                     </dl>
-                    <?php if ($leer >= 3 && $istBesitzer): ?>
+                    <?php if ($leer >= 3 && $darfAendern): ?>
                         <p class="small text-body-secondary mb-2"><a class="tipp-link" href="<?= htmlspecialchars($bearbeitenUrl . '#' . $abschnitt) ?>">Fehlende Angaben ergänzen</a> – sie verbessern Termine und Auswertungen.</p>
                     <?php endif; ?>
                 </div>
@@ -68,7 +68,7 @@ $bearbeitenUrl = '../pages/fahrzeug_bearbeiten.php?id=' . urlencode($fahrzeug_id
             <div class="card border-0 shadow-sm h-100 angaben-karte">
                 <div class="card-header bg-transparent d-flex justify-content-between align-items-center py-3">
                     <h3 class="h6 mb-0"><i class="fas fa-image me-2 text-primary"></i>Bild</h3>
-                    <?php if ($istBesitzer): ?><a href="<?= htmlspecialchars($bearbeitenUrl . '#bild') ?>" class="btn btn-sm btn-outline-primary"><i class="fas fa-pen me-1"></i>Ändern</a><?php endif; ?>
+                    <?php if ($darfAendern): ?><a href="<?= htmlspecialchars($bearbeitenUrl . '#bild') ?>" class="btn btn-sm btn-outline-primary"><i class="fas fa-pen me-1"></i>Ändern</a><?php endif; ?>
                 </div>
                 <div class="card-body">
                     <img src="<?= htmlspecialchars(fahrzeugBildUrl($fahrzeug, $baseUrl)) ?>" alt="Fahrzeugbild" class="rounded-3 w-100 object-fit-cover" style="max-height: 180px;">
@@ -134,7 +134,7 @@ $bearbeitenUrl = '../pages/fahrzeug_bearbeiten.php?id=' . urlencode($fahrzeug_id
                 </li>
                 <?php endforeach; ?>
             </ul>
-            <?php if ($istBesitzer): ?>
+            <?php if ($darfAendern): ?>
             <form method="post" action="<?= $teilenUrl ?>" class="row g-2 align-items-end">
                 <input type="hidden" name="aktion" value="einladen">
                 <input type="hidden" name="fahrzeug_id" value="<?= htmlspecialchars($fahrzeug_id) ?>">

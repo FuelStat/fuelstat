@@ -188,7 +188,8 @@ Grundgerüst für ein späteres Premium-Modell. Was ein Tarif darf, steht an ein
 
 * `users.plan` (`free`, `plus`, `fleet`) und `users.plan_until` (Ende, `null` = unbefristet; danach gilt `free`). Admins setzen beides mit `PUT /auth/users/:userId/plan`, für mehrere Konten auf einmal mit `PUT /auth/plans` `{ "userIds": [...], "plan": "plus", "planUntil": null }` (Antwort `{ updated, changed, plan, planUntil }`: `updated` = gefundene Konten, `changed` = davon tatsächlich geändert; max. 1000 IDs, sonst 400 `invalid_userIds`), oder in der Benutzerverwaltung (Häkchen, „Alle auswählen“, „Tarif setzen“). Optional `note` (bis 200 Zeichen) fürs Protokoll, z. B. „Tester“.
 * `PLAN_LIMITS_ENABLED=true` in der `.env` schaltet die Grenzen ein. **Standard: aus**, dann haben alle Konten mindestens die Rechte von `plus`.
-* `GET /whoami` liefert `plan`, `planUntil`, `effectivePlan` (gerade geltender Tarif), `limitsEnabled` und `features` (z. B. `maxVehicles: 1`, `sharing: false`; `null` = unbegrenzt).
+* `GET /whoami` liefert `plan`, `planUntil`, `effectivePlan` (gerade geltender Tarif), `limitsEnabled` und `features` (z. B. `maxVehicles: 1`, `maxArchivedVehicles: 1`, `sharing: false`; `null` = unbegrenzt).
+* **Fahrzeugzahlen (#79):** Free 1 aktives + 1 archiviertes Fahrzeug, Plus 5 + 5, Flotte 25 + 25. Beide Zahlen zählen nur Fahrzeuge des Kontos (nicht die mit ihm geteilten) und **gelten erst mit `PLAN_LIMITS_ENABLED=true`**; bis dahin sind sie `null` (unbegrenzt), auch für Plus.
 * Verbietet der Tarif etwas, antwortet die API mit **403** `{ "error": "plan_required", "feature": "maxVehicles", "limit": 1, "plan": "free" }`. Derzeit geprüft: Anzahl Fahrzeuge beim Anlegen, Premium- und eigene Kategorien (siehe Kategorien). Herabstufen löscht nichts.
 * Datenexport ist nie an einen Tarif gebunden (DSGVO Art. 20).
 
@@ -689,6 +690,18 @@ Die **Eintragsliste** eines Fahrzeugs: Tank-/Ladevorgänge, Ausgaben und Fahrten
 * `months`: Summen der Monate auf dieser Seite – über den **ganzen** Monat und mit denselben Filtern (`{ month, count, total }`; Fahrten und km-Notizen zählen nicht als Kosten)
 * `years`, `kinds`: Jahre und Anzahl je Art **ohne** Filter, für Jahresauswahl und Filter-Chips
 * Fehler: 400 `invalid_type`, `invalid_year`, `invalid_page`, `invalid_per_page`; 404 `vehicle_not_found`
+
+## Fahrzeug archivieren: verkauft oder stillgelegt (#79)
+
+Ein Fahrzeug hat einen **Status**: `active`, `sold` (verkauft) oder `decommissioned` (stillgelegt). Verkaufte und stillgelegte Fahrzeuge sind **archiviert**.
+
+* **Setzen:** `PATCH /vehicles/:vehicleId` `{ "status": "sold", "saleDate", "saleOdometerKm", "salePrice" }` bzw. `{ "status": "decommissioned", "decommissionedFrom", "decommissionedUntil" }`. Ohne `saleDate` gilt heute (oder ein schon gespeichertes Verkaufsdatum), ohne `decommissionedFrom` heute. Die Antworten und `GET /vehicles` enthalten `status`, `sale_date`, `sale_price`, `sale_odometer_km`, `decommissioned_from`, `decommissioned_until`. **Der Status wird nie geraten:** Ein Fahrzeug mit Verkaufsdatum (#45) bleibt aktiv, bis der Besitzer es archiviert. „Abgemeldet bis“ ist nur eine Angabe, das Fahrzeug wird nie automatisch wieder aktiv.
+* **Nur lesbar:** Alle Daten und Statistiken bleiben abrufbar (auch Export und Service-Ansicht). Jede schreibende Anfrage zum Fahrzeug (Einträge, Tanken/Laden, Fahrten, Import, Bilder, Bauteile und Intervalle, Teilen, Fahrzeugdaten) antwortet mit **409** `{ "error": "vehicle_archived", "message": "…", "status": "sold" }`. Erlaubt bleiben: Reihenfolge (`sortOrder`), die Angaben zu Verkauf und Stilllegung, Wiederaktivieren, das Fahrzeug löschen sowie Mitglieder und offene Einladungen entfernen. Eine Anfrage, die zugleich `status: "active"` setzt, darf auch andere Felder ändern.
+* **Wieder aktivieren:** `PATCH /vehicles/:vehicleId` `{ "status": "active" }`. Verkauf in Stilllegung ändern (und umgekehrt) braucht keinen weiteren Platz.
+* **Grenzen** (nur mit `PLAN_LIMITS_ENABLED`, siehe Tarife): Anlegen und Wiederaktivieren zählen die aktiven Fahrzeuge des Kontos (`maxVehicles`), Archivieren die archivierten (`maxArchivedVehicles`); sonst 403 `plan_required` mit dem jeweiligen `feature`. Herabstufen löscht nichts.
+* **Liste:** `GET /vehicles?status=active|archived|all` (Standard `all`; archivierte bleiben in der Liste, damit Apps sie nicht verlieren; sonst 400 `invalid_status`).
+* **Erinnerungen und Mails:** Für archivierte Fahrzeuge liefert `/reminders` eine leere Liste, und es gibt weder Termin-, „Kilometerstand nachtragen“- und „lange kein Eintrag“-Mails/Pushes noch Monatsbericht.
+* Fehler beim Setzen: 400 `invalid_status`, `invalid_saleOdometerKm`, `invalid_decommissionedFrom`, `invalid_decommissionedUntil`.
 
 ## Passwort und 2FA (Auth required)
 

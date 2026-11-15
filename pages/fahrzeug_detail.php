@@ -20,6 +20,18 @@ include '../includes/fahrzeug_kontext.php';
 <div class="container mt-lg-3">
     <!-- Der Name steht sichtbar im Foto (Allgemein), in der Kopfleiste (mobil) und im Fahrzeugwechsler (PC) -->
     <h1 class="visually-hidden"><?= htmlspecialchars($fahrzeug['name'] ?? 'Fahrzeug') ?></h1>
+    <?php if ($archiviert): ?>
+    <div class="alert alert-secondary d-flex flex-wrap align-items-center gap-2 mt-3 mb-0" role="status">
+        <span class="flex-grow-1"><i class="fas fa-box-archive me-1" aria-hidden="true"></i><strong><?= htmlspecialchars(fahrzeugStatusText($fahrzeug)) ?>.</strong> Alle Daten bleiben lesbar, ändern lässt sich nichts.</span>
+        <?php if ($istBesitzer): ?>
+        <form method="post" action="fahrzeug_status.php" class="m-0">
+            <input type="hidden" name="fahrzeug_id" value="<?= htmlspecialchars($fahrzeug_id) ?>">
+            <input type="hidden" name="status" value="active">
+            <button type="submit" class="btn btn-sm btn-secondary">Wieder aktivieren</button>
+        </form>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
     <?php if (!$istBesitzer): ?>
     <p class="fs-label mt-2 mb-2"><i class="fas fa-users me-1" aria-hidden="true"></i>Geteilt von <?= htmlspecialchars((string)($fahrzeug['owner_name'] ?? '')) ?> · <?= $rolle === 'editor' ? 'du kannst Einträge erfassen' : 'nur ansehen' ?></p>
     <?php endif; ?>

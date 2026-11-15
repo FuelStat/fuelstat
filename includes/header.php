@@ -40,6 +40,7 @@ function getUserVehicles($user_id) {
                 'id' => $v['id'],
                 'marke' => '', // API liefert nur name
                 'modell' => $v['name'] ?? '',
+                'status' => $v['status'] ?? 'active', // active | sold | decommissioned (#79)
             ];
         }
     } catch (Throwable $e) {
@@ -90,13 +91,16 @@ if (is_array($currentUser) && !empty($currentUser['terms']['required'])
 
 // --- Navigation: Seitentitel, Zurück-Link und Fahrzeug-Kontext für die mobile Ansicht ---
 $angemeldet = isApiAuthenticated();
-$userVehicles = $angemeldet ? getUserVehicles($_SESSION['user_id'] ?? null) : [];
+$alleFahrzeuge = $angemeldet ? getUserVehicles($_SESSION['user_id'] ?? null) : [];
+// Wechsler, Start und „Eintrag erfassen“ kennen nur aktive Fahrzeuge; verkaufte und stillgelegte (#79) stehen im Archiv
+// unter „Meine Fahrzeuge“ und bleiben über ihre Seite erreichbar ($alleFahrzeuge).
+$userVehicles = array_values(array_filter($alleFahrzeuge, fn($v) => $v['status'] === 'active'));
 $skript = basename($_SERVER['SCRIPT_NAME'] ?? '');
 
 // Fahrzeug, um das es auf der aktuellen Seite geht (nur eigene Fahrzeuge)
 $kontextId = (string)($_GET['fahrzeug_id'] ?? (in_array($skript, ['fahrzeug_detail.php', 'fahrzeug_bearbeiten.php', 'import.php'], true) ? ($_GET['id'] ?? '') : ''));
 $kontextFahrzeug = null;
-foreach ($userVehicles as $vehicle) {
+foreach ($alleFahrzeuge as $vehicle) {
     if ($kontextId !== '' && (string)$vehicle['id'] === $kontextId) {
         $kontextFahrzeug = $vehicle;
     }
@@ -162,7 +166,7 @@ $tabbarAktiv = [
 ][$skript] ?? null;
 
 // Ziel von "+ Eintrag" und "Statistik": aktuelles Fahrzeug, das einzige Fahrzeug oder Auswahl im Blatt
-$zielFahrzeug = $kontextFahrzeug ?? (count($userVehicles) === 1 ? $userVehicles[0] : null);
+$zielFahrzeug = ($kontextFahrzeug && $kontextFahrzeug['status'] === 'active') ? $kontextFahrzeug : (count($userVehicles) === 1 ? $userVehicles[0] : null);
 // Beta-Phase (Kennzeichen neben dem Logo) und Feedback-Link mit der aktuellen Seite als Kontext
 $betaPhase = istBetaPhase();
 $feedbackUrl = $baseUrl . 'pages/feedback.php' . ($skript !== 'feedback.php' ? '?von=' . rawurlencode($_SERVER['REQUEST_URI'] ?? '') : '');
@@ -381,8 +385,9 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
         <span class="tabbar-kreis"><i class="fas fa-plus"></i></span>
     </button>
     <?php endif; ?>
-    <?php if ($zielFahrzeug): ?>
-    <a href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_detail.php?id=<?= htmlspecialchars(urlencode($zielFahrzeug['id'])) ?>#statistiken" id="tabbarStatistik" class="tabbar-link">
+    <?php $statistikFahrzeug = $kontextFahrzeug ?? $zielFahrzeug; // auch archivierte Fahrzeuge haben Statistiken ?>
+    <?php if ($statistikFahrzeug): ?>
+    <a href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_detail.php?id=<?= htmlspecialchars(urlencode($statistikFahrzeug['id'])) ?>#statistiken" id="tabbarStatistik" class="tabbar-link">
         <i class="fas fa-chart-line"></i><span>Statistik</span>
     </a>
     <?php else: ?>

@@ -22,6 +22,9 @@ try {
 } catch (Throwable $e) {
     $ladeFehler = true;
 }
+// Verkaufte und stillgelegte Fahrzeuge (#79) stehen im Archiv unter „Meine Fahrzeuge“, nicht auf dem Start
+$archivierte = count(array_filter($vehicles, fn($v) => ($v['status'] ?? 'active') !== 'active'));
+$vehicles = array_values(array_filter($vehicles, fn($v) => ($v['status'] ?? 'active') === 'active'));
 $fz = null;
 foreach ($vehicles as $v) {
     if ($startFahrzeug && (string)$v['id'] === (string)$startFahrzeug['id']) {
@@ -74,11 +77,20 @@ endif;
     <div class="card leer-zustand mx-auto">
         <div class="card-body">
             <span class="symbol-kreis symbol-kreis-token symbol-kreis-gross" style="--farbe: var(--fs-brand)" aria-hidden="true"><i class="fas fa-car-side"></i></span>
+            <?php if ($archivierte > 0): ?>
+            <h1 class="h2">Kein aktives Fahrzeug</h1>
+            <p class="text-body-secondary mb-4">Deine Fahrzeuge sind verkauft oder stillgelegt. Du findest sie mit allen Daten im Archiv, oder du legst ein neues Fahrzeug an.</p>
+            <a href="pages/fahrzeug_hinzufuegen.php" class="btn btn-primary btn-lg px-4">
+                <i class="fas fa-plus" aria-hidden="true"></i>Fahrzeug hinzufügen
+            </a>
+            <p class="mt-3 mb-0"><a href="pages/fahrzeuge.php">Zum Archiv (<?= $archivierte ?>)</a></p>
+            <?php else: ?>
             <h1 class="h2">Noch kein Fahrzeug angelegt</h1>
             <p class="text-body-secondary mb-4">Lege dein erstes Fahrzeug an, danach kannst du Tankfüllungen, Ladevorgänge und Ausgaben erfassen.</p>
             <a href="pages/fahrzeug_hinzufuegen.php" class="btn btn-primary btn-lg px-4">
                 <i class="fas fa-plus" aria-hidden="true"></i>Fahrzeug hinzufügen
             </a>
+            <?php endif; ?>
             <p class="fs-footnote mt-4 mb-0">
                 <i class="fas fa-file-import me-1" aria-hidden="true"></i>Daten aus einer anderen App oder Excel? Nach dem Anlegen unter „Einträge“ → „Import“ übernehmen.
             </p>

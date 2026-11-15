@@ -10,6 +10,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - **Anmelden mit Passkey** (#2): Unter „Profil“ → „Passkeys“ richtest du Face ID, Fingerabdruck, Windows Hello oder einen Sicherheitsschlüssel ein. Danach meldest du dich mit „Mit Passkey anmelden“ oder direkt aus den Vorschlägen im E-Mail-Feld an – ohne Passwort und ohne 2FA-Code. Das Passwort bleibt als Rückfallweg. Fuelstat speichert nur den öffentlichen Schlüssel.
 
 ### Verbessert
+- **Verkaufte und stillgelegte Fahrzeuge** (#79): Unter „Fahrzeug bearbeiten“ → „Status“ markierst du ein Fahrzeug als verkauft (mit Datum, Tachostand und Erlös) oder stillgelegt (mit Zeitraum). Es wandert in „Meine Fahrzeuge“ in den eingeklappten Bereich „Archiv“, alle Daten, Statistiken und Exporte bleiben lesbar, ändern lässt sich nichts, bis du es wieder aktivierst. Für archivierte Fahrzeuge gibt es keine Termin-Erinnerungen, keine Mails und keinen Monatsbericht; Wechsler, Start und Schnellerfassung zeigen nur aktive Fahrzeuge. Mit Tarifgrenzen (siehe unten) zählen aktive und archivierte Fahrzeuge getrennt.
 - **Kostengruppen, Wartung je 10.000 km und größte Ausgaben kommen aus der API** (#180): `GET /vehicles/:id/costs` liefert Summen je Kostengruppe (insgesamt, je Monat und je Jahr), die Wartungskosten je 10.000 km und die fünf größten Einzelausgaben. Der Reiter „Ausgaben“ zeigt dieselben Zahlen wie bisher, rechnet „Wartung je 10.000 km“ und „Größte Einzelausgaben“ aber nicht mehr selbst. Bestehende Werte ändern sich nicht.
 - **Service-Historie je Bauteil** (#78): Bei Werkstatt, Wartung, Reparatur, Inspektion und Reifen wählst du, was gewechselt wurde (Motoröl & Filter, Bremsbeläge vorn/hinten, Bremsscheiben, Bremsflüssigkeit, Sommer-/Winterreifen, Batterie, Zündkerzen, Innenraumfilter, Klimaservice, Zahnriemen oder eigene Bauteile), bei mehreren Bauteilen optional mit Kostenanteil. Der neue Reiter „Service“ zeigt je Bauteil den letzten Wechsel, die Historie, die Lebensdauer (km und Monate zwischen zwei Wechseln) und den nächsten Wechsel. Den nächsten Wechsel legst du mit einem eigenen Intervall fest (Zeit und/oder km, was zuerst kommt); ohne Intervall schätzt Fuelstat ihn ab dem zweiten Wechsel aus der bisherigen Lebensdauer und kennzeichnet ihn als „ca.“. Eine Schätzung ist nie „überfällig“ und löst keine E-Mail und keinen Push aus. Bauteile mit Intervall erscheinen unter „Nächste Termine“ und in den Erinnerungen, CSV-Export und -Import haben eine Spalte „Bauteile“, der Bericht enthält die Service-Historie. Bestehende Einträge bekommen keine Bauteile; Fuelstat rät nichts.
 - **Verbrauch auch ohne „voll geladen“** (#25): Mit dem **Ladestand nachher** rechnet Fuelstat den Verbrauch zwischen zwei Ladungen aus, auch wenn du nie auf 100 % lädst. Wie viele kWh ein Prozent sind, ergibt sich aus deinen eigenen Ladungen (Wallbox-Menge inklusive Ladeverlusten). Wo es keinen einzigen Abschnitt gibt, zeigt Fuelstat den Verbrauch aus der Summe aller Ladungen ÷ Strecke und sagt das dazu. Bisherige Verbrauchswerte ändern sich nicht.
@@ -23,6 +24,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - **Passwort zurücksetzen meldet kein fremdes Konto mehr ab** (#175): Setzt du im Browser das Passwort eines anderen Kontos zurück, als dort angemeldet ist, bleibst du angemeldet; die Meldung nennt beide Konten. Nur das zurückgesetzte Konto wird auf allen Geräten abgemeldet.
 
 ### Technik
+- Fahrzeug-Lebenszyklus (#79): neue Spalten `status`, `sale_odometer_km`, `decommissioned_from`, `decommissioned_until` an `vehicles` (Migration 027). `PATCH /vehicles/:id` setzt sie über `status` (`active`, `sold`, `decommissioned`), `saleOdometerKm`, `decommissionedFrom`, `decommissionedUntil`; `GET /vehicles?status=active|archived|all`. Jede schreibende Anfrage zu einem archivierten Fahrzeug antwortet mit **409** `vehicle_archived` (zentrale Prüfung, Ausnahmen: Reihenfolge, Verkaufs-/Stilllegungsangaben, Wiederaktivieren, Löschen, Mitglieder und Einladungen entfernen). `/reminders` ist für archivierte Fahrzeuge leer. `/whoami` `features` enthält `maxArchivedVehicles` (Free 1, Plus 5, Flotte 25; wie `maxVehicles` nur mit `PLAN_LIMITS_ENABLED=true`, sonst `null`).
 - `/vehicles/:id/consumption` und `/vehicles/:id/stats` liefern `primary` (Hauptkennzahl, von der API je Antriebsart festgelegt), `/consumption` zusätzlich `costPer100kmPeriods` (€/100 km je Monat und Jahr, günstigster und teuerster Monat) (#156). Keine Migration.
 - `/costs` (#180): neue Felder `groups`, `maintenancePer10000Km`, `largestExpenses`, `byYear` und `months[].byGroup`, alle abwärtskompatibel. OpenAPI: `sortOrder`, `odometerKm`, `brand`, `model`, `year`, `imageUrl`, `mileageKm` in `VehicleCreateRequest` und `VehiclePatchRequest` (#181).
 - Service-Historie (#78): neue Endpunkte `GET`/`POST /vehicles/:id/parts`, `PATCH`/`DELETE …/parts/:partId`, `PUT …/part-intervals/:key`, `GET …/service`; `/entries` (POST, PATCH, Listen), die Eintragsliste und der Import kennen `parts`; `/categories` meldet `allowsParts`; `/reminders` enthält zusätzlich Zeilen zu Bauteilen (`category` `part:<key>`, `source` `bauteil` oder `lebensdauer`). Migration 026 (`vehicle_parts`, `expense_parts`, `vehicle_part_intervals`).
@@ -39,6 +41,15 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
   cd infra
   sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "UPDATE fillups SET station = NULL WHERE station = '"'"'null'"'"'"'
   ```
+
+- Migration `027_vehicle_status` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich, alle Fahrzeuge bleiben aktiv). Von Hand:
+
+  ```bash
+  cd infra
+  sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_027_vehicle_status.sql
+  ```
+
+- Die neuen Grenzen für aktive und archivierte Fahrzeuge (Free 1+1, Plus 5+5, Flotte 25+25) gelten erst mit `PLAN_LIMITS_ENABLED=true`; bis dahin ändert sich beim Ausrollen nichts.
 
 - Migration `026_parts` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich, bestehende Einträge bleiben unverändert). Von Hand:
 

@@ -35,8 +35,13 @@ fs.writeFileSync(clPfad, cl);
 
 // Update-Hinweise für Betreiber (nicht Teil der Release-Notes): [Unreleased] wird zur neuen Version, auch wenn er leer ist
 const uhPfad = path.join(ROOT, 'docs', 'update-hinweise.md');
-if (fs.existsSync(uhPfad)) {
-  const uh = fs.readFileSync(uhPfad, 'utf8');
+let uh = null;
+try {
+  uh = fs.readFileSync(uhPfad, 'utf8'); // ohne vorherige Existenzprüfung (Dateisystem-Race): fehlt die Datei, ist uh null
+} catch (e) {
+  if (e.code !== 'ENOENT') throw e;
+}
+if (uh !== null) {
   if (!uh.includes('## [Unreleased]')) fehler('docs/update-hinweise.md: Abschnitt "## [Unreleased]" fehlt');
   fs.writeFileSync(uhPfad, uh.replace('## [Unreleased]', `## [Unreleased]\n\n## [${version}] - ${datum}`));
 }

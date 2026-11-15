@@ -181,6 +181,7 @@ $abschnittEnde = fn() => $istNeu ? '</section>' : '</div></div></div>';
         <div class="row g-3 mb-4">
             <div class="col-6"><label for="purchaseDate" class="form-label">Kaufdatum</label><input type="date" id="purchaseDate" name="purchaseDate" class="form-control" value="<?= $wert('purchase_date') ?>"></div>
             <div class="col-6"><label for="purchasePrice" class="form-label">Kaufpreis (€)</label><input type="number" id="purchasePrice" name="purchasePrice" class="form-control" min="0" step="0.01" inputmode="decimal" value="<?= $zahl('purchase_price') ?>"></div>
+            <div class="col-6"><label for="residualValue" class="form-label">Geschätzter Restwert (€)</label><input type="number" id="residualValue" name="residualValue" class="form-control" min="0" step="0.01" inputmode="decimal" value="<?= $zahl('residual_value') ?>"><div class="form-text">Heutiger Wert des Fahrzeugs, für den Wertverlust. Beim Verkauf zählt der Erlös.</div></div>
         </div>
         <h3 class="h6 text-body-secondary">Intervalle laut Hersteller</h3>
         <div class="row g-3 mb-1">

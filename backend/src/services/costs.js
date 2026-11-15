@@ -171,11 +171,14 @@ async function getVehicleCosts(db, userId, vehicleId, { year = null, now = new D
 
   // Ø je Monat: vom ersten Monat mit Kosten bis heute bzw. bis Jahresende; Monate ohne Kosten zählen mit
   const currentMonth = monthOf(now);
+  // Ein verkauftes Fahrzeug kostet nach dem Verkauf nichts mehr: die Monate zählen bis zum Verkaufsmonat (#79)
+  const sold = (await db.query(`SELECT to_char(sale_date, 'YYYY-MM') AS m FROM vehicles WHERE id = $1`, [vehicleId])).rows[0]?.m ?? null;
+  const lastMonth = sold && sold < currentMonth ? sold : currentMonth;
   const firstCostMonth = all.filter((r) => r.countsAsCost).map((r) => r.month).sort()[0] ?? null;
   let monthCount = 0;
   if (firstCostMonth) {
     const from = year === null || firstCostMonth > `${year}-01` ? firstCostMonth : `${year}-01`;
-    const to = year === null || `${year}-12` >= currentMonth ? currentMonth : `${year}-12`;
+    const to = year === null || `${year}-12` >= lastMonth ? lastMonth : `${year}-12`;
     monthCount = to >= from ? monthsBetween(from, to) : 0;
   }
 
@@ -285,4 +288,4 @@ async function getVehicleCosts(db, userId, vehicleId, { year = null, now = new D
   };
 }
 
-module.exports = { getVehicleCosts, monthOf, previousMonth, distanceKm, periodDistance, energyCostPerKm };
+module.exports = { getVehicleCosts, loadRows, groupTotals, sums, round2, round4, TZ, monthOf, previousMonth, distanceKm, periodDistance, energyCostPerKm };

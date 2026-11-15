@@ -183,6 +183,7 @@ test('Antworten passen zur OpenAPI (Ablauf wie in der App)', async () => {
   await vertrag('GET', '/vehicles/{vehicleId}/stats', { vehicleId }, { token, status: 200 });
   await vertrag('GET', '/vehicles/{vehicleId}/consumption', { vehicleId }, { token, status: 200 });
   await vertrag('GET', '/vehicles/{vehicleId}/costs', { vehicleId }, { token, status: 200 });
+  await vertrag('GET', '/vehicles/{vehicleId}/tco', { vehicleId }, { token, status: 200 });
   await vertrag('GET', '/vehicles/{vehicleId}/reminders', { vehicleId }, { token, status: 200 });
   await vertrag('GET', '/vehicles/{vehicleId}/members', { vehicleId }, { token, status: 200 });
   await vertrag('GET', '/vehicles/{vehicleId}/media', { vehicleId }, { token, status: 200 });

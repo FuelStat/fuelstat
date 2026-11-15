@@ -24,6 +24,7 @@ const VEHICLE_EXTRA_FIELDS = [
   ['purchasePrice', 'purchase_price', money],
   ['saleDate', 'sale_date', date],
   ['salePrice', 'sale_price', money],
+  ['residualValue', 'residual_value', money],
   ['serviceIntervalMonths', 'service_interval_months', int(1, 60)],
   ['serviceIntervalKm', 'service_interval_km', int(1000, 100000)],
   ['oilIntervalMonths', 'oil_interval_months', int(1, 60)],

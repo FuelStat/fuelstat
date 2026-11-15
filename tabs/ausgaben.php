@@ -140,6 +140,16 @@ $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'gesamt';
 ?>
 
 <div class="mt-3 mt-lg-4">
+    <?php
+    // Gesamtkosten (#79): ganze Besitzzeit, die API rechnet; erst zeigen, wenn es Kosten oder einen Kaufpreis gibt
+    try {
+        $tco = $api->getVehicleTco($fahrzeug_id);
+        if (($tco['running']['total'] ?? 0) > 0 || ($tco['purchase']['price'] ?? null) !== null) {
+            include __DIR__ . '/../includes/tco_karte.php';
+        }
+    } catch (Throwable $e) {
+    }
+    ?>
     <!-- Zeitraum -->
     <form method="get" action="fahrzeug_detail.php#ausgaben" class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <input type="hidden" name="id" value="<?= htmlspecialchars($fahrzeug_id) ?>">

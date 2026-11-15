@@ -2788,6 +2788,109 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/vehicles/{vehicleId}/tco:
+    get:
+      tags: [Stats]
+      summary: Total cost of ownership and depreciation (#79)
+      description: >
+        Gesamtkosten = laufende Kosten (alle gebuchten Tank-/Ladevorgänge und Ausgaben, die als Kosten zählen, auch Leasing- und
+        Finanzierungsraten, wenn sie als Ausgabe gebucht sind) plus Wertverlust. Wertverlust = Kaufpreis minus Verkaufserlös (verkauftes
+        Fahrzeug) bzw. minus geschätztem Restwert; fehlt eine Angabe, ist er null (nie 0, nie geschätzt) und `complete` false.
+        Besitzzeit vom Kaufdatum (sonst erster Eintrag) bis zum Verkaufsdatum (sonst heute), Europe/Berlin. Für alle Tarife.
+      operationId: getVehicleTco
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [currency, status, running, total, complete, shares, categories]
+                properties:
+                  currency: { type: string, example: EUR }
+                  status: { type: string, enum: [active, sold, decommissioned] }
+                  from: { type: string, format: date, nullable: true }
+                  to: { type: string, format: date, nullable: true }
+                  ownershipDays: { type: integer, nullable: true }
+                  ownershipMonths: { type: number, nullable: true }
+                  distanceKm: { type: integer, nullable: true, description: "Strecke aus echten Tachoständen; null ohne Strecke" }
+                  purchase:
+                    type: object
+                    properties:
+                      date: { type: string, format: date, nullable: true }
+                      price: { type: number, nullable: true }
+                  sale:
+                    type: object
+                    nullable: true
+                    description: "Nur bei verkauften Fahrzeugen"
+                    properties:
+                      date: { type: string, format: date, nullable: true }
+                      price: { type: number, nullable: true }
+                      odometerKm: { type: integer, nullable: true }
+                  residualValue: { type: number, nullable: true, description: "Geschätzter Restwert; null bei verkauften Fahrzeugen" }
+                  valueBasis: { type: string, nullable: true, enum: [sale, residual, null], description: "Womit der Wertverlust gerechnet ist" }
+                  valueLoss: { type: number, nullable: true }
+                  valueLossPerYear: { type: number, nullable: true, description: "Erst ab 30 Tagen Besitzzeit" }
+                  running:
+                    type: object
+                    required: [total, energy, expenses, groups, categories]
+                    properties:
+                      total: { type: number }
+                      energy: { type: number }
+                      expenses: { type: number }
+                      groups:
+                        type: array
+                        items:
+                          type: object
+                          required: [key, total, count, share]
+                          properties:
+                            key: { type: string, example: "wartung" }
+                            total: { type: number }
+                            count: { type: integer }
+                            share: { type: number, nullable: true, description: "% der laufenden Kosten" }
+                      categories:
+                        type: array
+                        items:
+                          type: object
+                          required: [key, total, count]
+                          properties:
+                            key: { type: string, example: "Versicherung" }
+                            total: { type: number }
+                            count: { type: integer }
+                  total: { type: number, description: "Laufende Kosten plus Wertverlust (falls bekannt)" }
+                  complete: { type: boolean, description: "false, solange der Wertverlust fehlt" }
+                  perMonth: { type: number, nullable: true }
+                  perKm: { type: number, nullable: true, description: "€/km, null ohne Strecke" }
+                  shares:
+                    type: array
+                    description: "Anteile an den Gesamtkosten: Kostengruppen und wertverlust, größte zuerst"
+                    items:
+                      type: object
+                      required: [key, total, share]
+                      properties:
+                        key: { type: string, example: "wertverlust" }
+                        total: { type: number }
+                        share: { type: number, nullable: true }
+                  categories:
+                    type: array
+                    description: "Kosten je Kategorie mit Anteil an den Gesamtkosten, größte zuerst"
+                    items:
+                      type: object
+                      required: [key, total, count, share]
+                      properties:
+                        key: { type: string }
+                        total: { type: number }
+                        count: { type: integer }
+                        share: { type: number, nullable: true }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
   /api/v1/vehicles/{vehicleId}/costs:
     get:
       tags: [Stats]
@@ -4200,6 +4303,10 @@ components:
         salePrice:
           type: number
           nullable: true
+        residualValue:
+          type: number
+          nullable: true
+          description: "Geschätzter Restwert in € eines Fahrzeugs, das noch gefahren wird (#79); zusammen mit purchasePrice der Wertverlust in /tco"
         serviceIntervalMonths:
           type: integer
           nullable: true
@@ -4348,6 +4455,10 @@ components:
         salePrice:
           type: number
           nullable: true
+        residualValue:
+          type: number
+          nullable: true
+          description: "Geschätzter Restwert in € eines Fahrzeugs, das noch gefahren wird (#79); zusammen mit purchasePrice der Wertverlust in /tco"
         serviceIntervalMonths:
           type: integer
           nullable: true
@@ -4475,6 +4586,9 @@ components:
           format: date
           nullable: true
         sale_price:
+          type: number
+          nullable: true
+        residual_value:
           type: number
           nullable: true
         status:

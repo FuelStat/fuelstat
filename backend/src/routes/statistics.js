@@ -1,4 +1,4 @@
-// Routen: /vehicles/:vehicleId/consumption, /vehicles/:vehicleId/costs, /vehicles/:vehicleId/reminders, /vehicles/:vehicleId/stats
+// Routen: /vehicles/:vehicleId/consumption, /vehicles/:vehicleId/costs, /vehicles/:vehicleId/tco, /vehicles/:vehicleId/reminders, /vehicles/:vehicleId/stats
 // Aus backend/src/server.js ausgelagert (#110), Inhalt unverändert.
 const express = require('express');
 const { pool } = require('../db');
@@ -6,6 +6,7 @@ const { UUID_RE, serverError } = require('../lib/http');
 const { auth } = require('../middleware/auth');
 const { getVehicleConsumption, primaryForStats } = require('../services/consumption');
 const { getVehicleCosts } = require('../services/costs');
+const { getVehicleTco } = require('../services/tco');
 const { getVehicleReminders } = require('../services/reminders');
 const { getVehicleStats } = require('../services/stats');
 const { vehicleRole } = require('../services/vehicleAccess');
@@ -61,6 +62,19 @@ router.get('/vehicles/:vehicleId/costs', auth, async (req, res) => {
   if (!UUID_RE.test(vehicleId)) return res.status(404).json({ error: 'vehicle_not_found' });
   try {
     const data = await getVehicleCosts(pool, req.user.sub, vehicleId, { year });
+    if (!data) return res.status(404).json({ error: 'vehicle_not_found' });
+    res.json(data);
+  } catch (e) {
+    serverError(res, e);
+  }
+});
+
+// Gesamtkosten (TCO) und Wertverlust (#79): laufende Kosten, Kaufpreis, Verkaufserlös bzw. Restwert, Kennzahlen
+router.get('/vehicles/:vehicleId/tco', auth, async (req, res) => {
+  const vehicleId = String(req.params.vehicleId || '').trim();
+  if (!UUID_RE.test(vehicleId)) return res.status(404).json({ error: 'vehicle_not_found' });
+  try {
+    const data = await getVehicleTco(pool, req.user.sub, vehicleId);
     if (!data) return res.status(404).json({ error: 'vehicle_not_found' });
     res.json(data);
   } catch (e) {

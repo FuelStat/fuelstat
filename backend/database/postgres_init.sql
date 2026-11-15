@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
   purchase_price numeric(10,2) NULL CHECK (purchase_price IS NULL OR purchase_price >= 0),
   sale_date date NULL,
   sale_price numeric(10,2) NULL CHECK (sale_price IS NULL OR sale_price >= 0),
+  residual_value numeric(10,2) NULL CHECK (residual_value IS NULL OR residual_value >= 0),
   service_interval_months smallint NULL CHECK (service_interval_months IS NULL OR service_interval_months BETWEEN 1 AND 60),
   service_interval_km integer NULL CHECK (service_interval_km IS NULL OR service_interval_km BETWEEN 1000 AND 100000),
   oil_interval_months smallint NULL CHECK (oil_interval_months IS NULL OR oil_interval_months BETWEEN 1 AND 60),

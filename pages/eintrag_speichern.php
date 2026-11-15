@@ -48,7 +48,8 @@ try {
             'filledAt' => $dateTime,
             'isFull' => $vollgetankt,
             'skipPrevious' => $skipPrevious,
-        ] + ($einheit !== null ? ['unit' => $einheit] : []) + ($sorte !== null ? ['fuel' => $sorte] : []));
+        ] + ($einheit !== null ? ['unit' => $einheit] : []) + ($sorte !== null ? ['fuel' => $sorte] : [])
+          + ladeangabenAusFormular($_POST, ($sorte !== null ? (sortenKatalog()['sorten'][$sorte]['unit'] ?? null) : null) ?? ($_POST['einheit'] ?? '')));
     } elseif ($eintragstyp === 'Andere Ausgabe') {
         $kategorie = trim($_POST['kategorie'] ?? '');
         $kosten = (float)($_POST['kosten'] ?? 0);

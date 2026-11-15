@@ -103,7 +103,20 @@ CREATE TABLE IF NOT EXISTS fillups (
   filled_at timestamptz NOT NULL DEFAULT now(),
   is_full boolean NOT NULL DEFAULT true,
   skip_previous boolean NOT NULL DEFAULT false, -- Lücke davor: Vollbetankung ist nur neuer Startpunkt
-  created_at timestamptz NOT NULL DEFAULT now()
+  -- Ladevorgänge (#25, Migration 025), alles optional und nur für kWh-Einträge
+  charge_type text NULL,                   -- home (zu Hause/Wallbox), ac_public, dc
+  soc_before_pct smallint NULL,            -- Ladestand vorher in %
+  soc_after_pct smallint NULL,             -- Ladestand nachher in %
+  charge_minutes integer NULL,             -- Ladedauer in Minuten
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT fillups_charge_check CHECK (
+    (charge_type IS NULL OR charge_type IN ('home', 'ac_public', 'dc'))
+    AND (soc_before_pct IS NULL OR soc_before_pct BETWEEN 0 AND 100)
+    AND (soc_after_pct IS NULL OR soc_after_pct BETWEEN 0 AND 100)
+    AND (soc_before_pct IS NULL OR soc_after_pct IS NULL OR soc_after_pct >= soc_before_pct)
+    AND (charge_minutes IS NULL OR charge_minutes BETWEEN 1 AND 4320)
+    AND (unit = 'kwh' OR (charge_type IS NULL AND soc_before_pct IS NULL AND soc_after_pct IS NULL AND charge_minutes IS NULL))
+  )
 );
 
 CREATE INDEX IF NOT EXISTS idx_fillups_user_vehicle_filled ON fillups(user_id, vehicle_id, filled_at DESC);

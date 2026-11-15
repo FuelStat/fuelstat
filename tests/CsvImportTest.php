@@ -108,4 +108,21 @@ assert(importSorte('Kerosin', $sorten) === null);
 assert(importSorte('', $sorten) === null);
 assert(importErkenneZuordnung(['Datum', 'Sorte', 'Menge'])['sorte'] === 1);
 
+// Ladeangaben (#25): Ladeart, Ladestand, Ladedauer; alte Dateien ohne diese Spalten bleiben unverändert
+assert(importLadeart('Zu Hause') === 'home' && importLadeart('Wallbox') === 'home' && importLadeart('home') === 'home');
+assert(importLadeart('AC öffentlich') === 'ac_public' && importLadeart('Öffentlich') === 'ac_public' && importLadeart('ac_public') === 'ac_public');
+assert(importLadeart('DC') === 'dc' && importLadeart('Schnelllader') === 'dc' && importLadeart('AC/DC') === 'dc' && importLadeart('HPC') === 'dc');
+assert(importLadeart('') === null && importLadeart('irgendwas') === null);
+$daten = importLeseCsv("Datum;Kategorie;Tachostand (km);Menge;Einheit;Kosten (EUR);Voll;Ort/Anbieter;Beschreibung;Ladeart;Ladestand vorher (%);Ladestand nachher (%);Ladedauer (min)\n"
+    . "05.01.2026;Laden;38302;14,80;kWh;4,14;nein;Wallbox;;Zu Hause;25;90;420\n"
+    . "05.01.2026;Tanken;38337;41,20;l;72,10;ja;Aral;;Zu Hause;20;80;30\n"
+    . "06.01.2026;Laden;38390;9,60;kWh;2,69;ja;Wallbox;;;;;\n");
+$zuordnung = importErkenneZuordnung($daten['kopf']);
+assert($zuordnung['ladeart'] === 9 && $zuordnung['soc_vorher'] === 10 && $zuordnung['soc_nachher'] === 11 && $zuordnung['ladedauer'] === 12);
+$r = importWandleUm($daten['zeilen'], $zuordnung, 'Werkstatt');
+assert($r['fillups'][0]['chargeType'] === 'home' && $r['fillups'][0]['socBeforePct'] === 25 && $r['fillups'][0]['socAfterPct'] === 90 && $r['fillups'][0]['chargeMinutes'] === 420);
+assert(!isset($r['fillups'][1]['chargeType']) && !isset($r['fillups'][1]['socAfterPct']), 'Tankzeilen bekommen keine Ladeangaben');
+assert(!isset($r['fillups'][2]['chargeType']) && !isset($r['fillups'][2]['socAfterPct']), 'leere Zellen werden nicht gesendet');
+assert($r['vorschau'][0]['ladeart'] === 'home');
+
 echo "All tests passed\n";

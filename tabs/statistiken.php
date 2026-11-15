@@ -41,6 +41,8 @@ foreach ($einheitenDaten as $u => $ud) {
         'monate' => $monate,
         'jahre' => $ud['jahresdaten'],
         'schnitt' => $a['avg'] ?? null,
+        // Summenmethode (#25): kein Abschnitt (kein voller Eintrag, kein Ladestand), Ø aus der Summe aller Mengen ÷ Strecke
+        'summe' => ($a['avgMethod'] ?? null) === 'sum',
         'min' => $a['min'] ?? null,
         'max' => $a['max'] ?? null,
         'gekauft' => (float)($a['amountBought'] ?? 0),
@@ -182,6 +184,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                 <?php else: ?>
                 <div class="kennzahl-wert"><?= $p['schnitt'] !== null ? $zahl($p['schnitt']) . ' <small class="fw-normal">' . $p['kurz'] . '/100 km</small>' : '—' ?></div>
                 <div class="small text-body-secondary"><?= $zahl($p['gekauft'], 0) ?> <?= $p['kurz'] ?><?php if ($p['preis'] !== null): ?> · Ø <?= $zahl($p['preis'], 3) ?> €/<?= $p['kurz'] ?><?php endif; ?></div>
+                <?php if ($p['summe']): ?><div class="small text-body-secondary">aus der Summe, ohne vollen Abschnitt</div><?php endif; ?>
                 <?php endif; ?>
             </div>
         </div>
@@ -201,6 +204,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                 <div class="small text-body-secondary">Ø Verbrauch</div>
                 <div class="kennzahl-wert"><?= $durchschnittVerbrauch !== null ? $zahl($durchschnittVerbrauch) . ' <small class="fw-normal">' . $haupt['kurz'] . '/100 km</small>' : '—' ?></div>
                 <?php if ($minVerbrauch !== null): ?><div class="small text-body-secondary"><?= $zahl($minVerbrauch, 1) ?> bis <?= $zahl($maxVerbrauch, 1) ?></div><?php endif; ?>
+                <?php if ($haupt['summe']): ?><div class="small text-body-secondary">aus der Summe aller <?= $begriffe['vorgaenge'] ?>, ohne vollen Abschnitt</div><?php endif; ?>
             </div>
         </div>
         <div class="col-6 col-lg-3">
@@ -226,6 +230,39 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
             </div>
         </div>
     </div>
+
+    <?php $ladeStat = $d['verbrauch']['chargeTypes'] ?? null;
+    if ($ladeStat && ($ladeStat['typedShare'] ?? 0) > 0):
+        $ladeLeistung = (bool)array_filter(array_column($ladeStat['types'], 'avgPowerKw'), fn($v) => $v !== null); ?>
+    <!-- Laden nach Ladeart (#25): Anteil, Ø Preis und Leistung; Ladevorgänge ohne Angabe als eigene Zeile -->
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <h3 class="h6 mb-3">Laden nach Ladeart</h3>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead><tr><th scope="col">Ladeart</th><th scope="col" class="text-end">Anteil</th><th scope="col" class="text-end">Ø €/kWh</th><?php if ($ladeLeistung): ?><th scope="col" class="text-end">Ø kW</th><?php endif; ?></tr></thead>
+                    <tbody>
+                    <?php foreach ($ladeStat['types'] as $t): ?>
+                        <tr>
+                            <th scope="row" class="fw-normal">
+                                <?= htmlspecialchars(ladearten()[$t['type'] ?? ''] ?? 'Ohne Angabe') ?>
+                                <span class="d-block fs-label"><?= (int)$t['count'] ?>× · <?= $zahl($t['amount'], 0) ?> kWh</span>
+                            </th>
+                            <td class="text-end text-nowrap"><?= $t['share'] !== null ? $zahl($t['share'], 0) . ' %' : '—' ?></td>
+                            <td class="text-end text-nowrap"><?= $t['avgPrice'] !== null ? $zahl($t['avgPrice'], 3) : '—' ?></td>
+                            <?php if ($ladeLeistung): ?><td class="text-end text-nowrap"><?= $t['avgPowerKw'] !== null ? $zahl($t['avgPowerKw'], 1) : '—' ?></td><?php endif; ?>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <p class="small text-body-secondary mb-0 mt-2">
+                <?php if ($ladeStat['homeShare'] !== null): ?>Zu Hause <?= $zahl($ladeStat['homeShare'], 0) ?> %, unterwegs <?= $zahl(100 - $ladeStat['homeShare'], 0) ?> % der Ladungen mit Angabe. <?php endif; ?>
+                Ladungen ohne Ladeart zählen dabei nicht mit. Die Leistung ergibt sich aus kWh ÷ Ladedauer, nur über Ladungen mit Ladedauer.
+            </p>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <?php if ($sortenPreise): ?>
     <!-- Preise je Sorte (#140): Anteil an der Energieart, Ø Preis, Mehrpreis der Premium-Sorten -->

@@ -238,6 +238,7 @@ $bearbeitbar = isset($eintrag['filled_at']) && strtotime($eintrag['filled_at']) 
             <input type="checkbox" class="form-check-input" role="switch" id="skip_previous" name="skip_previous" value="1" <?= $skip_previous ? 'checked' : '' ?>>
             <label class="form-check-label" for="skip_previous" id="lueckeLabel"><?= $begriffe['luecke'] ?></label>
         </div>
+        <?php $ladeWerte = $eintrag; $ladeSichtbar = $einheit === 'kwh'; include __DIR__ . '/../includes/ladeangaben_felder.php'; ?>
         </fieldset>
 
         <div class="formular-aktionen">
@@ -292,6 +293,10 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('lueckeLabel').textContent = t.luecke;
         document.getElementById('titel').textContent = t.vorgang + ' bearbeiten';
         document.getElementById('loeschenText').textContent = t.vorgang + ' löschen';
+        // Ladeart, Ladestand, Ladedauer (#25) nur beim Laden
+        const lade = document.getElementById('ladeAngaben');
+        lade.hidden = radio.value !== 'kwh';
+        lade.querySelectorAll('input, select').forEach(f => { f.disabled = radio.value !== 'kwh'; });
         sortenFuerEinheit(radio.value);
         rechner.aktualisiere();
     }));

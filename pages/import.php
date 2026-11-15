@@ -27,18 +27,20 @@ if (isset($_GET['vorlage'])) {
     header('Content-Disposition: attachment; filename="fuelstat_import_vorlage.csv"');
     if ($fuelType === 'phev') {
         // Plug-in-Hybrid: Tanken und Laden in einer Datei, die Spalte "Einheit" unterscheidet sie
-        echo "\xEF\xBB\xBF" . "Datum;Kategorie;Tachostand (km);Menge;Einheit;Kosten (EUR);Voll;Ort/Anbieter;Beschreibung\r\n"
-            . "05.01.2026;Laden;38302;14,80;kWh;4,14;ja;Zuhause (Wallbox);\r\n"
-            . "05.01.2026;Tanken;38337;41,20;l;72,10;ja;Aral Musterstadt;\r\n"
-            . "06.01.2026;Laden;38390;9,60;kWh;2,69;ja;Zuhause (Wallbox);\r\n"
+        echo "\xEF\xBB\xBF" . "Datum;Kategorie;Tachostand (km);Menge;Einheit;Kosten (EUR);Voll;Ort/Anbieter;Beschreibung;Ladeart;Ladestand vorher (%);Ladestand nachher (%);Ladedauer (min)\r\n"
+            . "05.01.2026;Laden;38302;14,80;kWh;4,14;ja;Zuhause (Wallbox);;Zu Hause;25;90;420\r\n"
+            . "05.01.2026;Tanken;38337;41,20;l;72,10;ja;Aral Musterstadt;;;;;\r\n"
+            . "06.01.2026;Laden;38390;9,60;kWh;2,69;ja;Zuhause (Wallbox);;Zu Hause;;;\r\n"
             . "02.01.2026;Versicherung;;;;420,00;;HUK;Jahresbeitrag\r\n"
             . "15.03.2026;Werkstatt;39100;;;189,00;;ATU;Bremsbeläge vorne\r\n";
         exit;
     }
+    // Elektroauto: Ladeart, Ladestand und Ladedauer (#25) als optionale Spalten am Ende
+    $ladeKopf = $begriffe['art'] === 'strom' ? ";Ladeart;Ladestand vorher (%);Ladestand nachher (%);Ladedauer (min)" : '';
     $beispiele = $begriffe['art'] === 'strom'
-        ? ["05.01.2026;Laden;38337;24,50;6,13;ja;Zuhause (Wallbox);", "20.01.2026;Laden;38700;18,00;12,42;ja;EnBW Schnelllader;"]
+        ? ["05.01.2026;Laden;38337;24,50;6,13;ja;Zuhause (Wallbox);;Zu Hause;20;100;540", "20.01.2026;Laden;38700;18,00;12,42;nein;EnBW Schnelllader;;DC;15;80;32"]
         : ["05.01.2026;Tankfüllung;38337;33,50;61,20;ja;Aral Musterstadt;", "20.01.2026;Tankfüllung;38700;15,00;27,90;nein;Shell;"];
-    echo "\xEF\xBB\xBF" . "Datum;Kategorie;Tachostand (km);Menge (" . $einheit . ");Kosten (EUR);" . $begriffe['voll'] . ";Ort/Anbieter;Beschreibung\r\n"
+    echo "\xEF\xBB\xBF" . "Datum;Kategorie;Tachostand (km);Menge (" . $einheit . ");Kosten (EUR);" . $begriffe['voll'] . ";Ort/Anbieter;Beschreibung" . $ladeKopf . "\r\n"
         . implode("\r\n", $beispiele) . "\r\n"
         . "02.01.2026;Versicherung;;;420,00;;HUK;Jahresbeitrag\r\n"
         . "15.03.2026;Werkstatt;39100;;189,00;;ATU;Bremsbeläge vorne\r\n";

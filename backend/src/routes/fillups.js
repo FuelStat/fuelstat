@@ -10,6 +10,7 @@ const { unitsForFuelType } = require('../services/stats');
 const { fuelInfo, unitOf, vehicleFuels, fuelForUnit } = require('../services/fuels');
 const { checkUnverifiedLimit } = require('../middleware/verified');
 const { vehicleRole, canEditEntry, RECHTE } = require('../services/vehicleAccess');
+const { CHARGE_COLUMNS, hasChargeInput, resolveCharge } = require('../services/charging');
 
 const router = express.Router();
 
@@ -69,6 +70,10 @@ router.post('/fillups', auth, async (req, res) => {
       fuel = fuelForUnit(vehicle, unit);
     }
 
+    // Ladeart, Ladestand, Ladedauer (#25): nur bei kWh
+    const charge = resolveCharge(req.body, null, unit);
+    if (charge.error) return res.status(400).json({ error: charge.error });
+
     const r = await pool.query(
       `INSERT INTO fillups (
          user_id,
@@ -83,7 +88,11 @@ router.post('/fillups', auth, async (req, res) => {
          is_full,
          skip_previous,
          odometer_estimated,
-         fuel
+         fuel,
+         charge_type,
+         soc_before_pct,
+         soc_after_pct,
+         charge_minutes
        )
        VALUES (
          $1,
@@ -102,10 +111,15 @@ router.post('/fillups', auth, async (req, res) => {
          $9,
          $10,
          $11,
-         $12
+         $12,
+         $13,
+         $14,
+         $15,
+         $16
        )
-       RETURNING id, vehicle_id, odometer_km, amount, unit, fuel, total_cost_eur, price_per_unit, station, filled_at, created_at, is_full, skip_previous, odometer_estimated`,
-      [req.user.sub, vehicleId, odometerKm === null ? null : Math.round(odometerKm), amount, unit, totalCostEur, station, filledAt, isFull, skipPrevious, odometerEstimated, fuel]
+       RETURNING id, vehicle_id, odometer_km, amount, unit, fuel, total_cost_eur, price_per_unit, station, filled_at, created_at, is_full, skip_previous, odometer_estimated, ${CHARGE_COLUMNS}`,
+      [req.user.sub, vehicleId, odometerKm === null ? null : Math.round(odometerKm), amount, unit, totalCostEur, station, filledAt, isFull, skipPrevious, odometerEstimated, fuel,
+        charge.chargeType, charge.socBeforePct, charge.socAfterPct, charge.chargeMinutes]
     );
 
     // Unplausibler Tachostand: speichern, aber warnen (#51)
@@ -138,7 +152,8 @@ router.get('/fillups/:fillupId', auth, async (req, res) => {
          created_at,
          is_full,
          skip_previous,
-         odometer_estimated
+         odometer_estimated,
+         ${CHARGE_COLUMNS}
        FROM fillups
        WHERE id = $1`,
       [fillupId]
@@ -181,7 +196,8 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
          created_at,
          is_full,
          skip_previous,
-         odometer_estimated
+         odometer_estimated,
+         ${CHARGE_COLUMNS}
        FROM fillups
        WHERE id = $1`,
       [fillupId]
@@ -233,8 +249,9 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
     const patchFuel =
       body.fuel !== undefined && body.fuel !== null && body.fuel !== '' ? String(body.fuel).trim().toLowerCase() : undefined;
 
+    // null bzw. leer entfernt den Ort (nicht der Text "null")
     const patchStation =
-      body.station !== undefined ? String(body.station).trim() : undefined;
+      body.station === undefined ? undefined : body.station === null || String(body.station).trim() === '' ? null : String(body.station).trim();
 
     const patchFilledAt =
       body.filledAt !== undefined ? new Date(body.filledAt) : undefined;
@@ -256,7 +273,8 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
       patchFilledAt === undefined &&
       patchIsFull === undefined &&
       patchSkipPrevious === undefined &&
-      patchOdometerEstimated === undefined
+      patchOdometerEstimated === undefined &&
+      !hasChargeInput(body)
     ) {
       return res.status(400).json({ error: 'nothing_to_update' });
     }
@@ -321,6 +339,10 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
       return res.status(400).json({ error: 'invalid_unit' });
     }
 
+    // Ladeart, Ladestand, Ladedauer (#25): null löscht; bei einer anderen Einheit als kWh entfallen sie
+    const charge = resolveCharge(body, existing, newUnit);
+    if (charge.error) return res.status(400).json({ error: charge.error });
+
     const updateRes = await pool.query(
       `UPDATE fillups
        SET
@@ -338,7 +360,11 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
          is_full       = $7,
          skip_previous = $8,
          odometer_estimated = $10,
-         fuel = $11
+         fuel = $11,
+         charge_type = $12,
+         soc_before_pct = $13,
+         soc_after_pct = $14,
+         charge_minutes = $15
        WHERE id = $9
        RETURNING
          id,
@@ -355,7 +381,8 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
          created_at,
          is_full,
          skip_previous,
-         odometer_estimated`,
+         odometer_estimated,
+         ${CHARGE_COLUMNS}`,
       [
         newOdometerKm === null ? null : Math.round(newOdometerKm),
         newAmount,
@@ -367,7 +394,11 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
         newSkipPrevious,
         fillupId,
         newOdometerEstimated,
-        newFuel
+        newFuel,
+        charge.chargeType,
+        charge.socBeforePct,
+        charge.socAfterPct,
+        charge.chargeMinutes
       ]
     );
 
@@ -492,6 +523,7 @@ router.get('/vehicles/:vehicleId/fillups', auth, async (req, res) => {
          is_full,
          skip_previous,
          odometer_estimated,
+         ${CHARGE_COLUMNS},
          user_id AS created_by,
          (SELECT COALESCE(u.username, u.email) FROM users u WHERE u.id = fillups.user_id) AS created_by_name
        FROM fillups

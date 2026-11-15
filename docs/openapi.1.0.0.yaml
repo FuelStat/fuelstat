@@ -2460,6 +2460,35 @@ paths:
                             percent: { type: number, nullable: true }
                             basePrice: { type: number }
                   costPer100km: { type: number, nullable: true, description: "Energiekosten pro 100 km über alle Energiearten" }
+                  chargeTypes:
+                    type: object
+                    nullable: true
+                    description: >
+                      Ladevorgänge (kWh) nach Ladeart (#25); null ohne Ladevorgänge. Ladevorgänge ohne Angabe stehen als
+                      eigene Gruppe (type null). homeShare (zu Hause gegen unterwegs) rechnet nur über Ladevorgänge mit Angabe,
+                      typedShare sagt, wie viel Prozent der kWh eine Ladeart haben. avgPowerKw = kWh ÷ Ladedauer, nur über
+                      Ladevorgänge mit Dauer.
+                    properties:
+                      total:
+                        type: object
+                        properties:
+                          count: { type: integer }
+                          amount: { type: number }
+                          cost: { type: number }
+                      types:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            type: { type: string, nullable: true, enum: [home, ac_public, dc, null] }
+                            count: { type: integer }
+                            amount: { type: number, description: kWh }
+                            cost: { type: number }
+                            avgPrice: { type: number, nullable: true, description: "€/kWh" }
+                            share: { type: number, nullable: true, description: "% der kWh aller Ladevorgänge" }
+                            avgPowerKw: { type: number, nullable: true }
+                      typedShare: { type: number, nullable: true }
+                      homeShare: { type: number, nullable: true }
                   primary:
                     type: object
                     description: >
@@ -2492,7 +2521,10 @@ paths:
                       properties:
                         unit: { type: string, enum: [l, kwh, kg] }
                         energy: { $ref: "#/components/schemas/Energy" }
-                        avg: { type: number, nullable: true }
+                        avg: { type: number, nullable: true, description: "Ø Verbrauch; ohne Abschnitt die Summenmethode (avgMethod sum)" }
+                        avgMethod: { type: string, nullable: true, enum: [segments, sum, null], description: "Woher avg kommt (#25)" }
+                        sumConsumption: { type: number, nullable: true, description: "Summenmethode (#25): Menge aller Einträge nach dem ersten ÷ Strecke vom ersten bis zum letzten Eintrag mit echtem Tachostand" }
+                        coverage: { type: number, nullable: true, description: "Anteil (0–1) der Strecke, den Abschnitte abdecken; niedrig heißt, avg stützt sich auf wenig Strecke" }
                         min: { type: number, nullable: true }
                         max: { type: number, nullable: true }
                         kmConsumed: { type: number }
@@ -2518,6 +2550,7 @@ paths:
                               km: { type: number }
                               amount: { type: number }
                               consumption: { type: number, nullable: true }
+                              method: { type: string, enum: [full, level] }
                         months:
                           type: array
                           items:
@@ -4244,6 +4277,10 @@ components:
         consumption: { type: number, nullable: true, description: "Verbrauch pro 100 km des Abschnitts, den diese volle Füllung abschließt; null bei nebenbei getankten Energiearten" }
         created_by: { type: string, format: uuid }
         created_by_name: { type: string, nullable: true }
+        charge_type: { type: string, nullable: true, enum: [home, ac_public, dc, null], description: "Ladeart (#25), nur Ladevorgänge" }
+        soc_before_pct: { type: integer, nullable: true }
+        soc_after_pct: { type: integer, nullable: true }
+        charge_minutes: { type: integer, nullable: true }
 
     VehicleListResponse:
       description: Eine Seite (#160)
@@ -4306,6 +4343,29 @@ components:
         skipPrevious:
           type: boolean
           default: false
+        chargeType:
+          type: string
+          nullable: true
+          enum: [home, ac_public, dc, null]
+          description: "Ladeart (#25, nur kWh): home = zu Hause/Wallbox, ac_public = AC öffentlich, dc = DC-Schnelllader"
+        socBeforePct:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: "Ladestand vorher in % (#25, nur kWh)"
+        socAfterPct:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: "Ladestand nachher in % (#25, nur kWh), nicht unter dem Ladestand vorher"
+        chargeMinutes:
+          type: integer
+          minimum: 1
+          maximum: 4320
+          nullable: true
+          description: "Ladedauer in Minuten (#25, nur kWh)"
       required: [vehicleId]
 
     FillupPatchRequest:
@@ -4343,6 +4403,29 @@ components:
           type: boolean
         skipPrevious:
           type: boolean
+        chargeType:
+          type: string
+          nullable: true
+          enum: [home, ac_public, dc, null]
+          description: "Ladeart (#25, nur kWh; null löscht): home = zu Hause/Wallbox, ac_public = AC öffentlich, dc = DC-Schnelllader"
+        socBeforePct:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: "Ladestand vorher in % (#25, nur kWh; null löscht)"
+        socAfterPct:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: "Ladestand nachher in % (#25, nur kWh; null löscht), nicht unter dem Ladestand vorher"
+        chargeMinutes:
+          type: integer
+          minimum: 1
+          maximum: 4320
+          nullable: true
+          description: "Ladedauer in Minuten (#25, nur kWh; null löscht)"
 
     OdometerWarning:
       type: object
@@ -4415,6 +4498,10 @@ components:
           type: boolean
         skip_previous:
           type: boolean
+        charge_type: { type: string, nullable: true, enum: [home, ac_public, dc, null], description: "Ladeart (#25), nur kWh-Einträge" }
+        soc_before_pct: { type: integer, nullable: true, description: "Ladestand vorher in % (#25)" }
+        soc_after_pct: { type: integer, nullable: true, description: "Ladestand nachher in % (#25)" }
+        charge_minutes: { type: integer, nullable: true, description: "Ladedauer in Minuten (#25)" }
       required: [id, vehicle_id, odometer_km, unit, amount, total_cost_eur, filled_at, created_at, is_full, skip_previous]
 
     FillupListResponse:
@@ -4456,6 +4543,10 @@ components:
           type: number
           nullable: true
           description: Verbrauch je 100km (z.B. l/100km oder kWh/100km). Null wenn km=0.
+        method:
+          type: string
+          enum: [full, level]
+          description: "Wie der Abschnitt begrenzt ist (#25): full = von voller Füllung zu voller Füllung, level = mindestens ein Eckpunkt ist eine Ladung mit bekanntem Ladestand (auch ohne „voll geladen“)"
       required: [full_id, full_at, km, liters_segment]
 
     VehicleStatsTrend:
@@ -4531,7 +4622,8 @@ components:
               avgConsumption:
                 type: number
                 nullable: true
-                description: Ø Verbrauch pro 100 km über alle Abschnitte (nach km gewichtet)
+                description: Ø Verbrauch pro 100 km über alle Abschnitte (nach km gewichtet); ohne Abschnitt die Summenmethode (siehe avgMethod)
+              avgMethod: { type: string, nullable: true, enum: [segments, sum, null], description: "Woher der Ø kommt (#25): Abschnitte oder, wenn es keinen Abschnitt gibt, Summe der Mengen ÷ Strecke" }
               trend:
                 $ref: "#/components/schemas/VehicleStatsTrend"
                 nullable: true
@@ -4544,6 +4636,7 @@ components:
               unit: { $ref: "#/components/schemas/FillupUnit" }
               avgPrice: { type: number, nullable: true }
               avgConsumption: { type: number, nullable: true }
+              avgMethod: { type: string, nullable: true, enum: [segments, sum, null] }
               trend:
                 $ref: "#/components/schemas/VehicleStatsTrend"
                 nullable: true

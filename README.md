@@ -46,7 +46,8 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 - Tankstellen in der Nähe mit aktuellen Preisen über Tankerkönig
 - Ladestationen mit Leistung und Steckertypen über Open Charge Map
 - Zuletzt verwendete Tankstellen und Ladestationen als Vorschläge
-- Unterstützung für Teil- und Vollbetankungen sowie Teilladevorgänge
+- Unterstützung für Teil- und Vollbetankungen sowie Teilladevorgänge; Verbrauch auch ohne „voll geladen“ über den Ladestand
+- Ladeart (zu Hause, AC öffentlich, DC), Ladestand vorher/nachher und Ladedauer, Auswertung nach Ladeart
 - Getrennte Verbrauchsauswertung für Kraftstoff und Strom bei Plug-in-Hybriden, dazu Energiekosten je 100 km (Kraftstoff und Strom) als Hauptkennzahl
 - Mehrere Kraftstoffe je Fahrzeug (z. B. Benzin und Autogas, Diesel und Premium-Diesel, E5 und E10): Sorte je Tankvorgang, Verbrauch je Energieart, Preise und Mehrpreis je Sorte
 - Plausibilitätsprüfung des Tachostands

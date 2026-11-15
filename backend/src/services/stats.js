@@ -99,14 +99,27 @@ async function getVehicleStats(pool, userId, vehicleId) {
   );
 
   // Full-to-Full-Abschnitte je Energieart (#140): Benzin von Tankfüllung zu Tankfüllung (E5, E10, Super Plus
-  // gemeinsam), Autogas getrennt davon, kWh von Ladung zu Ladung
+  // gemeinsam), Autogas getrennt davon, kWh von Ladung zu Ladung.
+  // Ladestand (#25): Eine Ladung mit bekanntem Ladestand nachher ist ebenfalls ein Eckpunkt, auch ohne „voll geladen“
+  // (die volle Füllung gilt als 100 %). Die verbrauchte Menge im Abschnitt ist dann die geladene Menge minus die
+  // Änderung des Ladestands, in kWh umgerechnet mit dem Verhältnis kWh je Prozent aus den eigenen Ladungen des Fahrzeugs
+  // (Summe kWh ÷ Summe Prozentpunkte, gemeinsam über alle Ladungen mit Stand vorher und nachher). Das sind kWh an der
+  // Wallbox bzw. Ladesäule, also inklusive Ladeverlusten wie die erfasste Menge. Ohne Ladestände ist die Rechnung
+  // genau die bisherige von voll bis voll.
   const segments = await pool.query(
     `
-    WITH ordered AS (
+    WITH kfac AS (
+      SELECT SUM(amount) / NULLIF(SUM(soc_after_pct - soc_before_pct), 0) AS k_per_pct
+      FROM fillups
+      WHERE vehicle_id=$1 AND unit = 'kwh' AND soc_before_pct IS NOT NULL AND soc_after_pct IS NOT NULL AND soc_after_pct > soc_before_pct
+    ),
+    ordered AS (
       -- Reihenfolge: Zeitpunkt, bei gleichem Zeitpunkt (z. B. importierte Ladungen eines Tages) der Tachostand.
       -- Einträge ohne (echten) Tachostand stehen bei gleichem Zeitpunkt hinter denen mit Tachostand, ihre Menge
       -- zählt also zum nächsten Abschnitt; untereinander entscheidet die Erfassungsreihenfolge.
       SELECT id, filled_at, odometer_km, amount, unit, ${energySql('fuel')} AS energy, is_full, skip_previous,
+        COALESCE(soc_after_pct, CASE WHEN is_full THEN 100 END) AS level,
+        (soc_after_pct IS NOT NULL) AS via_level,
         (odometer_km IS NOT NULL AND NOT odometer_estimated) AS has_km,
         ROW_NUMBER() OVER (ORDER BY filled_at, odometer_km NULLS LAST, created_at) AS rn
       FROM fillups
@@ -122,11 +135,15 @@ async function getVehicleStats(pool, userId, vehicleId) {
       SELECT *,
         LAG(odometer_km) OVER (PARTITION BY energy ORDER BY rn) AS prev_full_odo,
         LAG(rn) OVER (PARTITION BY energy ORDER BY rn) AS prev_full_rn,
-        LAG(cum) OVER (PARTITION BY energy ORDER BY rn) AS prev_full_cum
+        LAG(cum) OVER (PARTITION BY energy ORDER BY rn) AS prev_full_cum,
+        LAG(level) OVER (PARTITION BY energy ORDER BY rn) AS prev_level,
+        LAG(via_level) OVER (PARTITION BY energy ORDER BY rn) AS prev_via_level
       FROM summiert
       -- Ohne echten Tachostand schließt auch eine Vollbetankung keinen Abschnitt ab (#41): Sie zählt wie eine
       -- Teilbetankung, ihre Menge fließt in den nächsten vollen Abschnitt mit Tachostand ein.
-      WHERE is_full = true AND has_km
+      -- Eckpunkt: volle Füllung (Stand 100 %) oder bekannter Ladestand nachher; Stände unter 100 % nur, wenn sich
+      -- kWh je Prozent bestimmen lassen.
+      WHERE level IS NOT NULL AND has_km AND (level = 100 OR (SELECT k_per_pct FROM kfac) IS NOT NULL)
     ),
     seg AS (
       SELECT
@@ -136,19 +153,41 @@ async function getVehicleStats(pool, userId, vehicleId) {
         f.energy,
         f.rn,
         (f.odometer_km - f.prev_full_odo) AS km,
-        (f.cum - f.prev_full_cum) AS liters_segment
+        -- verbrauchte Menge = geladene Menge minus Änderung des Ladestands (in kWh); bei gleichem Stand (z. B. beide
+        -- voll) ist der Abzug 0 und es bleibt die bisherige Rechnung
+        (f.cum - f.prev_full_cum) - CASE WHEN f.level = f.prev_level THEN 0
+                                         ELSE (f.level - f.prev_level) * (SELECT k_per_pct FROM kfac) END AS liters_segment,
+        (f.via_level OR f.prev_via_level) AS via_level,
+        (f.level = f.prev_level) AS level_equal
       FROM fulls f
       -- skip_previous: Vollbetankung ist nur neuer Startpunkt (vorherige Tankfüllungen fehlen)
       WHERE f.prev_full_rn IS NOT NULL AND f.skip_previous = false
     )
     SELECT
       full_id, full_at, unit, energy, km, liters_segment,
-      CASE WHEN km > 0 THEN ROUND(((liters_segment / km) * 100)::numeric, 2) ELSE NULL END AS l_per_100km
+      CASE WHEN km > 0 THEN ROUND(((liters_segment / km) * 100)::numeric, 2) ELSE NULL END AS l_per_100km,
+      CASE WHEN via_level THEN 'level' ELSE 'full' END AS method
     FROM seg
+    -- Ein Abschnitt, dessen Ladestände eine Menge unter 0 ergäben (unstimmige Angaben), zählt nicht
+    WHERE level_equal OR liters_segment > 0
     ORDER BY rn DESC
     `,
     [vehicleId]
   );
+
+  // Summenmethode (#25) für Energiearten ohne einen einzigen Abschnitt (z. B. nur Teilladungen ohne Ladestand): Menge aller
+  // Einträge nach dem ersten ÷ Strecke vom ersten bis zum letzten Eintrag mit echtem Tachostand. Nur ein Ersatz, wo es
+  // sonst keinen Wert gäbe; vorhandene Abschnittswerte bleiben unberührt.
+  const sums = await pool.query(
+    `WITH o AS (
+       SELECT ${energySql('fuel')} AS energy, amount, odometer_km AS odo,
+              ROW_NUMBER() OVER (PARTITION BY ${energySql('fuel')} ORDER BY odometer_km, filled_at, created_at) AS rn
+         FROM fillups WHERE vehicle_id=$1 AND odometer_km IS NOT NULL AND NOT odometer_estimated
+     )
+     SELECT energy, SUM(amount) FILTER (WHERE rn > 1)::float8 AS amount, (MAX(odo) - MIN(odo))::float8 AS span FROM o GROUP BY energy`,
+    [vehicleId]
+  );
+  const sumByEnergy = Object.fromEntries(sums.rows.map((r) => [r.energy, r]));
 
   const segRows = segments.rows;
   const energyCost = ppl.rows.reduce((a, r) => a + Number(r.cost), 0);
@@ -161,7 +200,11 @@ async function getVehicleStats(pool, userId, vehicleId) {
     energies[row.energy] = {
       unit: ENERGIES[row.energy]?.unit ?? 'l',
       avgPrice: row.avg_price,
-      avgConsumption: km > 0 ? Number((amount / km * 100).toFixed(2)) : null,
+      avgConsumption: km > 0 ? Number((amount / km * 100).toFixed(2))
+        : sumByEnergy[row.energy]?.span > 0 && sumByEnergy[row.energy].amount > 0
+          ? Number((sumByEnergy[row.energy].amount / sumByEnergy[row.energy].span * 100).toFixed(2)) : null,
+      // Woher der Ø kommt (#25): Abschnitte oder, ohne Abschnitt, die Summenmethode
+      avgMethod: km > 0 ? 'segments' : sumByEnergy[row.energy]?.span > 0 && sumByEnergy[row.energy].amount > 0 ? 'sum' : null,
       trend: trendOf(segs),
       // Nebenbei getankt (#140, wie in /consumption): Verbrauch nicht als Wert zeigen
       minor: ppl.rows.length > 1 && energyCost > 0 && (Number(row.cost) / energyCost) * 100 < MINOR_SHARE

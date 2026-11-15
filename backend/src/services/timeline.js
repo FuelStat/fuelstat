@@ -5,6 +5,7 @@ const { NON_COST_KEYS } = require('./categories');
 const { getVehicleStats } = require('./stats');
 const { paginated } = require('../lib/pagination');
 const { monthOf } = require('./costs');
+const { loadCatalog } = require('./parts');
 
 const KINDS = ['fuel', 'charge', 'expense', 'trip', 'odometer'];
 const TZ = 'Europe/Berlin';
@@ -18,7 +19,8 @@ const UNION = `
          f.station AS place, NULL::text AS description,
          NULL::text AS purpose, NULL::float8 AS distance_km, NULL::text AS start_place, NULL::text AS end_place,
          f.user_id AS created_by,
-         f.charge_type, f.soc_before_pct, f.soc_after_pct, f.charge_minutes
+         f.charge_type, f.soc_before_pct, f.soc_after_pct, f.charge_minutes,
+         NULL::json AS parts
     FROM fillups f WHERE f.vehicle_id = $1
   UNION ALL
   SELECT 'entry', CASE e.category WHEN 'Kilometerstand' THEN 'odometer' WHEN 'Fahrt' THEN 'trip' ELSE 'expense' END,
@@ -28,7 +30,9 @@ const UNION = `
          e.vendor, e.description,
          NULL, NULL, NULL, NULL,
          e.user_id,
-         NULL, NULL::smallint, NULL::smallint, NULL::int
+         NULL, NULL::smallint, NULL::smallint, NULL::int,
+         (SELECT json_agg(json_build_object('key', ep.part_key, 'cost_share', ep.cost_share) ORDER BY ep.part_key)
+            FROM expense_parts ep WHERE ep.expense_id = e.id)
     FROM expenses e
    WHERE e.vehicle_id = $1
      -- Alte "Fahrt"-Einträge, die ins Fahrtenbuch übernommen wurden (Migration 019, #52), nicht doppelt zeigen
@@ -40,7 +44,8 @@ const UNION = `
          NULL, t.note,
          t.purpose, t.distance_km::float8, t.start_place, t.end_place,
          t.user_id,
-         NULL, NULL::smallint, NULL::smallint, NULL::int
+         NULL, NULL::smallint, NULL::smallint, NULL::int,
+         NULL::json
     FROM trips t WHERE t.vehicle_id = $1`;
 
 // Filter ($2 Arten, $3 Jahr, $4 Suchmuster)
@@ -121,8 +126,13 @@ async function getTimeline(db, userId, vehicleId, filter, p) {
       .map((s) => [String(s.full_id), Number(s.l_per_100km)]));
   }
 
+  // Bauteile (#78): Namen aus dem Katalog des Fahrzeugs (eingebaut und eigene)
+  let katalog = {};
+  if (rows.rows.some((r) => r.parts)) katalog = Object.fromEntries((await loadCatalog(db, vehicleId)).map((p) => [p.key, p]));
+
   const data = rows.rows.map((r) => ({
     ...r,
+    parts: r.type === 'entry' ? (r.parts ?? []).map((p) => ({ key: p.key, name: katalog[p.key]?.name ?? 'Bauteil', cost_share: p.cost_share === null ? null : Number(p.cost_share) })) : null,
     countsAsCost: r.kind === 'fuel' || r.kind === 'charge' || (r.kind === 'expense' && !NON_COST_KEYS.includes(r.category)),
     consumption: r.type === 'fillup' ? consumption.get(String(r.id)) ?? null : null
   }));

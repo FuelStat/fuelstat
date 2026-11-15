@@ -166,6 +166,15 @@ test('Antworten passen zur OpenAPI (Ablauf wie in der App)', async () => {
   await vertrag('PATCH', '/fillups/{fillupId}', { fillupId: f2.body.id }, { token, body: { station: 'Shell' }, status: 200 });
   await vertrag('GET', '/vehicles/{vehicleId}/fillups', { vehicleId }, { token, status: 200 });
   await vertrag('POST', '/entries', {}, { token, body: { vehicleId, category: 'Werkstatt', amountEur: 120, vendor: 'Autohaus', occurredAt: tageZurueck(6) }, status: 201 });
+  // Service-Historie je Bauteil (#78)
+  const eigenesTeil = await vertrag('POST', '/vehicles/{vehicleId}/parts', { vehicleId }, { token, body: { name: 'Dachträger' }, status: 201 });
+  await vertrag('GET', '/vehicles/{vehicleId}/parts', { vehicleId }, { token, status: 200 });
+  const wartung = await vertrag('POST', '/entries', {}, { token, body: { vehicleId, category: 'Wartung', amountEur: 200, odometerKm: 1550, occurredAt: tageZurueck(5), parts: ['oil', { key: 'brake_pads_front', costShare: 80 }, eigenesTeil.body.key] }, status: 201 });
+  await vertrag('PATCH', '/entries/{entryId}', { entryId: wartung.body.id }, { token, body: { parts: [{ key: 'oil', costShare: 50 }] }, status: 200 });
+  await vertrag('PATCH', '/vehicles/{vehicleId}/parts/{partId}', { vehicleId, partId: eigenesTeil.body.id }, { token, body: { name: 'Fahrradträger' }, status: 200 });
+  await vertrag('PUT', '/vehicles/{vehicleId}/part-intervals/{partKey}', { vehicleId, partKey: 'oil' }, { token, body: { intervalMonths: 12, intervalKm: 15000 }, status: 200 });
+  await vertrag('GET', '/vehicles/{vehicleId}/service', { vehicleId }, { token, status: 200 });
+  await vertrag('DELETE', '/vehicles/{vehicleId}/parts/{partId}', { vehicleId, partId: eigenesTeil.body.id }, { token, status: 204 });
   await vertrag('GET', '/vehicles/{vehicleId}/entries', { vehicleId }, { token, status: 200 });
   await vertrag('POST', '/trips', {}, { token, body: { vehicleId, startedAt: tageZurueck(4), odometerStart: 1550, odometerEnd: 1580, purpose: 'private' }, status: 201 });
   await vertrag('GET', '/vehicles/{vehicleId}/trips', { vehicleId }, { token, status: 200 });

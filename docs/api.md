@@ -62,6 +62,10 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | GET | `/stations?lat=&lng=&radius=&type=` | ✓ | Tankstellen in der Nähe mit aktuellen Preisen (Tankerkönig) |
 | GET | `/charging-stations?lat=&lng=&radius=` | ✓ | Ladestationen in der Nähe (Open Charge Map) |
 | GET | `/vehicles/:vehicleId/reminders` | ✓ | Fälligkeiten TÜV, Wartung, Versicherung, Steuer; letzter Reifenwechsel |
+| GET · POST | `/vehicles/:vehicleId/parts` | ✓ | Bauteile für Einträge: Auswahl (eingebaut und eigene), eigenes Bauteil anlegen (#78) |
+| PATCH · DELETE | `/vehicles/:vehicleId/parts/:partId` | ✓ | Eigenes Bauteil umbenennen bzw. löschen |
+| PUT | `/vehicles/:vehicleId/part-intervals/:partKey` | ✓ (Besitzer) | Wechselintervall eines Bauteils setzen oder löschen |
+| GET | `/vehicles/:vehicleId/service` | ✓ | Service-Historie je Bauteil: Wechsel, Lebensdauer, nächster Wechsel |
 | GET | `/vehicles/:vehicleId/members` | ✓ | Wer Zugriff hat (Besitzer, Mitglieder, für den Besitzer offene Einladungen) (#53) |
 | POST | `/vehicles/:vehicleId/invitations` | Besitzer | E-Mail-Adresse einladen (`role`: `editor` oder `viewer`) |
 | DELETE | `/vehicles/:vehicleId/invitations/:invitationId` | Besitzer | Einladung zurückziehen |
@@ -757,6 +761,16 @@ Verglichen wird mit allen echten Tachoständen des Fahrzeugs (Tankfüllungen, La
 * Antwort 201: `{ "imported": { "fillups", "entries" }, "skipped": { "fillups", "entries" }, "duplicates": [{ type, index }], "warnings": [{ type, index, code, message, … }] }`; `index` bezieht sich auf die Position in `fillups` bzw. `entries`, `warnings` wie bei der Tachostand-Prüfung
 * `"dryRun": true`: alles prüfen, aber nichts speichern (Antwort 200 mit `dryRun: true`); die Import-Vorschau im Frontend markiert damit doppelte Zeilen und unplausible Tachostände
 * Ungültige IDs in der URL (keine UUID) liefern 404 wie unbekannte Einträge
+
+## Service-Historie je Bauteil (#78)
+
+An Einträgen der Kategorien **Werkstatt, Reparatur, Wartung, Inspektion und Reifen** (`allowsParts: true` in `GET /categories`) lassen sich Bauteile angeben. Aus den Einträgen entsteht je Bauteil eine Historie mit Lebensdauer und nächstem Wechsel.
+
+* **Bauteile:** `GET /vehicles/:vehicleId/parts` liefert die eingebauten Bauteile mit festen Schlüsseln (`oil` Motoröl & Filter, `spark_plugs`, `timing_belt`, `brake_pads_front`, `brake_pads_rear`, `brake_discs`, `brake_fluid`, `tires_summer`, `tires_winter`, `battery_12v`, `cabin_filter`, `ac_service`) und die **eigenen Bauteile des Fahrzeugs** (Schlüssel `custom:<id>`, höchstens 30, 1–40 Zeichen). Eigene Bauteile anlegen und umbenennen darf, wer Einträge erfassen darf; Löschen entfernt es von allen Einträgen (die Einträge bleiben). Es gibt **keine Standardintervalle**: Fälligkeiten kommen nur aus dem eigenen Intervall oder der eigenen Historie.
+* **An Einträgen:** `POST`/`PATCH /entries` nehmen `parts` an, jedes Element ein Schlüssel oder `{ "key", "costShare" }`. Antworten, `GET /entries/:id`, `GET /vehicles/:id/entries` und die Eintragsliste (`/timeline`, nur Ausgaben) liefern `parts` als `[{ key, name, cost_share }]`. Fehler: 400 `parts_not_allowed` (Kategorie ohne Bauteile), `unknown_part`, `duplicate_part`, `invalid_parts`, `too_many_parts` (höchstens 12), `invalid_costShare`, `cost_share_exceeds_amount` (die Anteile dürfen den Betrag nicht übersteigen, auch nicht nach einer Änderung des Betrags). **Beim `PATCH` lässt ein fehlendes `parts` die Bauteile stehen**, `[]` oder `null` löscht sie, ein Wechsel auf eine Kategorie ohne Bauteile entfernt sie (ältere Clients ohne Bauteile löschen also nichts). Bestehende Einträge bekommen keine Bauteile geraten.
+* **Kosten je Bauteil:** der Kostenanteil, wenn angegeben; der ganze Betrag nur bei genau **einem** Bauteil im Eintrag; sonst unbekannt (`null`). Der Betrag wird nie gleichmäßig verteilt.
+* **Intervall:** `PUT /vehicles/:vehicleId/part-intervals/:partKey` `{ "intervalMonths", "intervalKm" }` (Besitzer; Zeit und/oder km, was zuerst kommt; beide `null` löscht). Für `oil` gelten weiter `oilIntervalMonths`/`oilIntervalKm` der Fahrzeugangaben, dort steht der Wert nur einmal.
+* **Übersicht:** `GET /vehicles/:vehicleId/service` liefert je Bauteil mit Wechseln oder Intervall: `changes`, `last` (Datum, Tachostand, Kosten, Anbieter), `history` (neueste zuerst, höchstens `history_limit` = 20), `total_cost`, `interval`, `lifetime` und `next`. **`lifetime`** (`avgKm`, `avgMonths`, `lastKm`, `lastMonths`) braucht mindestens zwei Wechsel; km zählen nur, wenn beide Wechsel einen Tachostand haben. **`next`** (`due_date`, `due_km`, `days`, `status`, `source`) kommt aus dem eigenen Intervall (`source: "interval"`, `status` `ok`, `bald` oder `ueberfaellig`) oder, ohne Intervall, aus der Ø-Lebensdauer (`source: "lifetime"`): Das ist nur eine Schätzung und heißt nie `ueberfaellig`, höchstens `bald`. Ohne Intervall und mit nur einem Wechsel ist `next` `null`. Die dringendsten Bauteile stehen zuerst.
 
 ## Fälligkeiten (Auth required)
 

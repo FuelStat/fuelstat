@@ -52,6 +52,7 @@ app.use((req, res, next) => {
 app.use('/api/v1', require('./routes/system')); // health, whoami, db-ping
 app.use('/api/v1', require('./routes/auth')); // Registrierung, Login, 2FA, Passwort, Token
 app.use('/api/v1', require('./routes/passkeys')); // Passkeys (WebAuthn, #2)
+app.use('/api/v1', require('./routes/parts')); // Service-Historie je Bauteil (#78)
 app.use('/api/v1', require('./routes/sessions')); // Gerätesitzungen der Apps (#117)
 app.use('/api/v1', require('./routes/users')); // Konten, Tarife, Beta (Admin bzw. eigenes Konto)
 app.use('/api/v1', require('./routes/mailSettings')); // E-Mail-Einstellungen, Test- und Sofortversand

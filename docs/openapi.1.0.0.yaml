@@ -2842,6 +2842,10 @@ paths:
                               type: object
                               description: "Kosten je Kategorie; Tank-/Ladevorgänge als Tankfuellung:<Einheit>"
                               additionalProperties: { type: number }
+                            byGroup:
+                              type: object
+                              description: "Kosten je Kostengruppe (#180), alle Gruppen aus /categories; Schlüssel kraftstoff, fix, wartung, unterwegs, sonstiges"
+                              additionalProperties: { type: number }
                   categories:
                     type: array
                     description: Summe und Anzahl je Kategorie im Zeitraum, größte zuerst
@@ -2851,6 +2855,46 @@ paths:
                         key: { type: string, example: "Tankfuellung:l" }
                         total: { type: number }
                         count: { type: integer }
+                  groups:
+                    type: array
+                    description: >
+                      Summe und Anzahl je Kostengruppe im Zeitraum (#180), alle Gruppen aus /categories in deren Reihenfolge, auch
+                      ohne Kosten. kraftstoff = Tanken und Laden. Eigene Kategorien zählen zu ihrer Gruppe, freie Texte aus alten
+                      Importen zu sonstiges; Fahrten und Kilometerstand zählen nicht.
+                    items:
+                      type: object
+                      required: [key, total, count, share]
+                      properties:
+                        key: { type: string, example: "wartung" }
+                        total: { type: number }
+                        count: { type: integer }
+                        share: { type: number, nullable: true, description: "% der Gesamtkosten; null ohne Kosten" }
+                  maintenancePer10000Km: { type: number, nullable: true, description: "Wartungskosten (Gruppe wartung) je 10.000 km im Zeitraum (#180); null ohne Strecke, nie 0" }
+                  largestExpenses:
+                    type: array
+                    description: "Die fünf größten Einzelausgaben im Zeitraum (#180), ohne Tank-/Ladevorgänge, Fahrten und Kilometerstand; größte zuerst"
+                    maxItems: 5
+                    items:
+                      type: object
+                      required: [id, at, category, cost]
+                      properties:
+                        id: { type: string, format: uuid, description: "Eintrag, wie in /entries/{entryId}" }
+                        at: { type: string, format: date-time }
+                        category: { type: string }
+                        cost: { type: number }
+                        vendor: { type: string, nullable: true }
+                        description: { type: string, nullable: true }
+                  byYear:
+                    type: array
+                    description: "Kosten je Jahr und Kostengruppe über den gesamten Zeitraum (#180, Jahresvergleich), neueste zuerst, unabhängig von year"
+                    items:
+                      type: object
+                      required: [year, total, count, byGroup]
+                      properties:
+                        year: { type: integer }
+                        total: { type: number }
+                        count: { type: integer }
+                        byGroup: { type: object, additionalProperties: { type: number } }
                   energies:
                     type: array
                     description: Energiekosten je Energieart im Zeitraum (#140)

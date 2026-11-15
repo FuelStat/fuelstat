@@ -62,6 +62,52 @@ test('gesamter Zeitraum: Summen, Strecke, Kosten pro km, Ø je Monat, Monatssumm
   assert.deepEqual(jan.byCategory, { Versicherung: 300 }, 'Kilometerstand zählt nicht');
 });
 
+test('Kostengruppen, Wartung je 10.000 km, größte Ausgaben, Jahresvergleich (#180)', async () => {
+  const mit = (kind, cost, odo, at, extra = {}) => ({ src: 'expense', kind, cost, odo, at, id: `e-${kind}-${at}`, vendor: null, description: null, ...extra });
+  const zeilen = [
+    { src: 'fillup', kind: 'l', cost: 60, odo: 10000, at: '2025-11-10T12:00:00Z', id: 'f1' },
+    { src: 'fillup', kind: 'l', cost: 50, odo: 15000, at: '2026-01-20T12:00:00Z', id: 'f2' },
+    mit('Versicherung', 300, null, '2026-01-02T12:00:00Z', { vendor: 'HUK' }),
+    mit('Wartung', 200, 15500, '2026-02-01T12:00:00Z', { vendor: 'Autohaus' }),
+    mit('Reifen', 400, null, '2026-02-10T12:00:00Z', { description: 'Winterreifen' }),
+    mit('custom:abc', 90, null, '2026-02-12T12:00:00Z'),
+    mit('Altlast frei', 10, null, '2026-02-15T12:00:00Z'),
+    mit('Fahrt', 12, null, '2026-02-16T12:00:00Z'),
+    mit('Kilometerstand', 0, 20000, '2026-03-01T12:00:00Z')
+  ].map((z, i) => ({ ...z, created_at: new Date(Date.UTC(2026, 0, 1, 0, i)).toISOString() }));
+  const db = {
+    query: async (sql) => (sql.includes('FROM vehicles')
+      ? { rowCount: 1, rows: [{ role: 'owner' }] }
+      : sql.includes('expense_categories') ? { rowCount: 1, rows: [{ id: 'abc', group_key: 'wartung' }] } : { rowCount: zeilen.length, rows: zeilen })
+  };
+  const c = await getVehicleCosts(db, 'u', 'v', { now: NOW });
+  assert.equal(c.total.total, 1110);
+  const g = Object.fromEntries(c.groups.map((x) => [x.key, x]));
+  assert.deepEqual(c.groups.map((x) => x.key), ['kraftstoff', 'fix', 'wartung', 'unterwegs', 'sonstiges'], 'alle Gruppen in der Reihenfolge aus /categories');
+  assert.deepEqual([g.kraftstoff.total, g.kraftstoff.count], [110, 2]);
+  assert.deepEqual([g.fix.total, g.wartung.total, g.wartung.count], [300, 690, 3], 'Wartung, Reifen und die eigene Kategorie (Gruppe wartung)');
+  assert.deepEqual([g.unterwegs.total, g.unterwegs.count], [0, 0]);
+  assert.deepEqual([g.sonstiges.total, g.sonstiges.count], [10, 1], 'freier Text aus alten Importen; Fahrt und Kilometerstand zählen nicht');
+  assert.equal(g.wartung.share, 62.2);
+  // 690 € auf 10.000 km (5.000 → 15.000 → 20.000 sind Tachostände; Strecke 10.000)
+  assert.equal(c.distanceKm, 10000);
+  assert.equal(c.maintenancePer10000Km, 690);
+  assert.deepEqual(c.largestExpenses.map((x) => [x.category, x.cost]), [['Reifen', 400], ['Versicherung', 300], ['Wartung', 200], ['custom:abc', 90], ['Altlast frei', 10]]);
+  assert.equal(c.largestExpenses.length, 5);
+  assert.deepEqual([c.largestExpenses[0].id, c.largestExpenses[0].description, c.largestExpenses[1].vendor], [`e-Reifen-2026-02-10T12:00:00Z`, 'Winterreifen', 'HUK']);
+  const feb = c.months.find((m) => m.month === '2026-02');
+  assert.deepEqual(feb.byGroup, { kraftstoff: 0, fix: 0, wartung: 690, unterwegs: 0, sonstiges: 10 });
+  assert.deepEqual(c.byYear.map((y) => y.year), [2026, 2025]);
+  assert.equal(c.byYear[0].byGroup.fix, 300);
+  assert.equal(c.byYear[1].byGroup.kraftstoff, 60);
+  // Mit Jahr: Gruppen nur dieses Jahres, der Jahresvergleich bleibt vollständig; ohne Strecke null
+  const j25 = await getVehicleCosts(db, 'u', 'v', { year: 2025, now: NOW });
+  assert.equal(j25.groups.find((x) => x.key === 'kraftstoff').total, 60);
+  assert.equal(j25.maintenancePer10000Km, null);
+  assert.equal(j25.byYear.length, 2);
+  assert.deepEqual(j25.largestExpenses, []);
+});
+
 test('einzelnes Jahr: Strecke ab Jahresbeginn bzw. ab erstem Tachostand im Jahr', async () => {
   const j26 = await getVehicleCosts(fakeDb(ZEILEN), 'u', 'v', { year: 2026, now: NOW });
   assert.deepEqual(j26.total, { energy: 55, expenses: 300, total: 355 });

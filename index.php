@@ -136,7 +136,6 @@ endif;
                         <?php if ($kostenHtml !== null): ?>
                         <div class="kennzahl-wert"><?= str_replace('<small>', '<small class="d-block">', $kostenHtml) ?></div>
                         Energiekosten
-                        <div class="fs-label">Ø <?= $verbrauchHtml ?></div>
                         <?php else: ?>
                         <div class="kennzahl-wert"><?= $verbrauchHtml ?></div>
                         Ø Verbrauch
@@ -146,7 +145,7 @@ endif;
                 <div class="col">
                     <div class="kennzahl h-100">
                         <div class="kennzahl-wert"><?= $kmKosten !== null ? htmlspecialchars(number_format((float)$kmKosten, 2, ',', '.')) . ' <small>€/km</small>' : '–' ?></div>
-                        <?= $kostenHtml !== null ? 'Gesamtkosten je km' : 'Kosten je km' ?>
+                        Kosten je km
                     </div>
                 </div>
                 <div class="col">
@@ -156,6 +155,10 @@ endif;
                     </div>
                 </div>
             </div>
+            <?php if ($kostenHtml !== null && $verbrauch): ?>
+            <!-- Plug-in-Hybrid (#156): der Verbrauch je Energieart steht unter den Kacheln, damit diese gleich aussehen wie sonst -->
+            <p class="fs-label mt-2 mb-0">Ø Verbrauch: <?= htmlspecialchars(implode(' · ', array_map(fn($x) => $x[0] . ' ' . $x[1], $verbrauch))) ?></p>
+            <?php endif; ?>
         </div>
 
         <div class="col-lg-7 d-flex flex-column gap-3 gap-lg-4">

@@ -2521,7 +2521,10 @@ paths:
                       properties:
                         unit: { type: string, enum: [l, kwh, kg] }
                         energy: { $ref: "#/components/schemas/Energy" }
-                        avg: { type: number, nullable: true }
+                        avg: { type: number, nullable: true, description: "Ø Verbrauch; ohne Abschnitt die Summenmethode (avgMethod sum)" }
+                        avgMethod: { type: string, nullable: true, enum: [segments, sum, null], description: "Woher avg kommt (#25)" }
+                        sumConsumption: { type: number, nullable: true, description: "Summenmethode (#25): Menge aller Einträge nach dem ersten ÷ Strecke vom ersten bis zum letzten Eintrag mit echtem Tachostand" }
+                        coverage: { type: number, nullable: true, description: "Anteil (0–1) der Strecke, den Abschnitte abdecken; niedrig heißt, avg stützt sich auf wenig Strecke" }
                         min: { type: number, nullable: true }
                         max: { type: number, nullable: true }
                         kmConsumed: { type: number }
@@ -2547,6 +2550,7 @@ paths:
                               km: { type: number }
                               amount: { type: number }
                               consumption: { type: number, nullable: true }
+                              method: { type: string, enum: [full, level] }
                         months:
                           type: array
                           items:
@@ -4539,6 +4543,10 @@ components:
           type: number
           nullable: true
           description: Verbrauch je 100km (z.B. l/100km oder kWh/100km). Null wenn km=0.
+        method:
+          type: string
+          enum: [full, level]
+          description: "Wie der Abschnitt begrenzt ist (#25): full = von voller Füllung zu voller Füllung, level = mindestens ein Eckpunkt ist eine Ladung mit bekanntem Ladestand (auch ohne „voll geladen“)"
       required: [full_id, full_at, km, liters_segment]
 
     VehicleStatsTrend:
@@ -4614,7 +4622,8 @@ components:
               avgConsumption:
                 type: number
                 nullable: true
-                description: Ø Verbrauch pro 100 km über alle Abschnitte (nach km gewichtet)
+                description: Ø Verbrauch pro 100 km über alle Abschnitte (nach km gewichtet); ohne Abschnitt die Summenmethode (siehe avgMethod)
+              avgMethod: { type: string, nullable: true, enum: [segments, sum, null], description: "Woher der Ø kommt (#25): Abschnitte oder, wenn es keinen Abschnitt gibt, Summe der Mengen ÷ Strecke" }
               trend:
                 $ref: "#/components/schemas/VehicleStatsTrend"
                 nullable: true
@@ -4627,6 +4636,7 @@ components:
               unit: { $ref: "#/components/schemas/FillupUnit" }
               avgPrice: { type: number, nullable: true }
               avgConsumption: { type: number, nullable: true }
+              avgMethod: { type: string, nullable: true, enum: [segments, sum, null] }
               trend:
                 $ref: "#/components/schemas/VehicleStatsTrend"
                 nullable: true

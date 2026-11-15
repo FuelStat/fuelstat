@@ -41,6 +41,8 @@ foreach ($einheitenDaten as $u => $ud) {
         'monate' => $monate,
         'jahre' => $ud['jahresdaten'],
         'schnitt' => $a['avg'] ?? null,
+        // Summenmethode (#25): kein Abschnitt (kein voller Eintrag, kein Ladestand), Ø aus der Summe aller Mengen ÷ Strecke
+        'summe' => ($a['avgMethod'] ?? null) === 'sum',
         'min' => $a['min'] ?? null,
         'max' => $a['max'] ?? null,
         'gekauft' => (float)($a['amountBought'] ?? 0),
@@ -182,6 +184,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                 <?php else: ?>
                 <div class="kennzahl-wert"><?= $p['schnitt'] !== null ? $zahl($p['schnitt']) . ' <small class="fw-normal">' . $p['kurz'] . '/100 km</small>' : '—' ?></div>
                 <div class="small text-body-secondary"><?= $zahl($p['gekauft'], 0) ?> <?= $p['kurz'] ?><?php if ($p['preis'] !== null): ?> · Ø <?= $zahl($p['preis'], 3) ?> €/<?= $p['kurz'] ?><?php endif; ?></div>
+                <?php if ($p['summe']): ?><div class="small text-body-secondary">aus der Summe, ohne vollen Abschnitt</div><?php endif; ?>
                 <?php endif; ?>
             </div>
         </div>
@@ -201,6 +204,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                 <div class="small text-body-secondary">Ø Verbrauch</div>
                 <div class="kennzahl-wert"><?= $durchschnittVerbrauch !== null ? $zahl($durchschnittVerbrauch) . ' <small class="fw-normal">' . $haupt['kurz'] . '/100 km</small>' : '—' ?></div>
                 <?php if ($minVerbrauch !== null): ?><div class="small text-body-secondary"><?= $zahl($minVerbrauch, 1) ?> bis <?= $zahl($maxVerbrauch, 1) ?></div><?php endif; ?>
+                <?php if ($haupt['summe']): ?><div class="small text-body-secondary">aus der Summe aller <?= $begriffe['vorgaenge'] ?>, ohne vollen Abschnitt</div><?php endif; ?>
             </div>
         </div>
         <div class="col-6 col-lg-3">

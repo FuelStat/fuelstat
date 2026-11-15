@@ -171,3 +171,71 @@ test('PATCH: station null oder leer entfernt den Ort, schreibt nicht den Text "n
   p = await api('PATCH', `/fillups/${f.body.id}`, { token, body: { station: '  ' } });
   assert.equal(p.body.station, null);
 });
+
+test('Verbrauch ohne „voll geladen“ (#25): Abschnitte aus dem Ladestand, kWh je Prozent aus den eigenen Ladungen', async () => {
+  const token = await newUser();
+  const ev = await newVehicle(token, { fuelType: 'electric' });
+  const laden = (data) => api('POST', '/fillups', { token, body: { vehicleId: ev.id, totalCostEur: 0, isFull: false, ...data } });
+  // 0,5 kWh je Prozent (Wallbox-Menge); der Wagen braucht 0,2 kWh/km = 40 % je 100 km
+  await laden({ odometerKm: 1000, amount: 40, socBeforePct: 20, socAfterPct: 100, filledAt: '2025-06-01T10:00:00Z' });
+  await laden({ odometerKm: 1200, amount: 30, socBeforePct: 20, socAfterPct: 80, filledAt: '2025-06-10T10:00:00Z' });
+  await laden({ odometerKm: 1300, amount: 25, socBeforePct: 40, socAfterPct: 90, filledAt: '2025-06-15T10:00:00Z' });
+  const s = (await api('GET', `/vehicles/${ev.id}/stats`, { token })).body;
+  assert.equal(s.segments.length, 2, 'ohne einen einzigen vollen Eintrag, nur dank der Ladestände');
+  const [neu, alt] = s.segments; // neueste zuerst
+  assert.deepEqual([alt.km, Number(alt.liters_segment), Number(alt.l_per_100km), alt.method], [200, 40, 20, 'level']);
+  assert.deepEqual([neu.km, Number(neu.liters_segment), Number(neu.l_per_100km), neu.method], [100, 20, 20, 'level']);
+  assert.equal(s.avgConsumption, 20);
+  assert.equal(s.energies.electricity.avgMethod, 'segments');
+  const c = (await api('GET', `/vehicles/${ev.id}/consumption`, { token })).body;
+  assert.equal(c.byEnergy.electricity.avg, 20);
+  assert.equal(c.byEnergy.electricity.avgMethod, 'segments');
+  assert.equal(c.byEnergy.electricity.coverage, 1);
+  assert.equal(c.byEnergy.electricity.segments[0].method, 'level');
+  // Die Eintragsliste zeigt den Verbrauch an der abschließenden Ladung
+  const zeilen = (await api('GET', `/vehicles/${ev.id}/timeline`, { token })).body.data;
+  assert.equal(zeilen.find((z) => z.odometer_km === 1300).consumption, 20);
+});
+
+test('Verbrauch ohne „voll geladen“: ohne Ladestände gilt wie bisher voll bis voll; Summenmethode nur als Ersatz', async () => {
+  const token = await newUser();
+  // Nur Teilladungen, keine Stände: kein Abschnitt, aber die Summenmethode liefert einen Wert (Menge nach der ersten ÷ Strecke)
+  const ev = await newVehicle(token, { fuelType: 'electric' });
+  for (const [odo, kwh] of [[1000, 20], [1200, 30], [1500, 45]]) {
+    await api('POST', '/fillups', { token, body: { vehicleId: ev.id, odometerKm: odo, amount: kwh, totalCostEur: 0, isFull: false } });
+  }
+  const s = (await api('GET', `/vehicles/${ev.id}/stats`, { token })).body;
+  assert.equal(s.segments.length, 0);
+  assert.equal(s.avgConsumption, 15, '75 kWh auf 500 km');
+  assert.equal(s.energies.electricity.avgMethod, 'sum');
+  const c = (await api('GET', `/vehicles/${ev.id}/consumption`, { token })).body.byEnergy.electricity;
+  assert.equal(c.avg, 15);
+  assert.equal(c.avgMethod, 'sum');
+  assert.equal(c.coverage, 0);
+  assert.equal(c.sumConsumption, 15);
+
+  // Mit vollen Ladungen bleibt es bei den Abschnitten; die Summenmethode steht nur daneben
+  const voll = await newVehicle(token, { fuelType: 'electric' });
+  for (const [odo, kwh] of [[1000, 20], [1200, 30], [1400, 36]]) {
+    await api('POST', '/fillups', { token, body: { vehicleId: voll.id, odometerKm: odo, amount: kwh, totalCostEur: 0 } });
+  }
+  const v = (await api('GET', `/vehicles/${voll.id}/consumption`, { token })).body.byEnergy.electricity;
+  assert.equal(v.avgMethod, 'segments');
+  assert.equal(v.avg, 16.5, '66 kWh auf 400 km');
+  assert.equal(v.coverage, 1);
+  assert.equal(v.segments.every((x) => x.method === 'full'), true);
+
+  // Ladestand nachher unter 100 % ohne bestimmbares kWh je Prozent (kein Stand vorher): kein Eckpunkt, wie ein Teilladung
+  const halb = await newVehicle(token, { fuelType: 'electric' });
+  for (const [odo, kwh] of [[1000, 20], [1200, 30], [1400, 36]]) {
+    await api('POST', '/fillups', { token, body: { vehicleId: halb.id, odometerKm: odo, amount: kwh, totalCostEur: 0, socAfterPct: 80 } });
+  }
+  assert.equal((await api('GET', `/vehicles/${halb.id}/stats`, { token })).body.segments.length, 0);
+
+  // Unstimmige Angaben (Stand steigt stärker, als die geladene Menge hergibt): Abschnitt zählt nicht
+  const falsch = await newVehicle(token, { fuelType: 'electric' });
+  await api('POST', '/fillups', { token, body: { vehicleId: falsch.id, odometerKm: 1000, amount: 40, totalCostEur: 0, isFull: false, socBeforePct: 20, socAfterPct: 60 } });
+  await api('POST', '/fillups', { token, body: { vehicleId: falsch.id, odometerKm: 1100, amount: 2, totalCostEur: 0, isFull: false, socBeforePct: 55, socAfterPct: 100 } });
+  const f = (await api('GET', `/vehicles/${falsch.id}/stats`, { token })).body;
+  assert.equal(f.segments.length, 0, 'verbraucht wären −38 kWh');
+});

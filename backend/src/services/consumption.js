@@ -129,7 +129,7 @@ async function getVehicleConsumption(db, userId, vehicleId) {
         const date = dayOf(new Date(s.full_at));
         const km = Number(s.km);
         const amount = Number(s.liters_segment);
-        return { fullId: s.full_id, date, month: date.slice(0, 7), year: Number(date.slice(0, 4)), km, amount: round(amount, 3), consumption: rate(amount, km) };
+        return { fullId: s.full_id, date, month: date.slice(0, 7), year: Number(date.slice(0, 4)), km, amount: round(amount, 3), consumption: rate(amount, km), method: s.method ?? 'full' };
       })
       .reverse();
 
@@ -176,7 +176,16 @@ async function getVehicleConsumption(db, userId, vehicleId) {
     const amountConsumed = segments.reduce((a, s) => a + s.amount, 0);
     const amountBought = energyFills.reduce((a, f) => a + (Number(f.amount) || 0), 0);
     const cost = energyFills.reduce((a, f) => a + (Number(f.cost) || 0), 0);
-    const avg = rate(amountConsumed, kmConsumed);
+    const avgSegments = rate(amountConsumed, kmConsumed);
+    // Summenmethode (#25): Menge aller Einträge nach dem ersten ÷ Strecke vom ersten bis zum letzten Eintrag mit echtem
+    // Tachostand. Sie ersetzt den Ø nur, wo es keinen Abschnitt gibt; sumConsumption und coverage (Anteil der Strecke, den
+    // Abschnitte abdecken) stehen immer daneben, damit Clients die Belastbarkeit zeigen können.
+    const withOdo = energyFills.filter((f) => f.odo !== null && f.odo !== undefined)
+      .sort((a, b) => a.odo - b.odo || new Date(a.filled_at) - new Date(b.filled_at) || new Date(a.created_at) - new Date(b.created_at));
+    const odoSpan = withOdo.length > 1 ? withOdo[withOdo.length - 1].odo - withOdo[0].odo : 0;
+    const sumAmount = withOdo.slice(1).reduce((a, f) => a + (Number(f.amount) || 0), 0);
+    const sumConsumption = odoSpan > 0 && sumAmount > 0 ? rate(sumAmount, odoSpan) : null;
+    const avg = avgSegments ?? sumConsumption;
     const values = segments.map((s) => s.consumption).filter((x) => x !== null);
 
     byEnergy[energy] = {
@@ -184,6 +193,10 @@ async function getVehicleConsumption(db, userId, vehicleId) {
       name: ENERGIES[energy]?.name ?? energy,
       unit,
       avg,
+      // Woher avg kommt: Abschnitte (voll bis voll bzw. Ladestand) oder die Summenmethode; null ohne Wert
+      avgMethod: avgSegments !== null ? 'segments' : sumConsumption !== null ? 'sum' : null,
+      sumConsumption,
+      coverage: odoSpan > 0 ? round(Math.min(1, kmConsumed / odoSpan), 2) : null,
       min: values.length ? Math.min(...values) : null,
       max: values.length ? Math.max(...values) : null,
       kmConsumed,

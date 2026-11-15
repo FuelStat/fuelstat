@@ -4,7 +4,7 @@ const express = require('express');
 const { pool } = require('../db');
 const { UUID_RE, serverError } = require('../lib/http');
 const { auth } = require('../middleware/auth');
-const { getVehicleConsumption } = require('../services/consumption');
+const { getVehicleConsumption, primaryForStats } = require('../services/consumption');
 const { getVehicleCosts } = require('../services/costs');
 const { getVehicleReminders } = require('../services/reminders');
 const { getVehicleStats } = require('../services/stats');
@@ -31,7 +31,7 @@ router.get('/vehicles/:vehicleId/stats', auth, async (req, res) => {
   try {
     const data = await getVehicleStats(pool, req.user.sub, vehicleId);
     if (data?.error === 'vehicle_not_found') return res.status(404).json({ error: 'vehicle_not_found' });
-    res.json(data);
+    res.json({ ...data, primary: await primaryForStats(pool, req.user.sub, vehicleId, data) });
   } catch (e) {
     serverError(res, e);
   }

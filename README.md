@@ -47,7 +47,7 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 - Ladestationen mit Leistung und Steckertypen über Open Charge Map
 - Zuletzt verwendete Tankstellen und Ladestationen als Vorschläge
 - Unterstützung für Teil- und Vollbetankungen sowie Teilladevorgänge
-- Getrennte Verbrauchsauswertung für Kraftstoff und Strom bei Plug-in-Hybriden
+- Getrennte Verbrauchsauswertung für Kraftstoff und Strom bei Plug-in-Hybriden, dazu Energiekosten je 100 km (Kraftstoff und Strom) als Hauptkennzahl
 - Mehrere Kraftstoffe je Fahrzeug (z. B. Benzin und Autogas, Diesel und Premium-Diesel, E5 und E10): Sorte je Tankvorgang, Verbrauch je Energieart, Preise und Mehrpreis je Sorte
 - Plausibilitätsprüfung des Tachostands
 - Nachträgliches Ergänzen fehlender Tachostände, auch nach 14 Tagen

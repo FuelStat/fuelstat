@@ -51,6 +51,8 @@ if ($fz):
             $verbrauch[] = [number_format((float)$wert, 1, ',', '.'), ($u === null ? $einheit : einheitKurz($u)) . '/100 km'];
         }
     }
+    // Plug-in-Hybrid (#156): €/100 km zuerst; „Kosten je km“ bleibt als Gesamtkosten daneben
+    $kostenHtml = kostenKennzahlHtml($stats);
     $kmKosten = $costs['costPerKm']['total'] ?? null;
     $monat = $costs['currentMonth']['total'] ?? null;
 
@@ -130,14 +132,21 @@ endif;
             <div class="row row-cols-3 g-2 mt-1 start-kennzahlen">
                 <div class="col">
                     <div class="kennzahl h-100">
-                        <div class="kennzahl-wert"><?php if ($verbrauch): ?><?= implode(' + ', array_map(fn($x) => htmlspecialchars($x[0]) . ' <small>' . htmlspecialchars($x[1]) . '</small>', $verbrauch)) ?><?php else: ?>–<?php endif; ?></div>
+                        <?php $verbrauchHtml = $verbrauch ? implode(' + ', array_map(fn($x) => htmlspecialchars($x[0]) . ' <small>' . htmlspecialchars($x[1]) . '</small>', $verbrauch)) : '–'; ?>
+                        <?php if ($kostenHtml !== null): ?>
+                        <div class="kennzahl-wert"><?= str_replace('<small>', '<small class="d-block">', $kostenHtml) ?></div>
+                        Energiekosten
+                        <div class="fs-label">Ø <?= $verbrauchHtml ?></div>
+                        <?php else: ?>
+                        <div class="kennzahl-wert"><?= $verbrauchHtml ?></div>
                         Ø Verbrauch
+                        <?php endif; ?>
                     </div>
                 </div>
                 <div class="col">
                     <div class="kennzahl h-100">
                         <div class="kennzahl-wert"><?= $kmKosten !== null ? htmlspecialchars(number_format((float)$kmKosten, 2, ',', '.')) . ' <small>€/km</small>' : '–' ?></div>
-                        Kosten je km
+                        <?= $kostenHtml !== null ? 'Gesamtkosten je km' : 'Kosten je km' ?>
                     </div>
                 </div>
                 <div class="col">

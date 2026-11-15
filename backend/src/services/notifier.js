@@ -260,6 +260,8 @@ async function buildMonthlyReport(pool, settings, year, month) {
       expenses: e.rows.map((r) => ({ category: categoryNames[r.category] || r.category, cost: Number(r.cost) })),
       cost,
       km: endOdo !== null && startOdo !== null ? endOdo - startOdo : null,
+      // Plug-in-Hybrid (#156): Energiekosten je 100 km über Kraftstoff und Strom
+      costPer100km: v.fuel_type === 'phev' && endOdo !== null && startOdo !== null && endOdo > startOdo ? (fuelCost / (endOdo - startOdo)) * 100 : null,
       reminders
     });
   }
@@ -282,6 +284,7 @@ function reportMail(report) {
       ...s.expenses.map((x) => [x.category, `${fmt(x.cost)} €`]),
       ['Kosten gesamt', `${fmt(s.cost)} €`],
       ['Gefahrene Strecke', s.km !== null ? `${fmt(s.km, 0)} km` : '–'],
+      ...(s.costPer100km != null ? [['Energiekosten je 100 km', `${fmt(s.costPer100km)} €`]] : []),
       // Ohne Tank-/Ladevorgang im Monat bleibt es bei einer Zeile mit „–“
       ...(s.energy.length ? s.energy : [{ consumption: null }]).map((x) => [
         s.energy.length > 1 ? `Ø Verbrauch (${x.unit})` : 'Ø Verbrauch',

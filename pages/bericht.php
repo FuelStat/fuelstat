@@ -75,6 +75,21 @@ $f2 = fn($v) => number_format((float)$v, 2, ',', '.');
     <h1 class="h3 mb-1"><?= htmlspecialchars($fahrzeug['name'] ?? 'Fahrzeug') ?></h1>
     <p class="text-muted mb-4"><?= htmlspecialchars(implode(' · ', $details)) ?> · Zeitraum: <?= $jahr ?: 'gesamt' ?> · erstellt am <?= date('d.m.Y') ?></p>
 
+    <?php
+    // Plug-in-Hybrid (#156): Energiekosten je 100 km über Kraftstoff und Strom zuerst, der Verbrauch folgt je Energieart
+    $rateJahre = array_filter($daten['verbrauch']['costPer100kmPeriods']['years'] ?? [], fn($r) => $r['costPer100km'] !== null && ($jahr === null || (int)$r['period'] === $jahr));
+    if (kostenKennzahlHtml($daten['verbrauch'] ?? []) !== null && $rateJahre): ?>
+    <h2 class="h5">Energiekosten je 100 km</h2>
+    <table class="table table-sm table-bordered mb-4">
+        <thead><tr><th>Jahr</th><th>Energiekosten</th><th>Strecke</th><th>€/100 km</th></tr></thead>
+        <tbody>
+        <?php foreach ($rateJahre as $r): ?>
+            <tr><td><?= htmlspecialchars($r['period']) ?></td><td><?= $f2($r['cost']) ?> €</td><td><?= number_format((float)$r['distanceKm'], 0, ',', '.') ?> km</td><td><?= $f2($r['costPer100km']) ?> €</td></tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php endif; ?>
+
     <?php foreach ($tabellen as $t): ?>
     <h2 class="h5">Jahresübersicht<?= count($tabellen) > 1 ? ' ' . $t['begriffe']['energie'] : '' ?></h2>
     <table class="table table-sm table-bordered mb-4">

@@ -9,12 +9,19 @@
 // - Monats- und Jahresverbrauch: Menge ÷ Strecke aller Abschnitte im Zeitraum (gewichtet, nicht Ø der Werte)
 // - Gekaufte Menge und Kosten: alle Tank-/Ladevorgänge, auch ohne Tachostand
 // - CO₂: gekaufte Menge × Emissionsfaktor (Verbrenner: direkte Emission, Strom: deutscher Strommix)
+// - Hauptkennzahl (#156): Plug-in-Hybride zeigen €/100 km über alle Energiearten (Benzin und Strom), alle anderen
+//   Antriebsarten den Verbrauch je Einheit (l, kWh, kg /100 km). Die API legt das fest (`primary`), Clients zeigen es nur an.
+//   €/100 km je Monat und Jahr: Energiekosten aller Tank-/Ladevorgänge im Zeitraum ÷ Strecke im Zeitraum aus echten
+//   Tachoständen. Kostenlos geladen heißt 0 € (die Spalte ist NOT NULL), nicht „unbekannt“.
 
 const { getVehicleStats, mainEnergies } = require('./stats');
 const { ENERGIES, ENERGY_ORDER, FUELS, MINOR_SHARE, energyOf, vehicleFuels } = require('./fuels');
+const { monthOf, periodDistance } = require('./costs');
 
 const TZ = 'Europe/Berlin';
 const UNIT_ORDER = ['l', 'kwh', 'kg'];
+// Kürzeste Strecke (km), ab der ein Monat bei „günstigster/teuerster Monat“ zählt
+const MIN_PERIOD_KM = 100;
 
 const energyCo2 = (energy) => ENERGIES[energy]?.co2 ?? null;
 
@@ -28,6 +35,14 @@ function dayOf(date) {
 
 function rate(amount, km) {
   return km > 0 ? round((amount / km) * 100, 2) : null;
+}
+
+// Hauptkennzahl eines Fahrzeugs (#156). Die Antriebsart entscheidet, nicht der Client.
+function primaryMetric(fuelType, costPer100km, mainUnit) {
+  if (fuelType === 'phev' && costPer100km !== null) {
+    return { metric: 'costPer100km', unit: 'eur_per_100km', value: costPer100km };
+  }
+  return { metric: 'consumption', unit: mainUnit?.unit ?? null, value: mainUnit?.avg ?? null };
 }
 
 /**
@@ -197,6 +212,28 @@ async function getVehicleConsumption(db, userId, vehicleId) {
   const span = withOdo.length > 1 ? withOdo[withOdo.length - 1].odo - withOdo[0].odo : 0;
   const costPer100km = span > 0 ? round((withOdo.slice(1).reduce((a, r) => a + (Number(r.cost) || 0), 0) / span) * 100, 2) : null;
 
+  // €/100 km je Monat und Jahr (#156). Einzelne Monate schwanken stark, wenn selten getankt wird; Bestwerte und
+  // schlechteste Werte zählen deshalb nur Zeiträume ab MIN_PERIOD_KM.
+  const readings = withOdo.filter((r) => r.odo > 0).map((r) => ({ odo: r.odo, month: monthOf(new Date(r.filled_at)) }));
+  const periodRates = (keyLength) => {
+    const keyOf = (r) => r.month.slice(0, keyLength);
+    const costByKey = new Map();
+    for (const r of rows) {
+      const k = monthOf(new Date(r.filled_at)).slice(0, keyLength);
+      costByKey.set(k, (costByKey.get(k) ?? 0) + (Number(r.cost) || 0));
+    }
+    return [...costByKey.keys()].sort().reverse().map((key) => {
+      const distanceKm = periodDistance(readings, keyOf, key);
+      const cost = round(costByKey.get(key), 2);
+      return { period: key, cost, distanceKm, costPer100km: distanceKm ? round((cost / distanceKm) * 100, 2) : null };
+    });
+  };
+  const rateMonths = periodRates(7);
+  const rateYears = periodRates(4);
+  const ranked = rateMonths.filter((m) => m.costPer100km !== null && m.distanceKm >= MIN_PERIOD_KM);
+  const best = ranked.length > 1 ? ranked.reduce((a, b) => (b.costPer100km < a.costPer100km ? b : a)) : null;
+  const worst = ranked.length > 1 ? ranked.reduce((a, b) => (b.costPer100km > a.costPer100km ? b : a)) : null;
+
   // Bisheriges Format je Einheit: die Hauptenergieart der Einheit
   const mainByUnit = mainEnergies(vehicle, energies.map((e) => ({ energy: e, count: byEnergy[e].fillCount })));
   const units = Object.keys(mainByUnit)
@@ -224,6 +261,11 @@ async function getVehicleConsumption(db, userId, vehicleId) {
     byFuel,
     energyCost,
     costPer100km,
+    // Hauptkennzahl (#156): Plug-in-Hybrid €/100 km, sonst der Verbrauch der Hauptenergieart. Ohne berechenbare Kosten
+    // (noch keine Strecke) bleibt es beim Verbrauch.
+    primary: primaryMetric(fuelType, costPer100km, units[0] ? byUnit[units[0]] : null),
+    // €/100 km je Monat und Jahr, neueste zuerst; costPer100km null ohne Strecke. best/worst: Monate ab MIN_PERIOD_KM
+    costPer100kmPeriods: { months: rateMonths, years: rateYears, best, worst, minPeriodKm: MIN_PERIOD_KM },
     // Anteil der Ladekosten an den Energiekosten in %, nur bei mehreren Energiearten
     electricShare: energies.length > 1 && byEnergy.electricity && energyCost > 0 ? round((byEnergy.electricity.cost / energyCost) * 100, 1) : null,
     co2: {
@@ -233,4 +275,17 @@ async function getVehicleConsumption(db, userId, vehicleId) {
   };
 }
 
-module.exports = { getVehicleConsumption };
+/**
+ * Hauptkennzahl für /stats (#156), damit Fahrzeugkarte und Start sie ohne zweiten Aufruf bekommen. Nur Plug-in-Hybride
+ * brauchen die Verbrauchsrechnung (€/100 km); alle anderen Antriebsarten ergeben sich aus den Stats.
+ */
+async function primaryForStats(db, userId, vehicleId, stats) {
+  const v = await db.query('SELECT fuel_type FROM vehicles WHERE id = $1', [vehicleId]);
+  if (v.rows[0]?.fuel_type === 'phev') {
+    const c = await getVehicleConsumption(db, userId, vehicleId);
+    if (c) return c.primary;
+  }
+  return { metric: 'consumption', unit: Object.keys(stats.units ?? {})[0] ?? null, value: stats.avgConsumption ?? null };
+}
+
+module.exports = { getVehicleConsumption, primaryForStats };

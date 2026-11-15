@@ -497,6 +497,8 @@ Fremde oder ungültige IDs liefern 404 `fillup_not_found`.
 
 Gibt aktuelle Kennzahlen und Full-to-Full-Abschnitte zurück. Abschnitte laufen je Einheit von einer vollen Füllung zur nächsten; beim Plug-in-Hybrid also getrennt für Liter und kWh.
 
+`primary` (#156) ist die Hauptkennzahl des Fahrzeugs, die Clients zuerst zeigen: beim Plug-in-Hybrid `{ "metric": "costPer100km", "unit": "eur_per_100km", "value": 13.68 }`, sonst `{ "metric": "consumption", "unit": "l", "value": 6.4 }`. Erklärung bei [/consumption](#get-vehiclesvehicleidconsumption).
+
 **Header**
 Authorization: Bearer <jwt>
 
@@ -604,6 +606,8 @@ Verbrauch, Mengen und CO₂ je Einheit (#82). Grundlage sind dieselben Full-to-F
 * **Je Energieart (#140):** `energies` (Energiearten mit Einträgen, die des Standards zuerst) und `byEnergy` mit denselben Feldern wie `byUnit`, dazu `name`, `costShare` (% der Energiekosten) und `minor` (unter 10 %: Verbrauch nicht als Wert zeigen). `byUnit[u].energy` sagt, welche Energieart dort steht. CO₂-Faktor je Energieart.
 * `byFuel` je Sorte: `fillCount`, `amount`, `cost`, `avgPrice`, `shareOfEnergy` (% der Menge der Energieart, z. B. 80 % Premium-Diesel) und bei Premium-Sorten `markup` (`perUnit`, `percent`, `basePrice`): Mehrpreis gegenüber dem mengengewichteten Ø Preis der übrigen Sorten derselben Energieart
 * `costPer100km`: Energiekosten pro 100 km über alle Energiearten (wie `costPerKm.energy` in `/costs`); `fuels`, `defaultFuel`: Sorten des Fahrzeugs
+* **Hauptkennzahl (#156):** `primary` `{ metric, unit, value }` legt die API fest, Clients zeigen sie nur an. Bei **Plug-in-Hybriden** ist es `costPer100km` (Einheit `eur_per_100km`) über Benzin **und** Strom, denn der Verbrauch in l allein unterschätzt die Energiekosten. Alle anderen Antriebsarten (Benziner, Diesel, Elektro, Vollhybrid …) bleiben bei `consumption` (Einheit `l`, `kwh` oder `kg` je 100 km der Hauptenergieart). Gibt es noch keine Strecke, bleibt auch ein Plug-in-Hybrid beim Verbrauch. Verbrauch je Einheit (`byUnit`, `byEnergy`) bleibt immer daneben verfügbar.
+* `costPer100kmPeriods` (#156): `months` und `years`, neueste zuerst, je `{ period, cost, distanceKm, costPer100km }`. Energiekosten aller Tank-/Ladevorgänge im Zeitraum ÷ Strecke im Zeitraum aus echten Tachoständen (kostenlos geladen zählt als 0 €; `null` ohne Strecke, nie 0). Der Gesamtwert `costPer100km` lässt die erste Füllung außen vor (sie hat die Strecke davor bezahlt), Monats- und Jahreswerte zählen alle Füllungen im Zeitraum; sie weichen deshalb leicht ab. Einzelne Monate schwanken, wenn selten getankt wird; Jahreswerte sind stabiler. `best` und `worst` sind der günstigste und teuerste Monat mit mindestens `minPeriodKm` (100) km Strecke, `null` bei weniger als zwei solchen Monaten.
 
 `/stats` liefert zusätzlich `energies` (je Energieart `avgPrice`, `avgConsumption`, `trend`, `minor`), jeder Abschnitt in `segments` hat `energy`. `/costs` liefert `energies` (Energiekosten je Energieart im Zeitraum mit Anteil).
 

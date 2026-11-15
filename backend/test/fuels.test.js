@@ -228,3 +228,75 @@ test('Import: Sorte je Zeile, sonst Standard der Einheit', async () => {
   const list = (await api('GET', `/vehicles/${v.id}/fillups`, { token })).body.data.sort((a, b) => a.odometer_km - b.odometer_km);
   assert.deepEqual(list.map((f) => f.fuel), ['premium_diesel', 'diesel', 'diesel']);
 });
+
+test('Hauptkennzahl (#156): Plug-in-Hybrid €/100 km, alle anderen Antriebsarten wie bisher; €/100 km je Monat und Jahr', async () => {
+  const token = await newUser();
+  // Plug-in-Hybrid: Benzin (Mai) und Strom (Mai, Juni); Juni teils kostenlos geladen
+  const phev = await newVehicle(token, { fuelType: 'phev' });
+  await fillup(token, phev.id, { odometerKm: 1000, amount: 30, totalCostEur: 55, unit: 'l', filledAt: '2025-05-01T10:00:00Z' });
+  await fillup(token, phev.id, { odometerKm: 1200, amount: 10, totalCostEur: 4, unit: 'kwh', filledAt: '2025-05-10T10:00:00Z' });
+  await fillup(token, phev.id, { odometerKm: 1500, amount: 12, totalCostEur: 5, unit: 'kwh', filledAt: '2025-05-25T10:00:00Z' });
+  await fillup(token, phev.id, { odometerKm: 1800, amount: 15, totalCostEur: 0, unit: 'kwh', filledAt: '2025-06-10T10:00:00Z' });
+  await fillup(token, phev.id, { odometerKm: 2000, amount: 11, totalCostEur: 6, unit: 'kwh', filledAt: '2025-06-25T10:00:00Z' });
+  let c = (await api('GET', `/vehicles/${phev.id}/consumption`, { token })).body;
+  assert.equal(c.primary.metric, 'costPer100km');
+  assert.equal(c.primary.unit, 'eur_per_100km');
+  // wie bisher: alle Kosten nach der ersten Füllung ÷ Strecke (4 + 5 + 0 + 6 = 15 € auf 1000 km)
+  assert.ok(nah(c.primary.value, 1.5));
+  assert.equal(c.primary.value, c.costPer100km);
+  // Verbrauch je Einheit bleibt daneben vorhanden
+  assert.ok(c.byUnit.l && c.byUnit.kwh);
+  // Je Monat: Kosten der Füllungen im Monat ÷ Strecke im Monat (Mai 1000→1500 = 500 km, Juni 1500→2000 = 500 km)
+  const mai = c.costPer100kmPeriods.months.find((m) => m.period === '2025-05');
+  const juni = c.costPer100kmPeriods.months.find((m) => m.period === '2025-06');
+  assert.equal(c.costPer100kmPeriods.months[0].period, '2025-06', 'neueste zuerst');
+  assert.ok(nah(mai.costPer100km, (55 + 4 + 5) / 500 * 100));
+  assert.equal(mai.distanceKm, 500);
+  assert.ok(nah(juni.costPer100km, 6 / 500 * 100), 'kostenlos geladen zählt als 0 €');
+  const jahr = c.costPer100kmPeriods.years[0];
+  assert.equal(jahr.period, '2025');
+  assert.equal(jahr.distanceKm, 1000);
+  assert.ok(nah(jahr.costPer100km, 70 / 1000 * 100));
+  // Günstigster und teuerster Monat
+  assert.equal(c.costPer100kmPeriods.best.period, '2025-06');
+  assert.equal(c.costPer100kmPeriods.worst.period, '2025-05');
+
+  // Ohne Strecke (nur ein Tachostand): Kennzahl bleibt der Verbrauch, nie 0
+  const neu = await newVehicle(token, { fuelType: 'phev' });
+  await fillup(token, neu.id, { odometerKm: 100, amount: 30, totalCostEur: 55, unit: 'l' });
+  c = (await api('GET', `/vehicles/${neu.id}/consumption`, { token })).body;
+  assert.equal(c.costPer100km, null);
+  assert.equal(c.primary.metric, 'consumption');
+  assert.equal(c.costPer100kmPeriods.months[0].costPer100km, null);
+  assert.equal(c.costPer100kmPeriods.best, null);
+
+  // Benziner, Elektroauto, Vollhybrid: weiter der Verbrauch je Einheit
+  for (const [fuelType, unit, einheit] of [['e10', 'l', 'l'], ['electric', 'kwh', 'kwh'], ['hybrid', 'l', 'l']]) {
+    const v = await newVehicle(token, { fuelType });
+    await fillup(token, v.id, { odometerKm: 1000, amount: 40, totalCostEur: 60, unit, filledAt: '2025-05-01T10:00:00Z' });
+    await fillup(token, v.id, { odometerKm: 1500, amount: 30, totalCostEur: 45, unit, filledAt: '2025-05-10T10:00:00Z' });
+    c = (await api('GET', `/vehicles/${v.id}/consumption`, { token })).body;
+    assert.equal(c.primary.metric, 'consumption', fuelType);
+    assert.equal(c.primary.unit, einheit, fuelType);
+    assert.ok(nah(c.primary.value, 30 / 500 * 100), fuelType);
+    assert.ok(c.costPer100km > 0, 'bleibt zusätzlich verfügbar');
+  }
+});
+
+test('Monatsbericht (#156): Plug-in-Hybrid zeigt Energiekosten je 100 km, andere Antriebsarten nicht', async () => {
+  const { buildMonthlyReport, reportMail } = require('../src/services/notifier');
+  const token = await newUser();
+  const me = (await api('GET', '/whoami', { token })).body;
+  const phev = await newVehicle(token, { fuelType: 'phev', name: 'Hybridbericht' });
+  const benziner = await newVehicle(token, { fuelType: 'e10', name: 'Benzinbericht' });
+  for (const v of [phev, benziner]) {
+    await fillup(token, v.id, { odometerKm: 500, amount: 40, totalCostEur: 50, unit: 'l', filledAt: '2025-07-10T10:00:00Z' });
+    await fillup(token, v.id, { odometerKm: 1000, amount: 40, totalCostEur: 60, unit: 'l', filledAt: '2025-08-01T10:00:00Z' });
+    await fillup(token, v.id, { odometerKm: 1500, amount: 30, totalCostEur: 45, unit: 'l', filledAt: '2025-08-20T10:00:00Z' });
+  }
+  const report = await buildMonthlyReport(pool, { user_id: me.id, reminder_days: 30 }, 2025, 8);
+  const mail = reportMail(report).text;
+  const abschnitt = (name) => mail.slice(mail.indexOf(name)).split('\n\n')[0];
+  assert.match(abschnitt('Hybridbericht'), /Energiekosten je 100 km: 10,50 €/, '105 € im August auf 1.000 km (500 → 1.500)');
+  assert.doesNotMatch(abschnitt('Benzinbericht'), /Energiekosten je 100 km/);
+});

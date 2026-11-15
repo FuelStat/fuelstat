@@ -37,6 +37,46 @@ function rate(amount, km) {
   return km > 0 ? round((amount / km) * 100, 2) : null;
 }
 
+const CHARGE_TYPE_ORDER = ['home', 'ac_public', 'dc', null];
+
+// Auswertung nach Ladeart (#25) über alle Ladevorgänge (kWh). Ladevorgänge ohne Angabe stehen als eigene Gruppe
+// (type null), damit bestehende Fahrzeuge nicht „0 % zu Hause“ zeigen; „zu Hause gegen unterwegs“ rechnet nur über
+// Ladevorgänge mit Angabe (homeShare). Die Leistung ergibt sich aus kWh ÷ Ladedauer, nur über Ladevorgänge mit Dauer.
+function chargeTypeStats(rows) {
+  const charges = rows.filter((r) => r.unit === 'kwh');
+  if (!charges.length) return null;
+  const totalAmount = charges.reduce((a, r) => a + (Number(r.amount) || 0), 0);
+  const group = (list) => {
+    const amount = list.reduce((a, r) => a + (Number(r.amount) || 0), 0);
+    const cost = list.reduce((a, r) => a + (Number(r.cost) || 0), 0);
+    const timed = list.filter((r) => r.charge_minutes > 0 && Number(r.amount) > 0);
+    const timedAmount = timed.reduce((a, r) => a + Number(r.amount), 0);
+    const hours = timed.reduce((a, r) => a + r.charge_minutes / 60, 0);
+    return {
+      count: list.length,
+      amount: round(amount, 3),
+      cost: round(cost, 2),
+      avgPrice: amount > 0 ? round(cost / amount, 3) : null,
+      share: totalAmount > 0 ? round((amount / totalAmount) * 100, 1) : null,
+      avgPowerKw: hours > 0 ? round(timedAmount / hours, 1) : null
+    };
+  };
+  const types = CHARGE_TYPE_ORDER
+    .map((type) => ({ type: type ?? null, ...group(charges.filter((r) => (r.charge_type ?? null) === type)) }))
+    .filter((t) => t.count > 0);
+  const typed = charges.filter((r) => r.charge_type);
+  const typedAmount = typed.reduce((a, r) => a + (Number(r.amount) || 0), 0);
+  const homeAmount = typed.filter((r) => r.charge_type === 'home').reduce((a, r) => a + (Number(r.amount) || 0), 0);
+  return {
+    total: { count: charges.length, amount: round(totalAmount, 3), cost: round(charges.reduce((a, r) => a + (Number(r.cost) || 0), 0), 2) },
+    types,
+    // Anteil der kWh mit Angabe zur Ladeart (Hinweis, wie belastbar die Verteilung ist)
+    typedShare: totalAmount > 0 ? round((typedAmount / totalAmount) * 100, 1) : null,
+    // zu Hause (Wallbox) gegen unterwegs (AC öffentlich, DC) in % der kWh mit Angabe
+    homeShare: typedAmount > 0 ? round((homeAmount / typedAmount) * 100, 1) : null
+  };
+}
+
 // Hauptkennzahl eines Fahrzeugs (#156). Die Antriebsart entscheidet, nicht der Client.
 function primaryMetric(fuelType, costPer100km, mainUnit) {
   if (fuelType === 'phev' && costPer100km !== null) {
@@ -59,7 +99,8 @@ async function getVehicleConsumption(db, userId, vehicleId) {
 
   const fills = await db.query(
     `SELECT fuel, unit, amount::float8 AS amount, total_cost_eur::float8 AS cost, filled_at,
-            CASE WHEN odometer_estimated THEN NULL ELSE odometer_km END AS odo, created_at
+            CASE WHEN odometer_estimated THEN NULL ELSE odometer_km END AS odo, created_at,
+            charge_type, charge_minutes
        FROM fillups WHERE vehicle_id = $1`,
     [vehicleId]
   );
@@ -261,6 +302,8 @@ async function getVehicleConsumption(db, userId, vehicleId) {
     byFuel,
     energyCost,
     costPer100km,
+    // Ladevorgänge nach Ladeart (#25); null ohne Ladevorgänge
+    chargeTypes: chargeTypeStats(rows),
     // Hauptkennzahl (#156): Plug-in-Hybrid €/100 km, sonst der Verbrauch der Hauptenergieart. Ohne berechenbare Kosten
     // (noch keine Strecke) bleibt es beim Verbrauch.
     primary: primaryMetric(fuelType, costPer100km, units[0] ? byUnit[units[0]] : null),

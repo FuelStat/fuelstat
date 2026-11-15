@@ -71,6 +71,7 @@ $zeigeMonate = function () use ($eintraege, $monatsSummen, $artVon, $euro, $fuel
               $type === 'fillup' ? number_format((float)($e['menge'] ?? 0), 2, ',', '.') . ' ' . $kurz : '',
               $type === 'fillup' && !empty($e['sorte']) && ($sortenJeEinheit[$eEinheit] ?? 0) > 1 ? sortenName($e['sorte']) : '',
               $v !== null ? number_format($v, 2, ',', '.') . ' ' . $kurz . '/100 km' : '',
+              $type === 'fillup' && $eEinheit === 'kwh' ? ladeangabenText($e) : '',
           ]);
           $editUrl = $type === 'trip'
               ? '../pages/fahrt.php?id=' . urlencode($e['id']) . '&fahrzeug_id=' . urlencode($fahrzeug_id)

@@ -184,6 +184,11 @@ function ladeMergedEintraegeFromApi($api, string $vehicleId): array
             'standort' => $f['station'] ?? '',
             'einheit' => $f['unit'] ?? 'l',
             'sorte' => $f['fuel'] ?? null,
+            // Ladeangaben (#25), nur Ladevorgänge
+            'ladeart' => $f['charge_type'] ?? null,
+            'soc_vorher' => $f['soc_before_pct'] ?? null,
+            'soc_nachher' => $f['soc_after_pct'] ?? null,
+            'ladedauer' => $f['charge_minutes'] ?? null,
             'l_per_100km' => $lPer100ByFillupId[$f['id']] ?? null,
             // Geteilte Fahrzeuge (#53): wer den Eintrag erfasst hat
             'erfasst_von' => $f['created_by'] ?? null,
@@ -680,6 +685,10 @@ function eintragAusTimeline(array $x): array
             : (string)($x['description'] ?? ''),
         'einheit' => $x['unit'] ?? null,
         'sorte' => $x['fuel'] ?? null,
+        'ladeart' => $x['charge_type'] ?? null,
+        'soc_vorher' => $x['soc_before_pct'] ?? null,
+        'soc_nachher' => $x['soc_after_pct'] ?? null,
+        'ladedauer' => $x['charge_minutes'] ?? null,
         'l_per_100km' => $x['consumption'] ?? null,
         'zweck' => $x['purpose'] ?? null,
         'erfasst_von' => $x['created_by'] ?? null,
@@ -761,7 +770,53 @@ function eintragFehlerText(Throwable $e): string
         'missing_category' => 'Bitte eine Kategorie wählen.',
         'invalid_amountEur' => 'Bitte einen gültigen Betrag eingeben.',
         'invalid_odometerKm' => 'Bitte einen gültigen Tachostand eingeben.',
+        'invalid_chargeType' => 'Bitte eine gültige Ladeart wählen.',
+        'invalid_socBeforePct' => 'Der Ladestand vorher muss eine ganze Zahl von 0 bis 100 sein.',
+        'invalid_socAfterPct' => 'Der Ladestand nachher muss eine ganze Zahl von 0 bis 100 sein.',
+        'invalid_soc' => 'Der Ladestand nachher darf nicht unter dem Ladestand vorher liegen.',
+        'invalid_chargeMinutes' => 'Die Ladedauer muss eine ganze Zahl von Minuten sein (höchstens 4320).',
     ][$e->getMessage()] ?? $e->getMessage();
+}
+
+/**
+ * Ladeangaben (#25) aus dem Formular für die API: Ladeart, Ladestand vorher/nachher in %, Ladedauer in Minuten.
+ * Nur beim Laden (kWh); sonst nichts senden (die API entfernt sie beim Wechsel zu Tanken selbst).
+ * Leere Felder werden als null gesendet, damit sie beim Bearbeiten gelöscht werden.
+ */
+function ladeangabenAusFormular(array $post, string $einheit): array
+{
+    if ($einheit !== 'kwh') {
+        return [];
+    }
+    $zahl = function (string $name) use ($post): ?int {
+        $wert = trim((string)($post[$name] ?? ''));
+        return $wert === '' ? null : (is_numeric($wert) ? (int)round((float)str_replace(',', '.', $wert)) : -1);
+    };
+    $art = (string)($post['ladeart'] ?? '');
+    return [
+        'chargeType' => $art !== '' ? $art : null,
+        'socBeforePct' => $zahl('soc_vorher'),
+        'socAfterPct' => $zahl('soc_nachher'),
+        'chargeMinutes' => $zahl('ladedauer'),
+    ];
+}
+
+/** Kurztext der Ladeangaben (#25) für die Eintragsliste, z. B. "Schnelllader, DC · 20 → 80 % · 35 min"; ohne Angaben leer */
+function ladeangabenText(array $e): string
+{
+    $soc = ($e['soc_vorher'] ?? null) !== null && ($e['soc_nachher'] ?? null) !== null ? $e['soc_vorher'] . ' → ' . $e['soc_nachher'] . ' %'
+        : (($e['soc_nachher'] ?? null) !== null ? 'auf ' . $e['soc_nachher'] . ' %' : (($e['soc_vorher'] ?? null) !== null ? 'ab ' . $e['soc_vorher'] . ' %' : ''));
+    return implode(' · ', array_filter([
+        ladearten()[$e['ladeart'] ?? ''] ?? '',
+        $soc,
+        isset($e['ladedauer']) ? (int)$e['ladedauer'] . ' min' : '',
+    ]));
+}
+
+/** Ladearten (#25) für Auswahl und Anzeige: Schlüssel der API => Beschriftung */
+function ladearten(): array
+{
+    return ['home' => 'Zu Hause (Wallbox)', 'ac_public' => 'Öffentlich, AC', 'dc' => 'Schnelllader, DC'];
 }
 
 /**

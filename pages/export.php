@@ -45,11 +45,18 @@ fwrite($out, "\xEF\xBB\xBF");
 $phev = $fuelType === 'phev';
 // Mehrere Sorten (#140): Spalte "Sorte" (wird beim Import wieder erkannt)
 $mitSorte = count(sortenDesFahrzeugs($fahrzeug)) > 1;
+// Ladeangaben (#25): eigene Spalten bei Fahrzeugen, die laden (Elektro, Plug-in-Hybrid); der Import erkennt sie wieder
+$mitLaden = in_array('kwh', einheitenFuerKraftstoff($fuelType), true);
 $kopf = $phev
     ? ['Datum', 'Kategorie', 'Tachostand (km)', 'Menge', 'Einheit', 'Kosten (EUR)', 'Voll', 'Lücke davor', 'Verbrauch (pro 100km)', 'Ort/Anbieter', 'Beschreibung']
     : ['Datum', 'Kategorie', 'Tachostand (km)', 'Menge (' . $einheit . ')', 'Kosten (EUR)', $begriffe['voll'], 'Lücke davor', 'Verbrauch (' . $einheit . '/100km)', 'Ort/Anbieter', 'Beschreibung'];
 if ($mitSorte) {
     array_splice($kopf, 4, 0, ['Sorte']);
+}
+if ($mitLaden) {
+    // nach "Lücke davor", vor dem Verbrauch
+    $pos = array_search('Lücke davor', $kopf, true) + 1;
+    array_splice($kopf, $pos, 0, ['Ladeart', 'Ladestand vorher (%)', 'Ladestand nachher (%)', 'Ladedauer (min)']);
 }
 fputcsv($out, $kopf, ';');
 foreach ($zeilen as $e) {
@@ -63,6 +70,12 @@ foreach ($zeilen as $e) {
         $zahl($e['kosten'], 2),
         $istTank ? (!empty($e['vollgetankt']) ? 'ja' : 'nein') : '',
         $istTank ? (!empty($e['skip_previous']) ? 'ja' : 'nein') : '',
+    ], $mitLaden ? [
+        $istTank ? (ladearten()[$e['ladeart'] ?? ''] ?? '') : '',
+        $istTank ? ($e['soc_vorher'] ?? '') : '',
+        $istTank ? ($e['soc_nachher'] ?? '') : '',
+        $istTank ? ($e['ladedauer'] ?? '') : '',
+    ] : [], [
         $istTank ? $zahl($e['l_per_100km'] ?? null, 2) : '',
         $text($e['standort'] ?? ''),
         $text($e['beschreibung'] ?? ''),

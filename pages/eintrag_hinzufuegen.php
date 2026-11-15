@@ -223,6 +223,7 @@ $heute = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->form
                 <input type="checkbox" id="skip_previous" name="skip_previous" class="form-check-input" role="switch" value="1">
                 <label for="skip_previous" class="form-check-label" id="lueckeLabel"><?= htmlspecialchars($t['luecke']) ?></label>
             </div>
+            <?php $ladeSichtbar = $einheit === 'kwh'; include __DIR__ . '/../includes/ladeangaben_felder.php'; ?>
         </div>
 
         <!-- Andere Ausgabe -->
@@ -338,6 +339,10 @@ function setzeEinheit(u) {
     sortenFuerArt(u);
     zeigeOrtChips(u);
     document.getElementById('tankstellenVorschlaege').replaceChildren();
+    // Ladeart, Ladestand, Ladedauer (#25) gibt es nur beim Laden; sonst nicht mitschicken
+    const lade = document.getElementById('ladeAngaben');
+    lade.hidden = u !== 'kwh';
+    lade.querySelectorAll('input, select').forEach(f => { f.disabled = u !== 'kwh'; });
 }
 
 // Vorschlags-Chips nur bei leerem Ort zeigen (#106): entscheidend ist allein der Inhalt des Feldes, egal ob er

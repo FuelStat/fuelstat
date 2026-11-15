@@ -80,7 +80,7 @@ try {
     if ($sorte !== null) {
         $einheit = sortenKatalog()['sorten'][$sorte]['unit'] ?? $einheit;
     }
-    $api->patchFillup($eintrag_id, ($sorte !== null ? ['fuel' => $sorte] : ['unit' => $einheit]) + [
+    $api->patchFillup($eintrag_id, ladeangabenAusFormular($_POST, $einheit) + ($sorte !== null ? ['fuel' => $sorte] : ['unit' => $einheit]) + [
         'odometerKm' => $tachostand,
         'odometerEstimated' => $tachoGeschaetzt,
         'amount' => $menge,

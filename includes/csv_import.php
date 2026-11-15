@@ -18,6 +18,10 @@ function importFelder(): array
         'preis' => 'Preis pro Einheit (€)',
         'vollgetankt' => 'Voll getankt bzw. geladen',
         'luecke' => 'Lücke davor (vorheriger Tank-/Ladevorgang fehlt)',
+        'ladeart' => 'Ladeart (zu Hause, AC öffentlich, DC)',
+        'soc_vorher' => 'Ladestand vorher (%)',
+        'soc_nachher' => 'Ladestand nachher (%)',
+        'ladedauer' => 'Ladedauer (Minuten)',
         'ort' => 'Tankstelle / Ladestation / Ort',
         'beschreibung' => 'Beschreibung / Notiz',
     ];
@@ -49,6 +53,10 @@ function importErkenneZuordnung(array $kopfzeile): array
         'preis' => ['preisproeinheit', 'preisproliter', 'literpreis', 'preisl', 'priceperliter', 'priceperunit', 'einzelpreis', 'preisprokwh', 'kwhpreis', 'strompreis', 'preiskwh'],
         'vollgetankt' => ['vollgetankt', 'vollgeladen', 'voll', 'full', 'volltank', 'isfull', 'vollgetanktbzwgeladen'],
         'luecke' => ['lueckedavor', 'luecke', 'skipprevious', 'vorherigeignorieren', 'vorherigetankfuellungignorieren'],
+        'ladeart' => ['ladeart', 'chargetype', 'ladetyp', 'ladeort'],
+        'soc_vorher' => ['ladestandvorher', 'socvorher', 'socbefore', 'akkuvorher', 'batterievorher'],
+        'soc_nachher' => ['ladestandnachher', 'socnachher', 'socafter', 'akkunachher', 'batterienachher'],
+        'ladedauer' => ['ladedauer', 'chargeminutes', 'dauer', 'ladezeit'],
         'ort' => ['ort', 'tankstelle', 'ladestation', 'ladesaeule', 'station', 'ortanbieter', 'anbieter', 'vendor', 'location', 'standort'],
         'beschreibung' => ['beschreibung', 'notiz', 'bemerkung', 'note', 'notes', 'description', 'kommentar', 'comment'],
     ];
@@ -175,6 +183,31 @@ function importEinheit(?string $wert): ?string
 }
 
 /**
+ * Ladeart (#25) aus der Datei: "Zu Hause", "Wallbox", "AC öffentlich", "DC", "Schnelllader" usw.; unbekannt oder leer: null.
+ * Reihenfolge: DC vor AC, denn "AC/DC" und "Schnelllader" sind DC; „öffentlich“ ohne weitere Angabe gilt als AC.
+ */
+function importLadeart(?string $wert): ?string
+{
+    $norm = importNormalisiereKopf((string)$wert);
+    if ($norm === '') {
+        return null;
+    }
+    if (in_array($norm, ['home', 'ac_public', 'dc'], true) || $norm === 'acpublic') {
+        return $norm === 'acpublic' ? 'ac_public' : $norm;
+    }
+    if (str_contains($norm, 'dc') || str_contains($norm, 'schnell') || str_contains($norm, 'hpc') || str_contains($norm, 'fast')) {
+        return 'dc';
+    }
+    if (str_contains($norm, 'hause') || str_contains($norm, 'wallbox') || str_contains($norm, 'privat') || str_contains($norm, 'daheim')) {
+        return 'home';
+    }
+    if (str_contains($norm, 'ac') || str_contains($norm, 'oeffentlich') || str_contains($norm, 'public') || str_contains($norm, 'saeule')) {
+        return 'ac_public';
+    }
+    return null;
+}
+
+/**
  * Sorte (#140) aus Schlüssel oder Namen der API-Liste, z. B. "super_e10", "Super E10", "E10", "LPG"; unbekannt: null.
  * Ob die Sorte zum Fahrzeug gehört, prüft die API (sonst gilt der Standard des Fahrzeugs).
  */
@@ -233,6 +266,24 @@ function importArt(?string $wert, ?float $menge, string $standardKategorie): arr
 }
 
 /**
+ * Ladeangaben (#25) einer Zeile für die API; nur was in der Datei steht. Bei Tankzeilen (l, kg) ruft das niemand auf.
+ * @param callable $hole fn(array $zeile, string $feld)
+ */
+function importLadeangaben(array $zeile, callable $hole, ?string $ladeart): array
+{
+    $ganz = function (string $feld) use ($zeile, $hole): ?int {
+        $wert = $hole($zeile, $feld);
+        return $wert === null || trim((string)$wert) === '' ? null : importGanzzahl((string)$wert);
+    };
+    return array_filter([
+        'chargeType' => $ladeart,
+        'socBeforePct' => $ganz('soc_vorher'),
+        'socAfterPct' => $ganz('soc_nachher'),
+        'chargeMinutes' => $ganz('ladedauer'),
+    ], fn($v) => $v !== null);
+}
+
+/**
  * Alle Zeilen anhand der Zuordnung umwandeln.
  * @return array ['fillups' => [...], 'entries' => [...], 'fehler' => [zeilennummer => meldung], 'vorschau' => [...]]
  */
@@ -273,6 +324,7 @@ function importWandleUm(array $zeilen, array $zuordnung, string $standardKategor
             'nr' => $nr, 'datum' => $datum, 'kategorie' => $art['kategorie'], 'tachostand' => $tacho,
             'menge' => $art['typ'] === 'fillup' ? $menge : null, 'einheit' => $art['typ'] === 'fillup' ? $einheit : null, 'kosten' => $kosten,
             'vollgetankt' => $art['typ'] === 'fillup' ? importJaNein($hole($zeile, 'vollgetankt')) : null,
+            'ladeart' => $art['typ'] === 'fillup' ? importLadeart($hole($zeile, 'ladeart')) : null,
             'ort' => $ort, 'beschreibung' => $beschreibung, 'fehler' => $fehler,
         ];
         $ergebnis['vorschau'][] = $vorschau;
@@ -292,7 +344,8 @@ function importWandleUm(array $zeilen, array $zuordnung, string $standardKategor
                 'station' => $ort !== '' ? $ort : null,
                 'isFull' => $vorschau['vollgetankt'],
                 'skipPrevious' => importJaNein($hole($zeile, 'luecke'), false),
-            ] + ($einheit !== null ? ['unit' => $einheit] : []) + ($sorte !== null ? ['fuel' => $sorte] : []);
+            ] + ($einheit !== null ? ['unit' => $einheit] : []) + ($sorte !== null ? ['fuel' => $sorte] : [])
+              + ($einheit !== 'l' && $einheit !== 'kg' ? importLadeangaben($zeile, $hole, $vorschau['ladeart']) : []);
         } else {
             $ergebnis['entries'][] = [
                 'occurredAt' => $zeitpunkt,

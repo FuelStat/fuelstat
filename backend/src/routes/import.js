@@ -12,6 +12,7 @@ const { unitsForFuelType } = require('../services/stats');
 const { fuelInfo, unitOf: unitOfFuel, vehicleFuels, fuelForUnit } = require('../services/fuels');
 const { requireVerified } = require('../middleware/verified');
 const { vehicleRole } = require('../services/vehicleAccess');
+const { resolveCharge } = require('../services/charging');
 
 const router = express.Router();
 
@@ -45,6 +46,11 @@ router.post('/vehicles/:vehicleId/import', auth, requireVerified('import'), impo
     }
     else if (!nonNegative(f?.amount)) errors.push({ type: 'fillup', index, error: 'invalid_amount' });
     else if (!nonNegative(f?.totalCostEur)) errors.push({ type: 'fillup', index, error: 'invalid_totalCostEur' });
+    // Ladeangaben (#25): Form vorab prüfen; ob sie zur Einheit passen, entscheidet sich unten (dort steht die Einheit)
+    else {
+      const c = resolveCharge(f, null, 'kwh');
+      if (c.error) errors.push({ type: 'fillup', index, error: c.error });
+    }
   });
   entries.forEach((e, index) => {
     if (!validDate(e?.occurredAt)) errors.push({ type: 'entry', index, error: 'invalid_occurredAt' });
@@ -107,18 +113,26 @@ router.post('/vehicles/:vehicleId/import', auth, requireVerified('import'), impo
         [vehicleId, req.user.sub, odo, filledAt, unit, Number(f.amount)]
       );
       if (dup.rowCount > 0) { result.skipped.fillups++; result.duplicates.push({ type: 'fillup', index }); continue; }
+      // Ladeangaben gelten nur für kWh; eine Tankzeile mit Ladestand (z. B. Spalte in der Datei ausgefüllt) wird abgelehnt
+      const charge = resolveCharge(f, null, unit);
+      if (charge.error) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'invalid_rows', rows: [{ type: 'fillup', index, error: charge.error }] });
+      }
       const ins = await client.query(
-        `INSERT INTO fillups (user_id, vehicle_id, odometer_km, amount, unit, total_cost_eur, price_per_unit, station, filled_at, is_full, skip_previous, fuel)
+        `INSERT INTO fillups (user_id, vehicle_id, odometer_km, amount, unit, total_cost_eur, price_per_unit, station, filled_at, is_full, skip_previous, fuel,
+                              charge_type, soc_before_pct, soc_after_pct, charge_minutes)
          VALUES ($1, $2, $3, $4::numeric, $5, $6::numeric,
                  CASE WHEN $4::numeric > 0 THEN ROUND($6::numeric / $4::numeric, 4) ELSE NULL END,
-                 $7, $8, $9, $10, $11)
+                 $7, $8, $9, $10, $11, $12, $13, $14, $15)
          RETURNING id`,
         [
           req.user.sub, vehicleId, odo, Number(f.amount), unit, Number(f.totalCostEur),
           f.station ? String(f.station).trim() : null, filledAt,
           f.isFull !== undefined ? Boolean(f.isFull) : true,
           f.skipPrevious !== undefined ? Boolean(f.skipPrevious) : false,
-          fuel
+          fuel,
+          charge.chargeType, charge.socBeforePct, charge.socAfterPct, charge.chargeMinutes
         ]
       );
       result.imported.fillups++;

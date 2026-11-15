@@ -10,20 +10,37 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - **Anmelden mit Passkey** (#2): Unter „Profil“ → „Passkeys“ richtest du Face ID, Fingerabdruck, Windows Hello oder einen Sicherheitsschlüssel ein. Danach meldest du dich mit „Mit Passkey anmelden“ oder direkt aus den Vorschlägen im E-Mail-Feld an – ohne Passwort und ohne 2FA-Code. Das Passwort bleibt als Rückfallweg. Fuelstat speichert nur den öffentlichen Schlüssel.
 
 ### Verbessert
+- **Ladevorgänge genauer erfassen** (#25): Beim Laden kannst du jetzt die **Ladeart** (zu Hause/Wallbox, AC öffentlich, DC-Schnelllader), den **Ladestand vorher und nachher** und die **Ladedauer** angeben, alles freiwillig. Die Eintragsliste zeigt sie an. „Statistiken“ wertet Ladungen nach Ladeart aus (Anteil, Ø Preis je kWh, Ø Leistung, zu Hause gegen unterwegs). Ladungen ohne Angabe stehen als eigene Zeile, bestehende Auswertungen ändern sich nicht. CSV-Export und -Import kennen die neuen Spalten; ältere Dateien funktionieren weiter.
 - **Plug-in-Hybride: Energiekosten je 100 km als Hauptkennzahl** (#156): Bei Plug-in-Hybriden stehen auf Start, Fahrzeugkarte, „Allgemein“, „Statistiken“ und im Bericht die Energiekosten in €/100 km über Benzin und Strom vorn; l/100 km und kWh/100 km bleiben daneben. „Statistiken“ zeigt dazu €/100 km je Monat und Jahr sowie den günstigsten und teuersten Monat, der Monatsbericht per E-Mail eine Zeile „Energiekosten je 100 km“. Benziner, Diesel, Elektro und Vollhybride bleiben unverändert.
 - **Neue Startseite** (#158): Start zeigt jetzt wie in der iOS-App ein Fahrzeug – das zuletzt genutzte bzw. gewählte – mit großem Foto, Kennzeichen und Tachostand, drei Kennzahlen (Ø Verbrauch, Kosten je km, Kosten diesen Monat), den nächsten drei Terminen und den letzten fünf Einträgen. Oben wechselst du das Fahrzeug; alle Fahrzeuge als Karten (mit „Ordnen“) findest du unter „Fahrzeuge“ → „Alle Fahrzeuge“.
 - **Mail-Links aus der iOS-App** (#175): Bestätigungs- und Passwort-Mails, die du in der App angefordert hast, bieten auf iPhone und iPad zusätzlich „Zurück zur Fuelstat-App“ bzw. „In der Fuelstat-App fortsetzen“. Im Browser geht beides weiterhin.
 
 ### Behoben
+- **Ort „null“ nach dem Bearbeiten eines Tank-/Ladevorgangs**: Wurde ein Eintrag ohne Tankstelle bzw. Ladestation gespeichert, schrieb die API den Text „null“ als Ort. Jetzt bleibt der Ort leer; bereits betroffene Einträge bereinigt der Befehl unter „Hinweise zum Update“.
 - **Passwort zurücksetzen meldet kein fremdes Konto mehr ab** (#175): Setzt du im Browser das Passwort eines anderen Kontos zurück, als dort angemeldet ist, bleibst du angemeldet; die Meldung nennt beide Konten. Nur das zurückgesetzte Konto wird auf allen Geräten abgemeldet.
 
 ### Technik
 - `/vehicles/:id/consumption` und `/vehicles/:id/stats` liefern `primary` (Hauptkennzahl, von der API je Antriebsart festgelegt), `/consumption` zusätzlich `costPer100kmPeriods` (€/100 km je Monat und Jahr, günstigster und teuerster Monat) (#156). Keine Migration.
+- Ladeangaben (#25): neue Spalten `charge_type`, `soc_before_pct`, `soc_after_pct`, `charge_minutes` an `fillups` (Migration 025), Eingabefelder `chargeType`, `socBeforePct`, `socAfterPct`, `chargeMinutes` bei `/fillups` und `/import`, `/consumption` liefert `chargeTypes`.
 - Passkeys (#2): neue Endpunkte unter `/api/v1/auth/passkeys` (WebAuthn mit `@simplewebauthn/server` 14.0.3, im Browser `@simplewebauthn/browser` 14.0.0 unter `vendor/`), Tabelle `user_passkeys` (Migration 024), `/health` meldet `passkeys_enabled`.
 - `POST /api/v1/auth/reset-password` antwortet zusätzlich mit `email` des zurückgesetzten Kontos. Links in Mails, die eine App angefordert hat (Kopfzeile `X-Fuelstat-Client`), tragen `&quelle=app` (#175).
 
 ### Hinweise zum Update
 - Sichern (`sudo systemctl start fuelstat-backup.service`), dann ausrollen.
+- Einmalig Orte „null“ aufräumen, die das Bearbeiten ohne Ort früher geschrieben hat:
+
+  ```bash
+  cd infra
+  sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "UPDATE fillups SET station = NULL WHERE station = '"'"'null'"'"'"'
+  ```
+
+- Migration `025_charging` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich, bestehende Einträge bleiben unverändert). Von Hand:
+
+  ```bash
+  cd infra
+  sudo docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < ../backend/database/postgres_025_charging.sql
+  ```
+
 - Migration `024_passkeys` einspielen, **bevor** die API neu startet (macht `infra/ausrollen.sh` selbst; mit dem alten API-Code verträglich). Von Hand:
 
   ```bash

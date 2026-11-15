@@ -2460,6 +2460,35 @@ paths:
                             percent: { type: number, nullable: true }
                             basePrice: { type: number }
                   costPer100km: { type: number, nullable: true, description: "Energiekosten pro 100 km über alle Energiearten" }
+                  chargeTypes:
+                    type: object
+                    nullable: true
+                    description: >
+                      Ladevorgänge (kWh) nach Ladeart (#25); null ohne Ladevorgänge. Ladevorgänge ohne Angabe stehen als
+                      eigene Gruppe (type null). homeShare (zu Hause gegen unterwegs) rechnet nur über Ladevorgänge mit Angabe,
+                      typedShare sagt, wie viel Prozent der kWh eine Ladeart haben. avgPowerKw = kWh ÷ Ladedauer, nur über
+                      Ladevorgänge mit Dauer.
+                    properties:
+                      total:
+                        type: object
+                        properties:
+                          count: { type: integer }
+                          amount: { type: number }
+                          cost: { type: number }
+                      types:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            type: { type: string, nullable: true, enum: [home, ac_public, dc, null] }
+                            count: { type: integer }
+                            amount: { type: number, description: kWh }
+                            cost: { type: number }
+                            avgPrice: { type: number, nullable: true, description: "€/kWh" }
+                            share: { type: number, nullable: true, description: "% der kWh aller Ladevorgänge" }
+                            avgPowerKw: { type: number, nullable: true }
+                      typedShare: { type: number, nullable: true }
+                      homeShare: { type: number, nullable: true }
                   primary:
                     type: object
                     description: >
@@ -4244,6 +4273,10 @@ components:
         consumption: { type: number, nullable: true, description: "Verbrauch pro 100 km des Abschnitts, den diese volle Füllung abschließt; null bei nebenbei getankten Energiearten" }
         created_by: { type: string, format: uuid }
         created_by_name: { type: string, nullable: true }
+        charge_type: { type: string, nullable: true, enum: [home, ac_public, dc, null], description: "Ladeart (#25), nur Ladevorgänge" }
+        soc_before_pct: { type: integer, nullable: true }
+        soc_after_pct: { type: integer, nullable: true }
+        charge_minutes: { type: integer, nullable: true }
 
     VehicleListResponse:
       description: Eine Seite (#160)
@@ -4306,6 +4339,29 @@ components:
         skipPrevious:
           type: boolean
           default: false
+        chargeType:
+          type: string
+          nullable: true
+          enum: [home, ac_public, dc, null]
+          description: "Ladeart (#25, nur kWh): home = zu Hause/Wallbox, ac_public = AC öffentlich, dc = DC-Schnelllader"
+        socBeforePct:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: "Ladestand vorher in % (#25, nur kWh)"
+        socAfterPct:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: "Ladestand nachher in % (#25, nur kWh), nicht unter dem Ladestand vorher"
+        chargeMinutes:
+          type: integer
+          minimum: 1
+          maximum: 4320
+          nullable: true
+          description: "Ladedauer in Minuten (#25, nur kWh)"
       required: [vehicleId]
 
     FillupPatchRequest:
@@ -4343,6 +4399,29 @@ components:
           type: boolean
         skipPrevious:
           type: boolean
+        chargeType:
+          type: string
+          nullable: true
+          enum: [home, ac_public, dc, null]
+          description: "Ladeart (#25, nur kWh; null löscht): home = zu Hause/Wallbox, ac_public = AC öffentlich, dc = DC-Schnelllader"
+        socBeforePct:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: "Ladestand vorher in % (#25, nur kWh; null löscht)"
+        socAfterPct:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: "Ladestand nachher in % (#25, nur kWh; null löscht), nicht unter dem Ladestand vorher"
+        chargeMinutes:
+          type: integer
+          minimum: 1
+          maximum: 4320
+          nullable: true
+          description: "Ladedauer in Minuten (#25, nur kWh; null löscht)"
 
     OdometerWarning:
       type: object
@@ -4415,6 +4494,10 @@ components:
           type: boolean
         skip_previous:
           type: boolean
+        charge_type: { type: string, nullable: true, enum: [home, ac_public, dc, null], description: "Ladeart (#25), nur kWh-Einträge" }
+        soc_before_pct: { type: integer, nullable: true, description: "Ladestand vorher in % (#25)" }
+        soc_after_pct: { type: integer, nullable: true, description: "Ladestand nachher in % (#25)" }
+        charge_minutes: { type: integer, nullable: true, description: "Ladedauer in Minuten (#25)" }
       required: [id, vehicle_id, odometer_km, unit, amount, total_cost_eur, filled_at, created_at, is_full, skip_previous]
 
     FillupListResponse:

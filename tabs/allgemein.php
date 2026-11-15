@@ -52,6 +52,15 @@ $diesesJahr = (string)date('Y');
 $kostenMonat = $statistik['kostenProMonat'];
 $kostenJahr = array_sum(array_filter($kostenMonat, fn($monat) => str_starts_with((string)$monat, $diesesJahr), ARRAY_FILTER_USE_KEY));
 $verbrauchMonat = $statistik['verbrauchProMonat'];
+// Plug-in-Hybrid (#156): €/100 km ist die Hauptkennzahl (API: primary); Verlauf und Kachel zeigen sie statt des Verbrauchs
+$kostenHaupt = kostenKennzahlHtml($stats);
+$ratePerioden = $statistik['verbrauch']['costPer100kmPeriods'] ?? [];
+if ($kostenHaupt !== null) {
+    $verbrauchMonat = [];
+    foreach ($ratePerioden['months'] ?? [] as $r) {
+        if ($r['costPer100km'] !== null) $verbrauchMonat[$r['period']] = (float)$r['costPer100km'];
+    }
+}
 $verlauf = [];
 for ($i = 5; $i >= 0; $i--) {
     $m = date('Y-m', strtotime(date('Y-m-01') . " -$i months"));
@@ -107,6 +116,16 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                         <div class="kennzahl-wert"><?= number_format($kostenJahr, 2, ',', '.') ?> €</div>
                     </div>
                 </div>
+                <?php if ($kostenHaupt !== null):
+                    $best = $ratePerioden['best'] ?? null; $worst = $ratePerioden['worst'] ?? null; ?>
+                <div class="col-6 col-md-4">
+                    <div class="kennzahl">
+                        <div class="small text-body-secondary">Energiekosten</div>
+                        <div class="kennzahl-wert"><?= $kostenHaupt ?></div>
+                        <?php if ($best && $worst): ?><div class="small text-body-secondary">günstigster Monat <?= number_format($best['costPer100km'], 2, ',', '.') ?> €, teuerster <?= number_format($worst['costPer100km'], 2, ',', '.') ?> €</div><?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
                 <?php foreach ($verbrauchJeEinheit as $u => $w):
                     // Durchschnitt statt letztem Abschnitt: beim Plug-in-Hybrid schwankt der Wert je nach elektrischem Anteil stark
                     $wSchnitt = $w['avgConsumption'] ?? null;
@@ -195,7 +214,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
             <div class="card mt-3">
                 <div class="card-body">
                     <h2 class="mb-2">Letzte 6 Monate</h2>
-                    <div class="diagramm-mini"><canvas id="verlaufMini" role="img" aria-label="Kosten und Verbrauch der letzten 6 Monate"></canvas></div>
+                    <div class="diagramm-mini"><canvas id="verlaufMini" role="img" aria-label="<?= $kostenHaupt !== null ? 'Kosten und Energiekosten je 100 km der letzten 6 Monate' : 'Kosten und Verbrauch der letzten 6 Monate' ?>"></canvas></div>
                 </div>
             </div>
             <?php endif; ?>
@@ -228,7 +247,7 @@ document.addEventListener('DOMContentLoaded', function () {
       labels: daten.map(function (d) { return d.monat; }),
       datasets: [
         { type: 'bar', label: 'Kosten (€)', data: daten.map(function (d) { return d.kosten; }), backgroundColor: stil.getPropertyValue('--fs-brand').trim(), borderRadius: 6, yAxisID: 'y', order: 2 }
-      ].concat(mitVerbrauch ? [{ type: 'line', label: <?= json_encode('Verbrauch (' . $einheitKurz . '/100 km)') ?>, data: daten.map(function (d) { return d.verbrauch; }), borderColor: stil.getPropertyValue('--fs-energy-<?= energieToken($fuel_type) ?>').trim(), backgroundColor: stil.getPropertyValue('--fs-card').trim(), borderWidth: 2.5, pointRadius: 3, order: 1, tension: .3, spanGaps: true, yAxisID: 'y2' }] : [])
+      ].concat(mitVerbrauch ? [{ type: 'line', label: <?= json_encode($kostenHaupt !== null ? 'Energiekosten (€/100 km)' : 'Verbrauch (' . $einheitKurz . '/100 km)') ?>, data: daten.map(function (d) { return d.verbrauch; }), borderColor: stil.getPropertyValue('--fs-energy-<?= energieToken($fuel_type) ?>').trim(), backgroundColor: stil.getPropertyValue('--fs-card').trim(), borderWidth: 2.5, pointRadius: 3, order: 1, tension: .3, spanGaps: true, yAxisID: 'y2' }] : [])
     },
     options: {
       maintainAspectRatio: false,

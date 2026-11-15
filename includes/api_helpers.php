@@ -87,6 +87,19 @@ function passkeysAktiv(): bool
     return $wert;
 }
 
+/**
+ * Hauptkennzahl des Fahrzeugs (#156) aus /stats: Die API legt fest, ob €/100 km (Plug-in-Hybrid) oder der Verbrauch
+ * zuerst kommt. Gibt bei €/100 km "13,68 <small>€/100 km</small>" zurück, sonst null (dann Verbrauch zeigen).
+ */
+function kostenKennzahlHtml(array $stats): ?string
+{
+    $p = $stats['primary'] ?? [];
+    if (($p['metric'] ?? '') !== 'costPer100km' || !isset($p['value'])) {
+        return null;
+    }
+    return htmlspecialchars(number_format((float)$p['value'], 2, ',', '.')) . ' <small>€/100 km</small>';
+}
+
 /** "Stand" der Nutzungsbedingungen: Version im Format JJJJ-MM-TT als Datum, sonst die Version selbst */
 function nutzungsbedingungenStand(?string $version): string
 {

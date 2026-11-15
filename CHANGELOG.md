@@ -10,6 +10,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - **Anmelden mit Passkey** (#2): Unter „Profil“ → „Passkeys“ richtest du Face ID, Fingerabdruck, Windows Hello oder einen Sicherheitsschlüssel ein. Danach meldest du dich mit „Mit Passkey anmelden“ oder direkt aus den Vorschlägen im E-Mail-Feld an – ohne Passwort und ohne 2FA-Code. Das Passwort bleibt als Rückfallweg. Fuelstat speichert nur den öffentlichen Schlüssel.
 
 ### Verbessert
+- **Plug-in-Hybride: Energiekosten je 100 km als Hauptkennzahl** (#156): Bei Plug-in-Hybriden stehen auf Start, Fahrzeugkarte, „Allgemein“, „Statistiken“ und im Bericht die Energiekosten in €/100 km über Benzin und Strom vorn; l/100 km und kWh/100 km bleiben daneben. „Statistiken“ zeigt dazu €/100 km je Monat und Jahr sowie den günstigsten und teuersten Monat, der Monatsbericht per E-Mail eine Zeile „Energiekosten je 100 km“. Benziner, Diesel, Elektro und Vollhybride bleiben unverändert.
 - **Neue Startseite** (#158): Start zeigt jetzt wie in der iOS-App ein Fahrzeug – das zuletzt genutzte bzw. gewählte – mit großem Foto, Kennzeichen und Tachostand, drei Kennzahlen (Ø Verbrauch, Kosten je km, Kosten diesen Monat), den nächsten drei Terminen und den letzten fünf Einträgen. Oben wechselst du das Fahrzeug; alle Fahrzeuge als Karten (mit „Ordnen“) findest du unter „Fahrzeuge“ → „Alle Fahrzeuge“.
 - **Mail-Links aus der iOS-App** (#175): Bestätigungs- und Passwort-Mails, die du in der App angefordert hast, bieten auf iPhone und iPad zusätzlich „Zurück zur Fuelstat-App“ bzw. „In der Fuelstat-App fortsetzen“. Im Browser geht beides weiterhin.
 
@@ -17,6 +18,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - **Passwort zurücksetzen meldet kein fremdes Konto mehr ab** (#175): Setzt du im Browser das Passwort eines anderen Kontos zurück, als dort angemeldet ist, bleibst du angemeldet; die Meldung nennt beide Konten. Nur das zurückgesetzte Konto wird auf allen Geräten abgemeldet.
 
 ### Technik
+- `/vehicles/:id/consumption` und `/vehicles/:id/stats` liefern `primary` (Hauptkennzahl, von der API je Antriebsart festgelegt), `/consumption` zusätzlich `costPer100kmPeriods` (€/100 km je Monat und Jahr, günstigster und teuerster Monat) (#156). Keine Migration.
 - Passkeys (#2): neue Endpunkte unter `/api/v1/auth/passkeys` (WebAuthn mit `@simplewebauthn/server` 14.0.3, im Browser `@simplewebauthn/browser` 14.0.0 unter `vendor/`), Tabelle `user_passkeys` (Migration 024), `/health` meldet `passkeys_enabled`.
 - `POST /api/v1/auth/reset-password` antwortet zusätzlich mit `email` des zurückgesetzten Kontos. Links in Mails, die eine App angefordert hat (Kopfzeile `X-Fuelstat-Client`), tragen `&quelle=app` (#175).
 

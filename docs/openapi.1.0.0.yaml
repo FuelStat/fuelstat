@@ -2460,6 +2460,30 @@ paths:
                             percent: { type: number, nullable: true }
                             basePrice: { type: number }
                   costPer100km: { type: number, nullable: true, description: "Energiekosten pro 100 km über alle Energiearten" }
+                  primary:
+                    type: object
+                    description: >
+                      Hauptkennzahl des Fahrzeugs (#156), von der API festgelegt: Plug-in-Hybride €/100 km über alle
+                      Energiearten (metric costPer100km, unit eur_per_100km), alle anderen Antriebsarten der Verbrauch
+                      der Hauptenergieart (metric consumption, unit l/kwh/kg je 100 km). Ohne berechenbare Kosten
+                      (noch keine Strecke) bleibt es beim Verbrauch. Die übrigen Werte bleiben daneben verfügbar.
+                    required: [metric, unit, value]
+                    properties:
+                      metric: { type: string, enum: [costPer100km, consumption] }
+                      unit: { type: string, nullable: true, enum: [eur_per_100km, l, kwh, kg, null] }
+                      value: { type: number, nullable: true }
+                  costPer100kmPeriods:
+                    type: object
+                    description: >
+                      €/100 km je Monat und Jahr (#156), neueste zuerst: Energiekosten aller Tank-/Ladevorgänge im Zeitraum
+                      ÷ Strecke im Zeitraum aus echten Tachoständen (kostenlos geladen = 0 €). best/worst: günstigster
+                      bzw. teuerster Monat mit mindestens minPeriodKm Strecke, null bei weniger als zwei solchen Monaten.
+                    properties:
+                      months: { type: array, items: { $ref: "#/components/schemas/CostRatePeriod" } }
+                      years: { type: array, items: { $ref: "#/components/schemas/CostRatePeriod" } }
+                      best: { allOf: [{ $ref: "#/components/schemas/CostRatePeriod" }], nullable: true }
+                      worst: { allOf: [{ $ref: "#/components/schemas/CostRatePeriod" }], nullable: true }
+                      minPeriodKm: { type: integer, example: 100 }
                   byUnit:
                     type: object
                     description: "Bisheriges Format: je Einheit die Hauptenergieart der Einheit (die des Standards), siehe energy"
@@ -4172,6 +4196,15 @@ components:
         last_used_at: { type: string, format: date-time, description: Anmeldung bzw. letzte erfolgreiche Zustellung }
         last_error: { type: string, nullable: true, example: "HTTP 403 BadJwtToken" }
 
+    CostRatePeriod:
+      type: object
+      required: [period, cost, distanceKm, costPer100km]
+      properties:
+        period: { type: string, example: "2026-05", description: "Monat JJJJ-MM bzw. Jahr JJJJ (Europe/Berlin)" }
+        cost: { type: number, description: "Energiekosten der Tank-/Ladevorgänge im Zeitraum in EUR" }
+        distanceKm: { type: number, nullable: true }
+        costPer100km: { type: number, nullable: true, description: "null ohne Strecke, nie 0" }
+
     Pagination:
       type: object
       description: Angaben zur Seite (#160)
@@ -4469,6 +4502,14 @@ components:
           type: number
           nullable: true
           description: Ø Verbrauch pro 100 km über alle Abschnitte (nach km gewichtet) in der Einheit des Fahrzeugs; trend.current ist nur der letzte Abschnitt
+        primary:
+          type: object
+          description: Hauptkennzahl des Fahrzeugs (#156), siehe /consumption. Plug-in-Hybrid €/100 km, sonst der Ø Verbrauch.
+          required: [metric, unit, value]
+          properties:
+            metric: { type: string, enum: [costPer100km, consumption] }
+            unit: { type: string, nullable: true, enum: [eur_per_100km, l, kwh, kg, null] }
+            value: { type: number, nullable: true }
         segments:
           type: array
           items:

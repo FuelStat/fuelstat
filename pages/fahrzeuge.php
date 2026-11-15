@@ -48,10 +48,13 @@ try {
                 $currentOdo = null;
                 $tachoFehlt = 0;
                 $verbrauchHtml = '';
+                $kostenHtml = null;
                 try {
                     $stats = $api->getVehicleStats($vehicleId);
                     $currentOdo = $stats['currentOdo'] ?? null;
                     $tachoFehlt = (int)($stats['missingOdometer'] ?? 0);
+                    // Plug-in-Hybrid (#156): €/100 km zuerst, der Verbrauch steht darunter
+                    $kostenHtml = kostenKennzahlHtml($stats);
                     // Ø über alle Abschnitte (der letzte Abschnitt allein schwankt zu stark);
                     // Plug-in-Hybrid: Kraftstoff und Strom nebeneinander, z. B. "Ø 2,7 l + 20,0 kWh/100 km"
                     $teile = [];
@@ -120,8 +123,14 @@ try {
                             </div>
                             <div class="col-6">
                                 <div class="kennzahl">
+                                    <?php if ($kostenHtml !== null): ?>
+                                    <div class="kennzahl-wert"><?= $kostenHtml ?></div>
+                                    Energiekosten
+                                    <?php if ($verbrauchHtml !== ''): ?><div class="fs-label">Ø <?= preg_replace('~ <i class="fas fa-arrow-trend.*$~s', '', $verbrauchHtml) ?></div><?php endif; ?>
+                                    <?php else: ?>
                                     <div class="kennzahl-wert"><?= $verbrauchHtml !== '' ? $verbrauchHtml : '—' ?></div>
                                     Ø Verbrauch
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>

@@ -81,6 +81,20 @@ async function loadRows(db, userId, vehicleId) {
   });
 }
 
+// Strecke in einem Zeitraum aus Tachoständen ({ odo, … } mit odo > 0). keyOf liefert den Zeitraum eines Eintrags als
+// Text, der sich sortieren lässt ("2026" bzw. "2026-11"). Strecke = höchster Stand bis Ende des Zeitraums minus höchster
+// Stand davor; gibt es davor keinen, zählt ab dem ersten Stand im Zeitraum. Ohne Strecke null.
+function periodDistance(readings, keyOf, key) {
+  const maxOf = (list) => (list.length ? Math.max(...list.map((r) => r.odo)) : null);
+  const end = maxOf(readings.filter((r) => keyOf(r) <= key));
+  let start = maxOf(readings.filter((r) => keyOf(r) < key));
+  if (start === null) {
+    const inPeriod = readings.filter((r) => keyOf(r) === key).map((r) => r.odo);
+    start = inPeriod.length ? Math.min(...inPeriod) : null;
+  }
+  return end !== null && start !== null && end > start ? end - start : null;
+}
+
 // Strecke im Zeitraum aus echten Tachoständen
 function distanceKm(rows, year) {
   const readings = rows.filter((r) => r.odo !== null && r.odo > 0);
@@ -90,18 +104,7 @@ function distanceKm(rows, year) {
     const d = Math.max(...odos) - Math.min(...odos);
     return d > 0 ? d : null;
   }
-  const maxBefore = (y) => {
-    const o = readings.filter((r) => r.year < y).map((r) => r.odo);
-    return o.length ? Math.max(...o) : null;
-  };
-  const end = maxBefore(year + 1);
-  let start = maxBefore(year);
-  if (start === null) {
-    // Erster Tachostand liegt im Jahr: ab da zählen
-    const inYear = readings.filter((r) => r.year === year).map((r) => r.odo);
-    start = inYear.length ? Math.min(...inYear) : null;
-  }
-  return end !== null && start !== null && end > start ? end - start : null;
+  return periodDistance(readings, (r) => r.year, year);
 }
 
 // Energiekosten pro km aus Tank-/Ladevorgängen mit echtem Tachostand
@@ -223,4 +226,4 @@ async function getVehicleCosts(db, userId, vehicleId, { year = null, now = new D
   };
 }
 
-module.exports = { getVehicleCosts, monthOf, previousMonth, distanceKm, energyCostPerKm };
+module.exports = { getVehicleCosts, monthOf, previousMonth, distanceKm, periodDistance, energyCostPerKm };

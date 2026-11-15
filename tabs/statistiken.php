@@ -79,6 +79,24 @@ $energieKosten = (float)($d['verbrauch']['energyCost'] ?? array_sum(array_column
 $stromAnteil = $d['verbrauch']['electricShare'] ?? null;
 
 ksort($kostenProMonat);
+
+// Plug-in-Hybrid (#156): €/100 km ist die Hauptkennzahl, die API legt das fest (primary). Je Monat und Jahr aus
+// costPer100kmPeriods; l/100 km und kWh/100 km bleiben als weitere Kennzahlen daneben.
+$kostenHaupt = kostenKennzahlHtml($d['verbrauch'] ?? []);
+$ratePerioden = $d['verbrauch']['costPer100kmPeriods'] ?? [];
+$rateJahre = array_column($ratePerioden['years'] ?? [], null, 'period');
+$rateMonate = array_values(array_filter(array_reverse($ratePerioden['months'] ?? []), fn($m) => $m['costPer100km'] !== null));
+$kostenTile = function () use ($kostenHaupt, $energieKosten, $stromAnteil, $zahl, $ratePerioden) {
+    ob_start(); ?>
+        <div class="col-6 col-lg-3">
+            <div class="kennzahl">
+                <div class="small text-body-secondary">Energiekosten</div>
+                <div class="kennzahl-wert"><?= $kostenHaupt ?? '—' ?></div>
+                <div class="small text-body-secondary"><?= $zahl($energieKosten) ?> €<?php if ($stromAnteil !== null): ?>, davon Strom <?= $zahl($stromAnteil, 0) ?> %<?php endif; ?></div>
+            </div>
+        </div>
+    <?php return ob_get_clean();
+};
 $verbrauchProMonatFormatted = formatLabels($haupt['monate']);
 $kostenProMonatFormatted = formatLabels($kostenProMonat);
 
@@ -90,6 +108,14 @@ if ($verbrauchProMonatFormatted) {
     $highlights[] = ['fa-arrow-trend-down', 'success', 'Sparsamster Monat' . $hauptZusatz, array_search($wert, $verbrauchProMonatFormatted), number_format($wert, 2, ',', '.') . ' ' . $haupt['kurz'] . '/100 km'];
     $wert = max($verbrauchProMonatFormatted);
     $highlights[] = ['fa-arrow-trend-up', 'danger', 'Durstigster Monat' . $hauptZusatz, array_search($wert, $verbrauchProMonatFormatted), number_format($wert, 2, ',', '.') . ' ' . $haupt['kurz'] . '/100 km'];
+}
+if ($kostenHaupt !== null && !empty($ratePerioden['best']) && !empty($ratePerioden['worst'])) {
+    // Günstigster und teuerster Monat nach €/100 km (nur Monate mit genug Strecke), vor den Verbrauchswerten
+    array_unshift(
+        $highlights,
+        ['fa-arrow-trend-down', 'success', 'Niedrigste Energiekosten', formatMonat($ratePerioden['best']['period']), number_format($ratePerioden['best']['costPer100km'], 2, ',', '.') . ' €/100 km'],
+        ['fa-arrow-trend-up', 'danger', 'Höchste Energiekosten', formatMonat($ratePerioden['worst']['period']), number_format($ratePerioden['worst']['costPer100km'], 2, ',', '.') . ' €/100 km']
+    );
 }
 if ($kostenProMonatFormatted) {
     $wert = max($kostenProMonatFormatted);
@@ -145,6 +171,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
     <!-- Kennzahlen -->
     <div class="row g-2 g-md-3 mb-3">
         <?php if ($mehrereEinheiten): ?>
+        <?php if ($kostenHaupt !== null) { echo $kostenTile(); } ?>
         <?php foreach ($proEinheit as $u => $p): ?>
         <div class="col-6 col-lg-3">
             <div class="kennzahl">
@@ -159,6 +186,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
             </div>
         </div>
         <?php endforeach; ?>
+        <?php if ($kostenHaupt === null): ?>
         <div class="col-6 col-lg-3">
             <div class="kennzahl">
                 <div class="small text-body-secondary"><?= $begriffe['kosten'] ?></div>
@@ -166,6 +194,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                 <div class="small text-body-secondary"><?= $zahl($energieKosten) ?> €<?php if ($stromAnteil !== null): ?>, davon Strom <?= $zahl($stromAnteil, 0) ?> %<?php endif; ?></div>
             </div>
         </div>
+        <?php endif; ?>
         <?php else: ?>
         <div class="col-6 col-lg-3">
             <div class="kennzahl">
@@ -255,6 +284,17 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
             </div>
         </div>
         <?php endforeach; ?>
+        <?php if ($kostenHaupt !== null && $rateMonate): ?>
+        <div class="col-12">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h3 class="h6 mb-3">Energiekosten pro Monat <small class="text-body-secondary fw-normal">€/100 km, Kraftstoff und Strom</small></h3>
+                    <div class="diagramm"><canvas id="kostenKmMonatChart"></canvas></div>
+                    <p class="small text-body-secondary mb-0 mt-2">Kosten der Tank- und Ladevorgänge im Monat ÷ gefahrene Strecke im Monat. Einzelne Monate schwanken, wenn selten getankt wird; der Jahreswert in der Tabelle ist stabiler.</p>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
         <div class="<?= $mehrereEinheiten ? 'col-12' : 'col-lg-6' ?>">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body">
@@ -296,6 +336,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                         <?php endif; ?>
                         <?php endforeach; ?>
                         <th class="text-end">Kosten</th>
+                        <?php if ($kostenHaupt !== null): ?><th class="text-end">€/100 km</th><?php endif; ?>
                         <?php if (!$mehrereEinheiten): ?>
                         <th class="text-end">Ø Preis</th>
                         <th class="text-end">Strecke</th>
@@ -323,6 +364,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                         <?php endif; ?>
                         <?php endforeach; ?>
                         <td class="text-end"><?= $zahl($summe['kosten']) ?> €</td>
+                        <?php if ($kostenHaupt !== null): ?><td class="text-end fw-semibold text-nowrap"><?= isset($rateJahre[(string)$jahr]) && $rateJahre[(string)$jahr]['costPer100km'] !== null ? $zahl($rateJahre[(string)$jahr]['costPer100km']) . ' €' : '—' ?></td><?php endif; ?>
                         <?php if (!$mehrereEinheiten): ?>
                         <td class="text-end"><?= $preis !== null ? $zahl($preis, 3) . ' €/' . $haupt['kurz'] : '—' ?></td>
                         <td class="text-end"><?= $daten['verbrauch_km'] > 0 ? $zahl($daten['verbrauch_km'], 0) . ' km' : '—' ?></td>
@@ -355,6 +397,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                     <div><div class="text-body-secondary"><?= $p['begriffe']['menge'] ?></div><?= $zahl($j['gekauft_menge'], 1) ?> <?= $p['kurz'] ?></div>
                     <?php endforeach; ?>
                     <div><div class="text-body-secondary">Kosten</div><?= $zahl($summe['kosten']) ?> €</div>
+                    <?php if ($kostenHaupt !== null): ?><div><div class="text-body-secondary">€/100 km</div><?= isset($rateJahre[(string)$jahr]) && $rateJahre[(string)$jahr]['costPer100km'] !== null ? $zahl($rateJahre[(string)$jahr]['costPer100km']) . ' €' : '—' ?></div><?php endif; ?>
                     <?php if (!$mehrereEinheiten): ?>
                     <div><div class="text-body-secondary">Strecke</div><?= $daten['verbrauch_km'] > 0 ? $zahl($daten['verbrauch_km'], 0) . ' km' : '—' ?></div>
                     <div><div class="text-body-secondary">Ø Preis</div><?= $preis !== null ? $zahl($preis, 3) . ' €' : '—' ?></div>
@@ -469,6 +512,16 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
             extra.plugins = { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: function (c) { return c.dataset.label + ': ' + (c.parsed.y === null ? '—' : zahl(c.parsed.y, 2) + c.dataset.einheit); } } } };
         }
         new Chart(el, { type: 'bar', data: { labels: <?= json_encode($monatsLabels, JSON_UNESCAPED_UNICODE) ?>, datasets: datasets }, options: optionen(einheiten[Object.keys(einheiten)[0]].einheit, 2, extra) });
+    }
+
+    el = document.getElementById('kostenKmMonatChart');
+    if (el) {
+        var rate = <?= json_encode(array_map(fn($m) => ['m' => formatMonat($m['period']), 'w' => $m['costPer100km']], $rateMonate), JSON_UNESCAPED_UNICODE) ?>;
+        new Chart(el, {
+            type: 'bar',
+            data: { labels: rate.map(function (r) { return r.m; }), datasets: [{ label: 'Energiekosten', data: rate.map(function (r) { return r.w; }), backgroundColor: farbe(.75), borderRadius: 4 }] },
+            options: optionen(' €/100 km', 2)
+        });
     }
 
     el = document.getElementById('kostenMonatChart');

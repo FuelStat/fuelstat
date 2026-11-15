@@ -125,4 +125,19 @@ assert(!isset($r['fillups'][1]['chargeType']) && !isset($r['fillups'][1]['socAft
 assert(!isset($r['fillups'][2]['chargeType']) && !isset($r['fillups'][2]['socAfterPct']), 'leere Zellen werden nicht gesendet');
 assert($r['vorschau'][0]['ladeart'] === 'home');
 
+// Bauteile (#78): Spalte „Bauteile“, Namen oder Schlüssel, getrennt mit | oder Komma; Unbekanntes wird ausgelassen
+$namen = ['motoröl & filter' => 'oil', 'oil' => 'oil', 'bremsbeläge vorn' => 'brake_pads_front', 'brake_pads_front' => 'brake_pads_front'];
+assert(importBauteile('Motoröl & Filter | Bremsbeläge vorn', $namen)['keys'] === ['oil', 'brake_pads_front']);
+assert(importBauteile('motoröl & filter, Kolben, oil', $namen)['keys'] === ['oil'], 'unbekannt ausgelassen, doppelt nur einmal');
+assert(importBauteile('', $namen) === ['keys' => [], 'namen' => []]);
+$daten = importLeseCsv("Datum;Kategorie;Kosten (EUR);Bauteile\n10.01.2025;Wartung;120,00;Motoröl & Filter | Bremsbeläge vorn\n11.01.2025;Versicherung;300,00;\n");
+$zuordnung = importErkenneZuordnung($daten['kopf']);
+assert($zuordnung['bauteile'] === 3);
+$r = importWandleUm($daten['zeilen'], $zuordnung, 'Werkstatt', $namen);
+assert($r['entries'][0]['parts'] === ['oil', 'brake_pads_front']);
+assert(!isset($r['entries'][1]['parts']), 'ohne Bauteile nichts senden');
+assert($r['vorschau'][0]['bauteile'] === ['motoröl & filter', 'bremsbeläge vorn']);
+$ohne = importWandleUm($daten['zeilen'], $zuordnung, 'Werkstatt');
+assert(!isset($ohne['entries'][0]['parts']), 'ohne Katalog keine Bauteile');
+
 echo "All tests passed\n";

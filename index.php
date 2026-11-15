@@ -136,7 +136,6 @@ endif;
                         <?php if ($kostenHtml !== null): ?>
                         <div class="kennzahl-wert"><?= str_replace('<small>', '<small class="d-block">', $kostenHtml) ?></div>
                         Energiekosten
-                        <div class="fs-label">Ø <?= $verbrauchHtml ?></div>
                         <?php else: ?>
                         <div class="kennzahl-wert"><?= $verbrauchHtml ?></div>
                         Ø Verbrauch
@@ -146,7 +145,7 @@ endif;
                 <div class="col">
                     <div class="kennzahl h-100">
                         <div class="kennzahl-wert"><?= $kmKosten !== null ? htmlspecialchars(number_format((float)$kmKosten, 2, ',', '.')) . ' <small>€/km</small>' : '–' ?></div>
-                        <?= $kostenHtml !== null ? 'Gesamtkosten je km' : 'Kosten je km' ?>
+                        Kosten je km
                     </div>
                 </div>
                 <div class="col">
@@ -156,6 +155,10 @@ endif;
                     </div>
                 </div>
             </div>
+            <?php if ($kostenHtml !== null && $verbrauch): ?>
+            <!-- Plug-in-Hybrid (#156): der Verbrauch je Energieart steht unter den Kacheln, damit diese gleich aussehen wie sonst -->
+            <p class="fs-label mt-2 mb-0">Ø Verbrauch: <?= htmlspecialchars(implode(' · ', array_map(fn($x) => $x[0] . ' ' . $x[1], $verbrauch))) ?></p>
+            <?php endif; ?>
         </div>
 
         <div class="col-lg-7 d-flex flex-column gap-3 gap-lg-4">
@@ -169,12 +172,12 @@ endif;
                 <ul class="list-group list-group-flush">
                     <?php foreach ($naechste as $t): ?>
                     <li class="list-group-item termin-zeile">
-                        <?= symbolKreis(getCategoryIcon($t['kategorie']), 'var(--fs-brand)') ?>
+                        <?= symbolKreis($t['symbol'] ?? getCategoryIcon($t['kategorie']), 'var(--fs-brand)') ?>
                         <div class="termin-text">
                             <div class="fs-headline"><?= htmlspecialchars($t['titel']) ?></div>
-                            <div class="fs-label"><?= date('d.m.Y', strtotime($t['faellig_datum'])) ?><?php if (!empty($t['faellig_km'])): ?> oder bei <?= number_format((int)$t['faellig_km'], 0, ',', '.') ?> km<?php endif; ?></div>
+                            <div class="fs-label"><?= ($t['quelle'] ?? '') === 'lebensdauer' ? 'ca. ' : '' ?><?= date('d.m.Y', strtotime($t['faellig_datum'])) ?><?php if (!empty($t['faellig_km'])): ?> oder bei <?= number_format((int)$t['faellig_km'], 0, ',', '.') ?> km<?php endif; ?></div>
                         </div>
-                        <?= statusBadge((string)$t['status'], isset($t['tage']) ? terminAbstand((int)$t['tage']) : '', 'ms-auto') ?>
+                        <?= statusBadge((string)$t['status'], isset($t['tage']) ? (($t['quelle'] ?? '') === 'lebensdauer' ? 'ca. ' : '') . terminAbstand((int)$t['tage']) : '', 'ms-auto') ?>
                     </li>
                     <?php endforeach; ?>
                 </ul>

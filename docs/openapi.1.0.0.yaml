@@ -1456,6 +1456,198 @@ paths:
         "500":
           $ref: "#/components/responses/ServerError"
 
+  /api/v1/vehicles/{vehicleId}/parts:
+    get:
+      tags: [Vehicles]
+      summary: Parts for the entry form (#78)
+      description: Eingebaute Bauteile (feste Schlüssel, ohne Standardintervalle) und eigene Bauteile des Fahrzeugs.
+      operationId: getVehicleParts
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [groups, parts, custom]
+                properties:
+                  groups:
+                    type: array
+                    items: { type: object, properties: { key: { type: string }, name: { type: string } } }
+                  parts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Part"
+                  custom:
+                    type: object
+                    properties:
+                      max: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: vehicle_not_found
+    post:
+      tags: [Vehicles]
+      summary: Add a custom part
+      description: "Wer Einträge erfassen darf. Fehler: 400 invalid_name (1–40 Zeichen), 409 part_exists (auch wie ein eingebautes), too_many_parts (30)."
+      operationId: postVehiclePart
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 40 }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Part"
+        "400":
+          description: invalid_name
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: read_only
+        "404":
+          description: vehicle_not_found
+        "409":
+          description: part_exists | too_many_parts
+
+  /api/v1/vehicles/{vehicleId}/parts/{partId}:
+    parameters:
+      - $ref: "#/components/parameters/VehicleId"
+      - name: partId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [Vehicles]
+      summary: Rename a custom part
+      operationId: patchVehiclePart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 40 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Part"
+        "400":
+          description: invalid_name
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: vehicle_not_found | part_not_found
+        "409":
+          description: part_exists
+    delete:
+      tags: [Vehicles]
+      summary: Delete a custom part
+      description: Entfernt es von allen Einträgen und löscht sein Intervall; die Einträge bleiben.
+      operationId: deleteVehiclePart
+      responses:
+        "204":
+          description: Gelöscht
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: vehicle_not_found | part_not_found
+
+  /api/v1/vehicles/{vehicleId}/part-intervals/{partKey}:
+    put:
+      tags: [Vehicles]
+      summary: Set or clear the change interval of a part (owner only)
+      description: >
+        intervalMonths (1–240) und/oder intervalKm (1.000–1.000.000), was zuerst kommt; beide null löscht das Intervall.
+        Für oil gelten weiter oilIntervalMonths/Km der Fahrzeugangaben (der Wert steht nur dort).
+      operationId: putVehiclePartInterval
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+        - name: partKey
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                intervalMonths: { type: integer, nullable: true, minimum: 1, maximum: 240 }
+                intervalKm: { type: integer, nullable: true, minimum: 1000, maximum: 1000000 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key, interval]
+                properties:
+                  key: { type: string }
+                  interval:
+                    type: object
+                    nullable: true
+                    properties:
+                      months: { type: integer, nullable: true }
+                      km: { type: integer, nullable: true }
+        "400":
+          description: invalid_intervalMonths | invalid_intervalKm
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: owner_only
+        "404":
+          description: vehicle_not_found | part_not_found
+
+  /api/v1/vehicles/{vehicleId}/service:
+    get:
+      tags: [Vehicles]
+      summary: Service history per part (#78)
+      description: >
+        Je Bauteil mit Wechseln, Historie, Lebensdauer, Intervall und nächstem Wechsel; nur Bauteile mit Wechseln oder
+        Intervall. Dringendste zuerst.
+      operationId: getVehicleService
+      parameters:
+        - $ref: "#/components/parameters/VehicleId"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [parts]
+                properties:
+                  current_odometer_km: { type: integer, nullable: true }
+                  history_limit: { type: integer, example: 20 }
+                  parts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PartService"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: vehicle_not_found
+
   /api/v1/vehicles/{vehicleId}/reminders:
     get:
       tags: [Vehicles]
@@ -2293,6 +2485,7 @@ paths:
                         color: { type: string }
                         group: { type: string }
                         form: { type: string, description: "fillup, expense, odometer oder trip" }
+                        allowsParts: { type: boolean, description: "An Einträgen dieser Kategorie lassen sich Bauteile angeben (#78): Werkstatt, Reparatur, Wartung, Inspektion, Reifen" }
                         countsAsCost: { type: boolean }
                         plan: { type: string }
                         custom: { type: boolean }
@@ -4281,6 +4474,12 @@ components:
         soc_before_pct: { type: integer, nullable: true }
         soc_after_pct: { type: integer, nullable: true }
         charge_minutes: { type: integer, nullable: true }
+        parts:
+          type: array
+          nullable: true
+          description: "Bauteile (#78): bei Ausgaben die Liste (leer ohne Bauteile), sonst null"
+          items:
+            $ref: "#/components/schemas/EntryPart"
 
     VehicleListResponse:
       description: Eine Seite (#160)
@@ -4676,6 +4875,16 @@ components:
         description:
           type: string
           nullable: true
+        parts:
+          type: array
+          maxItems: 12
+          description: >
+            Bauteile des Eintrags (#78), nur bei Kategorien mit allowsParts. Jedes Element ein Schlüssel oder
+            { key, costShare }. Beim PATCH lässt ein fehlendes parts die Bauteile stehen, [] oder null löscht sie.
+          items:
+            oneOf:
+              - type: string
+              - $ref: "#/components/schemas/EntryPartInput"
       required: [vehicleId, category, amountEur]
 
     Entry:
@@ -4717,12 +4926,108 @@ components:
         created_at:
           type: string
           format: date-time
+        parts:
+          type: array
+          description: Bauteile des Eintrags (#78); leer ohne Bauteile
+          items:
+            $ref: "#/components/schemas/EntryPart"
         warnings:
           type: array
           description: Nur bei POST/PATCH – Hinweise auf einen unplausiblen Tachostand (gespeichert wird trotzdem)
           items:
             $ref: "#/components/schemas/OdometerWarning"
       required: [id, vehicle_id, category, amount_eur, occurred_at, created_at]
+
+    EntryPartInput:
+      type: object
+      additionalProperties: false
+      required: [key]
+      properties:
+        key: { type: string, description: "Schlüssel aus GET /vehicles/{vehicleId}/parts (oil, brake_pads_front … oder custom:<id>)" }
+        costShare: { type: number, minimum: 0, nullable: true, description: "Anteil am Betrag in EUR; die Summe der Anteile darf den Betrag nicht übersteigen" }
+
+    EntryPart:
+      type: object
+      additionalProperties: false
+      required: [key, name, cost_share]
+      properties:
+        key: { type: string }
+        name: { type: string }
+        cost_share: { type: number, nullable: true, description: "Kostenanteil, wenn angegeben; null = kein Anteil" }
+
+    Part:
+      type: object
+      description: Bauteil für die Auswahl (#78)
+      required: [key, name, icon, group, builtin]
+      properties:
+        key: { type: string, example: "brake_pads_front" }
+        id: { type: string, format: uuid, description: "Nur bei eigenen Bauteilen" }
+        name: { type: string }
+        icon: { type: string }
+        group: { type: string, description: "motor, bremsen, reifen, sonstiges oder eigene" }
+        builtin: { type: boolean }
+
+    PartService:
+      type: object
+      description: Ein Bauteil in der Service-Übersicht (#78)
+      required: [key, name, changes, history]
+      properties:
+        key: { type: string }
+        name: { type: string }
+        icon: { type: string }
+        group: { type: string }
+        builtin: { type: boolean }
+        interval:
+          type: object
+          nullable: true
+          description: "Eigenes Wechselintervall am Fahrzeug (Zeit und/oder km, was zuerst kommt); Motoröl aus oilIntervalMonths/Km der Fahrzeugangaben"
+          properties:
+            months: { type: integer, nullable: true }
+            km: { type: integer, nullable: true }
+        changes: { type: integer, description: "Zahl der Wechsel (Einträge mit diesem Bauteil)" }
+        last:
+          type: object
+          nullable: true
+          properties:
+            entry_id: { type: string, format: uuid }
+            date: { type: string, format: date }
+            odometer_km: { type: integer, nullable: true }
+            cost: { type: number, nullable: true, description: "Kostenanteil, sonst der ganze Betrag bei genau einem Bauteil im Eintrag, sonst null (nie gleichmäßig verteilt)" }
+            vendor: { type: string, nullable: true }
+        lifetime:
+          type: object
+          nullable: true
+          description: "Abstände zwischen aufeinanderfolgenden Wechseln; null bei weniger als zwei Wechseln. km nur, wenn beide Wechsel einen Tachostand haben."
+          properties:
+            changes: { type: integer }
+            avgKm: { type: integer, nullable: true }
+            avgMonths: { type: number, nullable: true }
+            lastKm: { type: integer, nullable: true }
+            lastMonths: { type: number, nullable: true }
+        next:
+          type: object
+          nullable: true
+          description: "Nächster Wechsel aus dem eigenen Intervall (source interval) oder, ohne Intervall, aus der Ø-Lebensdauer (source lifetime, nur geschätzt und nie ueberfaellig); null ohne beides"
+          properties:
+            due_date: { type: string, format: date, nullable: true }
+            due_km: { type: integer, nullable: true }
+            days: { type: integer, nullable: true }
+            status: { type: string, enum: [ok, bald, ueberfaellig] }
+            source: { type: string, enum: [interval, lifetime] }
+        total_cost: { type: number, description: "Summe der bekannten Kosten aller Wechsel" }
+        history:
+          type: array
+          description: "Wechsel, neueste zuerst, höchstens history_limit"
+          items:
+            type: object
+            properties:
+              entry_id: { type: string, format: uuid }
+              category: { type: string }
+              date: { type: string, format: date }
+              odometer_km: { type: integer, nullable: true }
+              cost: { type: number, nullable: true }
+              vendor: { type: string, nullable: true }
+              description: { type: string, nullable: true }
 
     EntryPatchRequest:
       type: object
@@ -4747,6 +5052,16 @@ components:
         description:
           type: string
           nullable: true
+        parts:
+          type: array
+          maxItems: 12
+          description: >
+            Bauteile des Eintrags (#78), nur bei Kategorien mit allowsParts. Jedes Element ein Schlüssel oder
+            { key, costShare }. Beim PATCH lässt ein fehlendes parts die Bauteile stehen, [] oder null löscht sie.
+          items:
+            oneOf:
+              - type: string
+              - $ref: "#/components/schemas/EntryPartInput"
 
     PasswordChangeRequest:
       type: object
@@ -4795,7 +5110,9 @@ components:
         due_km: { type: integer, nullable: true }
         status: { type: string, enum: [ok, bald, ueberfaellig, unbekannt] }
         days: { type: integer, nullable: true }
-        source: { type: string, nullable: true, enum: [eintrag, erstzulassung, faelligkeitsmonat, null] }
+        source: { type: string, nullable: true, enum: [eintrag, erstzulassung, faelligkeitsmonat, bauteil, lebensdauer, null], description: "bauteil und lebensdauer (#78) nur bei Zeilen zu Bauteilen: Intervall bzw. Schätzung aus der Ø-Lebensdauer (nie ueberfaellig, ohne Mail und Push)" }
+        part_key: { type: string, description: "Nur bei Bauteil-Zeilen (#78): Schlüssel des Bauteils; category ist dann part:<key>" }
+        icon: { type: string, description: "Nur bei Bauteil-Zeilen (#78): Font-Awesome-Symbol" }
 
     MailSettings:
       type: object

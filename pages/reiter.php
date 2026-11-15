@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/api_helpers.php';
 require_once __DIR__ . '/../includes/basis_url.php';
 include '../includes/functions.php';
 
-$erlaubt = ['eintraege', 'statistiken', 'ausgaben', 'fahrten', 'einstellungen'];
+$erlaubt = ['eintraege', 'statistiken', 'ausgaben', 'service', 'fahrten', 'einstellungen'];
 $reiter = (string)($_GET['reiter'] ?? '');
 $fahrzeug_id = (string)($_GET['id'] ?? '');
 header('Content-Type: text/html; charset=utf-8');

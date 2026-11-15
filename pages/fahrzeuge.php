@@ -83,7 +83,8 @@ try {
                 // Termine zu einem Hinweis zusammenfassen
                 $faellig = array_values(array_filter(
                     getFaelligkeitenFromApi($api, $vehicleId),
-                    fn($f) => in_array($f['status'], ['ueberfaellig', 'bald'], true)
+                    // Schätzungen aus der Lebensdauer (#78) sind nur ein Hinweis in „Allgemein“, kein Alarm auf der Karte
+                    fn($f) => in_array($f['status'], ['ueberfaellig', 'bald'], true) && ($f['quelle'] ?? '') !== 'lebensdauer'
                 ));
                 $ueberfaellig = count(array_filter($faellig, fn($f) => $f['status'] === 'ueberfaellig'));
                 $hinweis = null;
@@ -126,7 +127,6 @@ try {
                                     <?php if ($kostenHtml !== null): ?>
                                     <div class="kennzahl-wert"><?= $kostenHtml ?></div>
                                     Energiekosten
-                                    <?php if ($verbrauchHtml !== ''): ?><div class="fs-label">Ø <?= preg_replace('~ <i class="fas fa-arrow-trend.*$~s', '', $verbrauchHtml) ?></div><?php endif; ?>
                                     <?php else: ?>
                                     <div class="kennzahl-wert"><?= $verbrauchHtml !== '' ? $verbrauchHtml : '—' ?></div>
                                     Ø Verbrauch
@@ -134,6 +134,10 @@ try {
                                 </div>
                             </div>
                         </div>
+                        <?php if ($kostenHtml !== null && $verbrauchHtml !== ''): ?>
+                        <!-- Plug-in-Hybrid (#156): Verbrauch je Energieart unter den Kacheln, damit sie wie sonst aussehen -->
+                        <p class="fs-label mb-0">Ø Verbrauch <?= htmlspecialchars(trim(strip_tags(preg_replace('~ <i class="fas fa-arrow-trend.*$~s', '', $verbrauchHtml)))) ?></p>
+                        <?php endif; ?>
                         <?php if ($hinweis || $tachoFehlt > 0): ?>
                         <div class="d-flex flex-wrap gap-2">
                             <?php if ($hinweis): ?><?= statusBadge($ueberfaellig ? 'ueberfaellig' : 'bald', $hinweis) ?><?php endif; ?>

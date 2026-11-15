@@ -225,12 +225,20 @@ test('Verbrauch ohne „voll geladen“: ohne Ladestände gilt wie bisher voll b
   assert.equal(v.coverage, 1);
   assert.equal(v.segments.every((x) => x.method === 'full'), true);
 
-  // Ladestand nachher unter 100 % ohne bestimmbares kWh je Prozent (kein Stand vorher): kein Eckpunkt, wie ein Teilladung
+  // Immer auf 80 % geladen, nur „Ladestand nachher“ angegeben: gleicher Stand an beiden Eckpunkten braucht keine Umrechnung
   const halb = await newVehicle(token, { fuelType: 'electric' });
   for (const [odo, kwh] of [[1000, 20], [1200, 30], [1400, 36]]) {
     await api('POST', '/fillups', { token, body: { vehicleId: halb.id, odometerKm: odo, amount: kwh, totalCostEur: 0, socAfterPct: 80 } });
   }
-  assert.equal((await api('GET', `/vehicles/${halb.id}/stats`, { token })).body.segments.length, 0);
+  const h = (await api('GET', `/vehicles/${halb.id}/stats`, { token })).body;
+  assert.deepEqual(h.segments.map((x) => [x.km, Number(x.liters_segment), x.method]).reverse(), [[200, 30, 'level'], [200, 36, 'level']]);
+  // Unterschiedliche Stände ohne bestimmbares kWh je Prozent (kein Stand vorher): der Abschnitt fällt weg, der nächste beginnt dort
+  const ungleich = await newVehicle(token, { fuelType: 'electric' });
+  for (const [odo, kwh, soc] of [[1000, 20, 80], [1200, 30, 60], [1400, 36, 60]]) {
+    await api('POST', '/fillups', { token, body: { vehicleId: ungleich.id, odometerKm: odo, amount: kwh, totalCostEur: 0, socAfterPct: soc } });
+  }
+  const u = (await api('GET', `/vehicles/${ungleich.id}/stats`, { token })).body;
+  assert.deepEqual(u.segments.map((x) => [x.km, Number(x.liters_segment)]), [[200, 36]], 'nur der Abschnitt zwischen den beiden 60-%-Ladungen');
 
   // Unstimmige Angaben (Stand steigt stärker, als die geladene Menge hergibt): Abschnitt zählt nicht
   const falsch = await newVehicle(token, { fuelType: 'electric' });

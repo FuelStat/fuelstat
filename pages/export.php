@@ -47,11 +47,22 @@ $phev = $fuelType === 'phev';
 $mitSorte = count(sortenDesFahrzeugs($fahrzeug)) > 1;
 // Ladeangaben (#25): eigene Spalten bei Fahrzeugen, die laden (Elektro, Plug-in-Hybrid); der Import erkennt sie wieder
 $mitLaden = in_array('kwh', einheitenFuerKraftstoff($fuelType), true);
+// Bauteile (#78): eine Spalte "Bauteile" mit den Namen, getrennt mit " | " (der Import erkennt sie wieder)
+$mitBauteile = false;
+foreach ($zeilen as $e) {
+    if (!empty($e['bauteile'])) {
+        $mitBauteile = true;
+        break;
+    }
+}
 $kopf = $phev
     ? ['Datum', 'Kategorie', 'Tachostand (km)', 'Menge', 'Einheit', 'Kosten (EUR)', 'Voll', 'Lücke davor', 'Verbrauch (pro 100km)', 'Ort/Anbieter', 'Beschreibung']
     : ['Datum', 'Kategorie', 'Tachostand (km)', 'Menge (' . $einheit . ')', 'Kosten (EUR)', $begriffe['voll'], 'Lücke davor', 'Verbrauch (' . $einheit . '/100km)', 'Ort/Anbieter', 'Beschreibung'];
 if ($mitSorte) {
     array_splice($kopf, 4, 0, ['Sorte']);
+}
+if ($mitBauteile) {
+    $kopf[] = 'Bauteile';
 }
 if ($mitLaden) {
     // nach "Lücke davor", vor dem Verbrauch
@@ -79,6 +90,6 @@ foreach ($zeilen as $e) {
         $istTank ? $zahl($e['l_per_100km'] ?? null, 2) : '',
         $text($e['standort'] ?? ''),
         $text($e['beschreibung'] ?? ''),
-    ]), ';');
+    ], $mitBauteile ? [$text(implode(' | ', array_column($e['bauteile'] ?? [], 'name')))] : []), ';');
 }
 fclose($out);

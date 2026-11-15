@@ -284,6 +284,13 @@ class FuelstatApi
     public function getWhoAmI(): array { return $this->request('GET', '/whoami'); }
     public function postAuthRefresh(): array { return $this->request('POST', '/auth/refresh', []); }
     public function getHealth(): array { return $this->request('GET', '/health'); }
+    // Service-Historie je Bauteil (#78)
+    public function getVehicleParts(string $vehicleId): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/parts'); }
+    public function postVehiclePart(string $vehicleId, string $name): array { return $this->request('POST', '/vehicles/' . rawurlencode($vehicleId) . '/parts', ['name' => $name]); }
+    public function patchVehiclePart(string $vehicleId, string $partId, string $name): array { return $this->request('PATCH', '/vehicles/' . rawurlencode($vehicleId) . '/parts/' . rawurlencode($partId), ['name' => $name]); }
+    public function deleteVehiclePart(string $vehicleId, string $partId): void { $this->request('DELETE', '/vehicles/' . rawurlencode($vehicleId) . '/parts/' . rawurlencode($partId)); }
+    public function putPartInterval(string $vehicleId, string $partKey, ?int $monate, ?int $km): array { return $this->request('PUT', '/vehicles/' . rawurlencode($vehicleId) . '/part-intervals/' . rawurlencode($partKey), ['intervalMonths' => $monate, 'intervalKm' => $km]); }
+    public function getVehicleService(string $vehicleId): array { return $this->request('GET', '/vehicles/' . rawurlencode($vehicleId) . '/service'); }
     // Passkeys (#2). WebAuthn-Antworten des Browsers als stdClass durchreichen, damit leere Objekte {} bleiben.
     public function getPasskeys(): array { return $this->getAllPages('/auth/passkeys'); }
     public function postPasskeyRegisterOptions(string $currentPassword): array { return $this->request('POST', '/auth/passkeys/register/options', ['currentPassword' => $currentPassword]); }

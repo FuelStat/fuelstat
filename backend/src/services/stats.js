@@ -141,9 +141,10 @@ async function getVehicleStats(pool, userId, vehicleId) {
       FROM summiert
       -- Ohne echten Tachostand schließt auch eine Vollbetankung keinen Abschnitt ab (#41): Sie zählt wie eine
       -- Teilbetankung, ihre Menge fließt in den nächsten vollen Abschnitt mit Tachostand ein.
-      -- Eckpunkt: volle Füllung (Stand 100 %) oder bekannter Ladestand nachher; Stände unter 100 % nur, wenn sich
-      -- kWh je Prozent bestimmen lassen.
-      WHERE level IS NOT NULL AND has_km AND (level = 100 OR (SELECT k_per_pct FROM kfac) IS NOT NULL)
+      -- Eckpunkt: volle Füllung (Stand 100 %) oder bekannter Ladestand nachher. Ein Abschnitt zwischen zwei Eckpunkten mit
+      -- gleichem Stand braucht keine Umrechnung; unterscheiden sich die Stände und sind die kWh je Prozent unbekannt,
+      -- fällt der Abschnitt weg (siehe unten), der nächste beginnt am Eckpunkt.
+      WHERE level IS NOT NULL AND has_km
     ),
     seg AS (
       SELECT

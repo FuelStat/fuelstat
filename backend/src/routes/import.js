@@ -13,6 +13,7 @@ const { fuelInfo, unitOf: unitOfFuel, vehicleFuels, fuelForUnit } = require('../
 const { requireVerified } = require('../middleware/verified');
 const { vehicleRole } = require('../services/vehicleAccess');
 const { resolveCharge } = require('../services/charging');
+const partsService = require('../services/parts');
 
 const router = express.Router();
 
@@ -70,6 +71,10 @@ router.post('/vehicles/:vehicleId/import', auth, requireVerified('import'), impo
         if (!geprueft.has(key)) geprueft.set(key, await categories.checkUsable(pool, user, key));
         const fehler = geprueft.get(key);
         if (fehler) errors.push({ type: 'entry', index, error: fehler.body.error, category: key, ...(fehler.body.feature ? { feature: fehler.body.feature } : {}) });
+        // Bauteile (#78): nur bei Kategorien mit allowsParts; Schlüssel und Anteile prüft parseParts unten in der Transaktion
+        else if (e.parts !== undefined && e.parts !== null && (!Array.isArray(e.parts) || (e.parts.length && !categories.allowsParts(key)))) {
+          errors.push({ type: 'entry', index, error: Array.isArray(e.parts) ? 'parts_not_allowed' : 'invalid_parts', category: key });
+        }
       }
     } catch (e) {
       return serverError(res, e);
@@ -158,6 +163,14 @@ router.post('/vehicles/:vehicleId/import', auth, requireVerified('import'), impo
           e.vendor ? String(e.vendor).trim() : null, e.description ? String(e.description).trim() : null
         ]
       );
+      if (Array.isArray(e.parts) && e.parts.length) {
+        const bauteile = await partsService.parseParts(client, vehicleId, e.parts, Number(e.amountEur));
+        if (bauteile.error) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'invalid_rows', rows: [{ type: 'entry', index, error: bauteile.error, ...(bauteile.key ? { key: bauteile.key } : {}) }] });
+        }
+        await partsService.saveParts(client, ins.rows[0].id, bauteile.parts);
+      }
       result.imported.entries++;
       inserted.push({ type: 'entry', index, id: ins.rows[0].id, at: occurredAt, km: odometerKm });
     }

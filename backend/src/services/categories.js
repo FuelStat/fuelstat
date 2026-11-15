@@ -22,17 +22,18 @@ const GROUP_KEYS = GROUPS.map((g) => g.key);
 //   trip     = Fahrt (Fahrtenbuch, ohne Kosten)
 //   odometer = nur Kilometerstand notieren (ohne Kosten)
 //   fillup   = Tank- oder Ladevorgang (eigener Endpunkt /fillups, hier nur für Namen, Icon und Farbe)
+// allowsParts: an Einträgen dieser Kategorie lassen sich Bauteile angeben (Service-Historie, #78)
 // selectable: kann in der Kategorie-Auswahl einer Ausgabe gewählt werden
 const BUILTIN = [
   { key: 'Tankfuellung', name: 'Tankfüllung', icon: 'fa-gas-pump', color: '#0d6efd', group: 'kraftstoff', form: 'fillup', countsAsCost: true, plan: 'free', selectable: false },
   { key: 'Versicherung', name: 'Versicherung', icon: 'fa-shield-alt', color: '#6f42c1', group: 'fix', form: 'expense', countsAsCost: true, plan: 'free', selectable: true },
   { key: 'Steuer', name: 'Steuer', icon: 'fa-money-bill-wave', color: '#a370f7', group: 'fix', form: 'expense', countsAsCost: true, plan: 'free', selectable: true },
   { key: 'TUV', name: 'TÜV', icon: 'fa-calendar-check', color: '#d63384', group: 'wartung', form: 'expense', countsAsCost: true, plan: 'free', selectable: true },
-  { key: 'Werkstatt', name: 'Werkstatt', icon: 'fa-tools', color: '#fd7e14', group: 'wartung', form: 'expense', countsAsCost: true, plan: 'free', selectable: true },
-  { key: 'Reparatur', name: 'Reparatur', icon: 'fa-car-crash', color: '#dc3545', group: 'wartung', form: 'expense', countsAsCost: true, plan: 'free', selectable: true },
-  { key: 'Wartung', name: 'Wartung', icon: 'fa-cogs', color: '#e8590c', group: 'wartung', form: 'expense', countsAsCost: true, plan: 'free', selectable: true },
-  { key: 'Inspektion', name: 'Inspektion', icon: 'fa-wrench', color: '#ffc107', group: 'wartung', form: 'expense', countsAsCost: true, plan: 'free', selectable: true },
-  { key: 'Reifen', name: 'Reifen', icon: 'fa-car-side', color: '#6c757d', group: 'wartung', form: 'expense', countsAsCost: true, plan: 'free', selectable: true },
+  { key: 'Werkstatt', name: 'Werkstatt', icon: 'fa-tools', color: '#fd7e14', group: 'wartung', form: 'expense', allowsParts: true, countsAsCost: true, plan: 'free', selectable: true },
+  { key: 'Reparatur', name: 'Reparatur', icon: 'fa-car-crash', color: '#dc3545', group: 'wartung', form: 'expense', allowsParts: true, countsAsCost: true, plan: 'free', selectable: true },
+  { key: 'Wartung', name: 'Wartung', icon: 'fa-cogs', color: '#e8590c', group: 'wartung', form: 'expense', allowsParts: true, countsAsCost: true, plan: 'free', selectable: true },
+  { key: 'Inspektion', name: 'Inspektion', icon: 'fa-wrench', color: '#ffc107', group: 'wartung', form: 'expense', allowsParts: true, countsAsCost: true, plan: 'free', selectable: true },
+  { key: 'Reifen', name: 'Reifen', icon: 'fa-car-side', color: '#6c757d', group: 'wartung', form: 'expense', allowsParts: true, countsAsCost: true, plan: 'free', selectable: true },
   { key: 'Sonstiges', name: 'Sonstiges', icon: 'fa-receipt', color: '#adb5bd', group: 'sonstiges', form: 'expense', countsAsCost: true, plan: 'free', selectable: true },
   { key: 'Dekor', name: 'Zubehör & Dekor', icon: 'fa-paint-roller', color: '#20c997', group: 'sonstiges', form: 'expense', countsAsCost: true, plan: 'plus', selectable: true },
   { key: 'Pflege', name: 'Pflege & Waschen', icon: 'fa-soap', color: '#3dd5f3', group: 'sonstiges', form: 'expense', countsAsCost: true, plan: 'plus', selectable: true },
@@ -97,6 +98,7 @@ function customToApi(row, available) {
     color: row.color,
     group: row.group_key,
     form: 'expense',
+    allowsParts: false,
     countsAsCost: true,
     plan: 'plus',
     custom: true,
@@ -118,12 +120,12 @@ async function listForUser(db, user) {
     [user.id, BUILTIN.map((c) => c.key)]
   );
   const categories = [
-    ...BUILTIN.map((c) => ({ ...c, custom: false, available: c.selectable && (c.plan === 'free' || premium) })),
+    ...BUILTIN.map((c) => ({ ...c, allowsParts: Boolean(c.allowsParts), custom: false, available: c.selectable && (c.plan === 'free' || premium) })),
     ...custom.map((row) => customToApi(row, maxCustom > 0)),
     ...(await loadSharedCustom(db, user.id)).map((row) => ({ ...customToApi(row, false), selectable: false, shared: true })),
     ...legacy.rows.map((r) => ({
       key: r.category, name: r.category, icon: 'fa-tag', color: '#adb5bd', group: 'sonstiges', form: 'expense',
-      countsAsCost: true, plan: 'free', custom: false, legacy: true, selectable: false, available: false
+      countsAsCost: true, plan: 'free', allowsParts: false, custom: false, legacy: true, selectable: false, available: false
     }))
   ];
   return {
@@ -206,7 +208,9 @@ async function namesForUser(db, userId) {
   return names;
 }
 
+const allowsParts = (key) => Boolean(BUILTIN_BY_KEY[key]?.allowsParts);
+
 module.exports = {
-  GROUPS, BUILTIN, BUILTIN_BY_KEY, NON_COST_KEYS, CUSTOM_ICONS, CUSTOM_COLORS, NAME_MAX,
+  allowsParts, GROUPS, BUILTIN, BUILTIN_BY_KEY, NON_COST_KEYS, CUSTOM_ICONS, CUSTOM_COLORS, NAME_MAX,
   customKey, isCustomKey, customIdOf, loadCustom, loadSharedCustom, customToApi, listForUser, checkUsable, validateCustomInput, namesForUser
 };

@@ -368,51 +368,197 @@ Gleicher Name, gleicher Wert, plattformübliche Schreibweise.
 
 ## 7. Navigation und Aufbau
 
-Gleiche Bereiche und Begriffe auf allen Plattformen:
+**Eine Struktur für Web/PWA, iOS und Android.** Dieser Abschnitt legt fest, *was* es gibt, wie es heißt und wo es
+liegt (Entscheidung in #206, Abschnitt 12). Die Plattform entscheidet nur, *wie* es dargestellt wird (7.7). Die
+Plattform-Dokumente definieren keine eigene Struktur und keine eigenen Bezeichnungen, sie verweisen hierher.
+
+**Grundregel: Jeder Inhalt hat genau eine Heimat (7.6).** Kurzwege dürfen dorthin führen, tragen die Bezeichnung
+des Ziels und zeigen nichts anderes an. Nichts wird an zwei Stellen gepflegt oder verschieden dargestellt.
+
+**Grenzen:** höchstens fünf Segmente oder Reiter je Seite, höchstens sieben Einträge in einer Menüebene des Profils,
+höchstens drei Termine auf Start, **ein „+“ je Bildschirm**, jede Seite und jeder Abschnitt hat eine sichtbare
+Überschrift (auch mobil).
+
+### 7.1 Bereiche
+
+Fünf Bereiche, auf allen Plattformen in dieser Reihenfolge und mit diesen Namen:
 
 | Bereich | Inhalt |
 |---|---|
-| **Start** | Gewähltes Fahrzeug: Hero, Kennzahlen, nächste Termine, Tankstellen in der Nähe, letzte Einträge |
-| **Einträge** | Alle Einträge nach Monat gruppiert, Suche und Filter |
-| **＋ Erfassen** | Kein Bereich, sondern die Schnellerfassung (Tanken, Laden, Ausgabe, Kilometerstand, Fahrt) |
-| **Statistik** | Diagramme und Jahresübersicht des gewählten Fahrzeugs |
-| **Profil** | Konto, Fahrzeuge, Erinnerungen, Import/Export, Einstellungen, Über |
+| **Start** | Übersicht des gewählten Fahrzeugs: Hero, Kennzahlen, nächste Termine, letzte Einträge, „Mehr zum Fahrzeug“ (Beispiel in 7.8). Im Flotten-Tarif mit mindestens zwei aktiven Fahrzeugen: Fahrzeugübersicht (7.2) |
+| **Einträge** | Alle Einträge des gewählten Fahrzeugs nach Monat gruppiert, Suche und Filter, ein Menü „Berichte und Export“ |
+| **＋ Erfassen** | Kein Bereich, sondern die Schnellerfassung (7.3) |
+| **Statistik** | Auswertung des gewählten Fahrzeugs: Verbrauch, Kosten, **eine** Gesamtkosten-Zahl mit Erklärung, Kostenstruktur, Jahresvergleich. **Kein Vergleich zwischen Fahrzeugen** (verschoben auf „Later“, fuelstat#54) |
+| **Profil** | Konto, Fahrzeuge, Daten, Benachrichtigungen, Über, Darstellung (7.4) |
 
-- **Fahrzeugwechsler** oben auf Start, Einträge und Statistik: Name mit Pfeil („VW Golf ▾“), öffnet eine
-  Liste mit Foto, Name, Kennzeichen; die Wahl bleibt gespeichert.
-- **„+“** ist ein gefüllter Kreis in `Brand`, Bezeichnung für Screenreader „Eintrag erfassen“. Es gibt
-  **genau ein „+“ je Bildschirm**: auf iOS und in der PWA (mobil) in der Mitte der Tab-Leiste, auf Android
-  als FAB über der Navigationsleiste – nie beides.
-- Wie die Navigation dargestellt wird, entscheidet die Plattform (siehe [Leitplanken](#9-plattform-leitplanken)).
+Die Leiste ist überall **Start · Einträge · ＋ · Statistik · Profil**. „Fahrzeuge“ ist kein eigener Bereich, sondern
+liegt unter Profil.
 
-### 7.1 Start – Beispielinhalt
+### 7.2 Fahrzeug: Wahl, Start und weitere Ansichten
+
+**Standardfahrzeug.** Das Fahrzeug an erster Stelle der Reihenfolge (`sortOrder`, einstellbar unter
+Profil → Fahrzeuge). Nach der Anmeldung und beim Öffnen der App ist es gewählt.
+
+**Fahrzeugwechsler.** Oben auf Start, Einträge und Statistik: Name mit Pfeil („VW Golf ▾“), öffnet eine Liste
+mit Foto, Name, Kennzeichen (`VehicleSwitcher`). Die Wahl gilt für Start, Einträge, Statistik und „＋“ und nur für
+die **Sitzung** (Web: bis zur Abmeldung, Apps: bis zum Neustart). Sie wird nicht
+dauerhaft gemerkt; das Standardfahrzeug bleibt Start. Die Liste enthält nur aktive Fahrzeuge und den Eintrag
+„Fahrzeuge verwalten“ (führt zu Profil → Fahrzeuge).
+
+**Start ohne Flotten-Tarif:** immer die Übersicht des gewählten Fahrzeugs, es gibt keine zweite
+„Allgemein“-Seite.
+
+**Start mit Flotte (`features.fleet`) und mindestens zwei aktiven Fahrzeugen:** Start ist eine Liste der Fahrzeuge
+als Karten (`VehicleHero` kompakt: Foto, Name, Kennzeichen, Kilometerstand, zwei Kennzahlen, wichtigster Termin
+als `StatusBadge`), in der Reihenfolge `sortOrder`. Ein Tipp wählt das Fahrzeug und zeigt dessen Übersicht; „Alle Fahrzeuge“ führt zurück. Die Karten sind
+**kein Vergleich** (keine gemeinsame Tabelle, keine gemeinsamen Diagramme). Mit nur einem aktiven Fahrzeug
+zeigt auch die Flotte die normale Übersicht.
+
+**Weitere Ansichten des Fahrzeugs** (nicht in der Leiste, keine Reiter):
+
+| Ansicht | Inhalt |
+|---|---|
+| **Service** | Bauteile mit Intervallen und Wechseln, nächste Wechsel, Wartungshistorie je Bauteil |
+| **Fahrten** | Fahrtenbuch: Liste, Zweck, Auswertung, Export |
+| **Fahrzeugdaten** | Stammdaten, Status (aktiv, verkauft, stillgelegt), Teilen, Löschen |
+
+Erreichbar von **Start** („Mehr zum Fahrzeug“ unter den Kennzahlen und Terminen), von
+**Profil → Fahrzeuge → [Fahrzeug]** und am PC zusätzlich über das Menü „Fahrzeug“ der Kopfleiste. Es sind
+Unterseiten mit Zurück, kein Segment einer Fahrzeugseite. Fahrten ist eine eigene Ansicht und wird nicht in
+„Einträge“ versteckt; erfasst werden Fahrten über „＋“ → Fahrt.
+
+**Archivierte Fahrzeuge** (verkauft, stillgelegt) stehen unter Profil → Fahrzeuge → Archiv, sind nicht im
+Wechsler und sind schreibgeschützt (API: `409 vehicle_archived`).
+
+### 7.3 Erfassen
+
+- **„＋“** ist ein gefüllter Kreis in `Brand`, Bezeichnung für Screenreader „Eintrag erfassen“. Es gibt **genau ein
+  „+“ je Bildschirm**: auf iOS und in der PWA (mobil) in der Mitte der Tab-Leiste, auf Android als FAB über der
+  Navigationsleiste, am PC als Knopf „Eintrag erfassen“ in der Kopfleiste. Nie zwei.
+- Die Schnellerfassung bietet Tanken bzw. Laden (je nach Fahrzeug), Ausgabe, Kilometerstand und Fahrt für das
+  gewählte Fahrzeug. Das Formular hat keine eigene Fahrzeugwahl; ist auf der Flotten-Übersicht noch keines
+  gewählt, fragt es zuerst mit demselben Wechsler danach.
+- **Kurzwege** (Knopf in Start, auf einem Termin oder in Service) öffnen dasselbe Formular mit vorbelegter Art und
+  heißen nach dem Ziel: „Wartung eintragen“, nicht „Termin erfassen“; „Kilometerstand eintragen“, nicht
+  „km notieren“.
+
+### 7.4 Profil und Konto
+
+Profil ist gruppiert, sechs Gruppen in dieser Reihenfolge:
+
+| Gruppe | Inhalt |
+|---|---|
+| **Konto** | Profil (Name, Foto, E-Mail), Sicherheit: Passwort, Zwei-Faktor, Passkeys, Geräte |
+| **Fahrzeuge** | Liste, Archiv, Reihenfolge, Fahrzeug hinzufügen; ein Fahrzeug öffnet die Ansichten aus 7.2 |
+| **Daten** | Kategorien, Einladungen, Import und Export |
+| **Benachrichtigungen** | Erinnerungen, Push, Monatsbericht |
+| **Über** | Neuigkeiten, Feedback, Rechtliches, Version |
+| **Darstellung** | Hell, Dunkel, System |
+
+Betreiber-Einstellungen (E-Mail-Server, Administration) gehören nicht ins Profil der Nutzer, sondern in den
+Bereich für Betreiber (Umsetzung im Web: #206, Etappe 3).
+
+### 7.5 Begriffe (Glossar)
+
+Nur diese Wörter in der Oberfläche. Das Glossar ist die Quelle für `Localizable.xcstrings`, `strings.xml` und die
+Texte der Web-App. Der Produktname steht als `{App}`, er wird mit der Umbenennung (#207) an **einer** Stelle gesetzt.
+
+| Begriff | Verwendung | Nicht verwenden |
+|---|---|---|
+| Start, Einträge, Statistik, Profil | Bereiche (7.1) | „Statistiken“, „Allgemein“, „Mein Konto“ |
+| Eintrag erfassen | „＋“ und Knopf in der Kopfleiste | „Neuer Eintrag“ |
+| Tanken / Laden | Eintragsart je Fahrzeug (E-Auto: „Laden“) | „Tankfüllung“, „Ladevorgang“ |
+| Ausgabe | Eintragsart für sonstige Kosten | „Kosten eintragen“ |
+| Kilometerstand | Eintragsart und Feld | „km notieren“ |
+| Fahrt | Eintragsart, Ansicht „Fahrten“ | „Trip“ |
+| Wartung | Ausgabe-Kategorie und Kurzweg „Wartung eintragen“ | „Termin erfassen“ |
+| Service | Ansicht der Bauteile und Intervalle | „Wartung“ für die Ansicht |
+| Termine | Fristen (Versicherung, Steuer, TÜV, Service) und Bauteil-Schätzungen, in dieser Reihenfolge | zeilenweise doppelte Reifen |
+| Fahrzeugdaten | Ansicht mit Stammdaten, Status, Teilen, Löschen | „Einstellungen“, „Fahrzeug bearbeiten“ |
+| Fahrzeuge | Liste unter Profil | „Meine Fahrzeuge“ |
+| Standardfahrzeug | Erstes Fahrzeug der Reihenfolge | „Hauptfahrzeug“ |
+| Archiv | Verkaufte und stillgelegte Fahrzeuge | „Papierkorb“ |
+| Gesamtkosten | **Eine** Zahl in Statistik, mit Erklärung (Kaufpreis, laufende Kosten, Verkauf/Restwert) | „Ausgaben gesamt“ daneben |
+| Berichte und Export | Ein Menü in Einträge | verteilte Knöpfe „CSV“, „Bericht“, „Export“ |
+| Teilen | Fahrzeug mit anderen Konten teilen, Liste „Geteilt mit“ in Fahrzeugdaten | |
+| Einladungen | Eingeladene Mitfahrer, in Profil → Daten | |
+| Zwei-Faktor, Passkey | Sicherheit | „2FA“ in der Oberfläche |
+
+### 7.6 Heimat jedes Inhalts
+
+| Inhalt | Heimat | Kurzwege erlaubt von |
+|---|---|---|
+| Übersicht eines Fahrzeugs | Start | Wechsler, Fahrzeugkarte (Flotte) |
+| Fahrzeug wählen | Wechsler (Auswahl) | Fahrzeugkarte |
+| Fahrzeuge verwalten (Reihenfolge, Archiv, hinzufügen) | Profil → Fahrzeuge | „Fahrzeuge verwalten“ im Wechsler |
+| Stammdaten bearbeiten, Status, Teilen, Löschen | Fahrzeugdaten | „Fehlende Angaben ergänzen“ auf Start |
+| Eintrag erfassen | ＋ | Start, Termin, Service |
+| Einträge ansehen, suchen, filtern, bearbeiten | Einträge | Start („Alle anzeigen“) |
+| Berichte, Export, Import (Einträge, Gesamtkosten, Fahrtenbuch) | Einträge → „Berichte und Export“ | Profil → Daten, Fahrten |
+| Verbrauch, Kosten, Gesamtkosten, Kostenstruktur, Jahresvergleich | Statistik | Start (eine Kennzahl, Tipp führt hierher) |
+| Termine (vollständig) | Service | Start (höchstens drei, „Alle anzeigen“) |
+| Bauteile, Intervalle, Wechsel | Service | |
+| Fahrtenbuch | Fahrten | „＋“ → Fahrt |
+| Kategorien, Einladungen | Profil → Daten | |
+| Passwort, Zwei-Faktor, Passkeys, Geräte | Profil → Konto | |
+| Benachrichtigungen | Profil → Benachrichtigungen | |
+| Neuigkeiten, Feedback, Rechtliches | Profil → Über | Fußzeile (Web) |
+
+Ein Inhalt, der hier fehlt, bekommt vor der Umsetzung eine Zeile in dieser Tabelle. Der Pull-Request nennt sie.
+
+### 7.7 Abbildung je Plattform
+
+| | Web/PWA | iOS | Android |
+|---|---|---|---|
+| Leiste | unter 992 px Tab-Leiste unten mit „＋“ in der Mitte; ab 992 px Kopfleiste mit den Bereichen als Symbolen (Tooltip, `aria-label`) | `TabView` mit „＋“ in der Mitte | `NavigationBar` mit vier Zielen, ab 600 dp `NavigationRail` |
+| „＋“ | Kreis in der Tab-Leiste, am PC Knopf in der Kopfleiste | Kreis in der Tab-Leiste, Langdruck zeigt die Arten | FAB über der Leiste (Start, Einträge), in der Rail im Kopf |
+| Wechsler | Kopfleiste (PC) bzw. Seitenkopf (mobil), Liste als Blatt | Seitenkopf, Liste als Sheet | Seitenkopf, Liste als Modal Bottom Sheet |
+| Ansichten des Fahrzeugs (Service, Fahrten, Fahrzeugdaten) | Unterseiten, am PC Menü „Fahrzeug“ in der Kopfleiste | `NavigationStack` (Push) | Detailziel, ab 600 dp Liste und Detail nebeneinander |
+| Berichte und Export | Menü an Einträge | Menü in der Navigationsleiste | Overflow-Menü der Top-App-Bar |
+| Zurück | Browser, „Zurück“ in Unterseiten | Wischgeste, Zurück-Knopf | Predictive Back |
+
+Diese Tabelle ist die einzige Stelle, an der sich Plattformen im Aufbau unterscheiden dürfen; die Bereiche, Namen,
+Reihenfolgen und Heimaten (7.1 bis 7.6) sind gleich.
+
+**Stand der Umsetzung (Web):** Die Web-App hat noch die Fahrzeugseite mit Reitern (Allgemein, Einträge, Statistiken,
+Ausgaben, Service, Fahrten, Einstellungen). Sie wird in Etappen auf diesen Aufbau umgestellt (#206, Meilenstein
+0.14.0 und 1.0.0). Bis dahin gilt dieser Abschnitt für alles Neue. iOS (#84) und Android (#62) folgen ebenfalls.
+
+### 7.8 Start – Beispielinhalt
 
 Damit Entwürfe, Mockups (auch KI-generierte) und Vorschauen den richtigen Inhalt zeigen: so sieht Start mit
 echten Daten aus, von oben nach unten. Alle Texte deutsch, Zahlen im deutschen Format (Dezimalkomma,
 Tausenderpunkt, `€` nachgestellt mit Leerzeichen, Datum `TT.MM.JJJJ`).
 
 1. **Kopf:** links Fahrzeugwechsler „VW Golf ▾“, rechts das Profilbild (kleiner Kreis).
-2. **Hero:** Fahrzeugfoto, „VW Golf“, „B-FS 1234“, „84.312 km“, Badge „Benzin“.
+2. **Hero:** Fahrzeugfoto (mobil höchstens ein Viertel der Bildschirmhöhe), „VW Golf“, „B-FS 1234“, „84.312 km“,
+   Badge „Benzin“.
 3. **Drei Kennzahl-Kacheln in einer Reihe:**
    „6,4 l/100 km“ – Ø Verbrauch · „0,14 €/km“ – Kosten je km · „182,40 €“ – Diesen Monat.
    Termine gehören nicht in die Kacheln.
-4. **Nächste Termine** (höchstens drei, „Alle anzeigen“):
+4. **Nächste Termine** (höchstens drei, „Alle anzeigen“ führt zu Service):
    - TÜV – 23.11.2026 – Badge „in 12 Tagen“ (`StatusSoon`)
    - Inspektion – 06.11.2026 – Badge „seit 5 Tagen überfällig“ (`StatusOverdue`)
    - Versicherung – 01.03.2027 – Badge „in 4 Monaten“ (`StatusOK`)
 5. **In der Nähe:** kleine Karte, „Aral Hauptstraße“, „Super E10 1,689 € · 350 m“.
-6. **Letzte Einträge** (drei bis fünf, „Alle anzeigen“):
+6. **Letzte Einträge** (drei bis fünf, „Alle anzeigen“ führt zu Einträge):
    - Tanken · Aral Hauptstraße · 08.11.2026 · 84.312 km · 62,30 €
    - Werkstatt · Ölwechsel · 02.11.2026 · 149,00 €
    - Fahrt · dienstlich · 31.10.2026 · 124 km
+7. **Mehr zum Fahrzeug:** drei Zeilen „Service“, „Fahrten“, „Fahrzeugdaten“ mit Symbol und Pfeil.
 
 Bei einem E-Auto heißt die erste Kachel „16,8 kWh/100 km“ und der Eintrag „Laden · … · 18,40 €“.
+
+**Start im Flotten-Tarif (ab zwei aktiven Fahrzeugen):** Überschrift „Fahrzeuge“, darunter je Fahrzeug eine Karte,
+zum Beispiel „VW Golf · B-FS 1234 · 84.312 km · 6,4 l/100 km · 0,14 €/km · TÜV in 12 Tagen“ und
+„Tesla Model 3 · B-FS 5678 · 31.870 km · 16,8 kWh/100 km · 0,08 €/km · Versicherung in 4 Monaten“.
 
 **Häufige Fehler in Entwürfen** (dazu die Muster des „KI-Looks“ in
 [1.1](#11-was-wir-vermeiden-der-ki-look)): englische Texte oder Zahlenformate (`6.4`, `$10.00`), Token-Namen als
 Beschriftung, rote Badges für „bald fällig“, farbige Flächen mit weißer Schrift, Ziffernkästchen
 (`CodeField`) für Kilometerstand oder Beträge, zwei „+“ auf einem Bildschirm, Farbe ohne Text (z. B.
-farbige Pillen in Tabellen), sehr kleiner grauer Text.
+farbige Pillen in Tabellen), sehr kleiner grauer Text, ein Bereich „Fahrzeuge“ oder „Vergleich“ in der Leiste,
+Reiter auf der Fahrzeugseite, dieselbe Zahl in zwei Blöcken.
 
 ## 8. Gemeinsame Bausteine
 
@@ -494,8 +640,9 @@ Plattform-Besonderheiten der Web-App (PHP mit Bootstrap 5.3):
   Kraftstoffart bzw. Zweck), `terminAbstand()` („in 12 Tagen“). Dazu die CSS-Klassen `.kennzahl` (StatTile),
   `.chip`/`.chip-leiste` (FilterChip), `.fahrzeug-hero` (VehicleHero), `.eintrag-zeile` (EntryRow),
   `.leer-zustand` (EmptyState) und die Schriftrollen `.fs-<rolle>`.
-- **Kopfleiste (PC):** Fahrzeugwechsler links, rechts der Button „Eintrag erfassen“ und die Bereiche als
-  Symbole mit Tooltip und `aria-label` (#145); der aktive Bereich ist in `Brand` auf `CardTint` markiert.
+- **Kopfleiste (PC):** Fahrzeugwechsler links, rechts der Button „Eintrag erfassen“, die Bereiche aus 7.1 als
+  Symbole mit Tooltip und `aria-label` (#145) und das Menü „Fahrzeug“ (Service, Fahrten, Fahrzeugdaten); der
+  aktive Bereich ist in `Brand` auf `CardTint` markiert.
 - **Abstände:** Bootstrap-Abstände 1–3 (4, 8, 16 px) passen ins Raster; 4 (24) ebenfalls; 5 (48) nur für
   große Leerflächen. Für 12 und 32 die Tokens `--fs-space-s`/`--fs-space-xl`.
 - **Navigation:** unter 992 px Tab-Leiste unten mit „+“-Kreis, darüber Kopfleiste mit Titel; ab 992 px
@@ -504,11 +651,11 @@ Plattform-Besonderheiten der Web-App (PHP mit Bootstrap 5.3):
   `Background` des aktiven Modus. Pull-to-refresh nur in der installierten App und nicht in Formularen.
 - **Diagramme (Chart.js):** Farben aus den CSS-Variablen lesen (`getComputedStyle`), nicht im Skript festlegen.
   Beim Wechsel der Darstellung lädt eine Seite mit Diagrammen neu, damit die Reihen die Farben des neuen Modus bekommen.
-- **Bereiche:** „Start“ zeigt wie in den Apps ein Fahrzeug nach Abschnitt 7.1: das gewählte bzw. zuletzt genutzte,
-  mit Wechsler (mobil auf der Seite, am PC in der Kopfleiste). Ohne „In der Nähe“: Die Web-App fragt den Standort
-  nur im Erfassen-Formular ab. Alle Fahrzeuge als Karten mit Reihenfolge stehen unter „Alle Fahrzeuge“
-  (`pages/fahrzeuge.php`, erreichbar über „Fahrzeuge“ und den Wechsler). Einträge, Statistiken, Ausgaben und Fahrten
-  sind Reiter der Fahrzeugseite.
+- **Bereiche:** Aufbau, Namen und Heimaten wie in 7.1 bis 7.6, Abbildung in 7.7. Die Fahrzeugwahl der Sitzung liegt
+  im Web künftig in der PHP-Sitzung (statt im Cookie `fuelstat_fahrzeug`); „Start“ zeigt ohne Wahl das
+  Standardfahrzeug. Ohne „In der Nähe“: Die Web-App fragt den Standort nur im Erfassen-Formular ab.
+  **Abweichung bis zur Umsetzung (#206):** Die Fahrzeugseite hat noch Reiter, „Fahrzeuge“ steht noch in der Leiste
+  und das Fahrzeug wird noch per Cookie gemerkt; neue Seiten folgen schon dem neuen Aufbau.
 - **Seitenbreite:** Inhalt in `container-xl` (max. 1200 px); Formulare in einer Spalte bis 640 px.
 
 ## 12. Bestandsaufnahme und Entscheidungen
@@ -530,6 +677,7 @@ Stand November 2026, Quellen: `docs/design.md` in fuelstat-ios und fuelstat-andr
 | 10 | Schrift: iOS-Stile ohne Entsprechung im Web, Android nur „Material-Skala“ | Rollen in Abschnitt 4 mit Zuordnung je Plattform. |
 | 11 | `theme-color` im Web hell `#F8F9FA` / dunkel `#2B3035` | Ist jetzt `Background` (`#F2F6F8` / `#0E1624`). |
 | 12 | Bezeichnung des „+“: Web „Neuer Eintrag“, iOS „Eintrag erfassen“ | „Eintrag erfassen“ überall; im Web umgestellt. |
+| 13 | Aufbau: Web Fahrzeugseite mit sieben Reitern und „Fahrzeuge“ in der Leiste, iOS vier Segmente, Android ohne Fahrzeugseite; Inhalte (Übersicht, Fahrzeugwahl, Kosten, Bearbeiten, Berichte) mehrfach vorhanden (#206) | Eine Struktur (Abschnitt 7): Leiste Start · Einträge · ＋ · Statistik · Profil; Start ist die Übersicht des Standardfahrzeugs (Flotte: Fahrzeugkarten); Service, Fahrten und Fahrzeugdaten sind Ansichten hinter Start und Profil → Fahrzeuge, keine Reiter; Fahrzeuge unter Profil; Wahl nur für die Sitzung; kein Fahrzeugvergleich (auf „Later“); jeder Inhalt hat eine Heimat (7.6). |
 
 **Ausblick:** Sobald die Tokens stabil sind, kann eine maschinenlesbare Token-Datei (Design-Tokens-Format)
 CSS, iOS-Asset-Katalog und Compose-Theme erzeugen (in #153 bewusst nicht enthalten).

@@ -118,14 +118,18 @@ Vor dem PR prüfen und am Ende einer Aufgabe daran erinnern, was davon fehlt:
 - **Tests:** passende Tests ergänzt (`backend/test`, `tests/`).
 - **Design:** neue oder geänderte Oberflächen folgen [`docs/design.md`](docs/design.md) (Tokens statt
   Hex-Werten, Barrierefreiheit). Ändert sich ein Token, zuerst dort, dann in Web, iOS und Android.
+- **Aufbau:** neue Bildschirme und Funktionen zuerst in den Aufbau aus [`docs/design.md`](docs/design.md) Abschnitt 7
+  einordnen: jeder Inhalt hat genau eine Heimat (7.6), Begriffe aus dem Glossar (7.5), höchstens ein „+“ je
+  Bildschirm. Fehlt der Inhalt in der Tabelle, bekommt sie eine Zeile; der PR nennt sie. Ändert sich der Aufbau, zuerst
+  dort, dann in fuelstat-ios und fuelstat-android (verlinkte PRs).
 
 ## Regeln
 
 - **Aufbau der API:** `backend/src` ist nach Fachbereichen aufgeteilt (`routes/`, `services/`, `middleware/`, `lib/`), siehe [`docs/backend.md`](docs/backend.md). Neue Endpunkte ins passende Routen-Modul, Fachlogik in einen Service.
 
-- **Design:** [`docs/design.md`](docs/design.md) ist die einzige Quelle für das Aussehen von Web/PWA,
+- **Design und Aufbau:** [`docs/design.md`](docs/design.md) ist die einzige Quelle für das Aussehen von Web/PWA,
   iOS und Android (Farben, Schrift, Abstände, Radien, Bausteine, Plattform-Leitplanken,
-  Barrierefreiheit). Neue CSS-Regeln verwenden die `--fs-*`-Variablen aus `css/style.css`, keine Hex-Werte.
+  Barrierefreiheit) und für den Aufbau (Abschnitt 7: Bereiche, Heimat jedes Inhalts, Begriffe). Neue CSS-Regeln verwenden die `--fs-*`-Variablen aus `css/style.css`, keine Hex-Werte.
   Die Design-Dokumente der Apps beschreiben nur Plattform-Besonderheiten und verweisen hierher.
 
 - **API-first:** Fachliche Berechnungen gehören in die API, nicht ins PHP-Frontend (#82). Clients

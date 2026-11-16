@@ -100,6 +100,24 @@ bewusste Ausnahmen.
 Warum Petrol: Es liegt zwischen Blau (Technik, Vertrauen) und Grün (Strom, Sparen) und passt damit zu
 Verbrennern **und** E-Autos. Reines Grün bleibt frei für Status und Strom.
 
+### 2.1 Logo „Biazu“ (Umbenennung, #207)
+
+Das neue Logo steht fest, die Tabelle oben wird mit dem Namenswechsel umgestellt (#207, Phase 1). Dateien in
+allen Größen: [`images/marke/`](../images/marke/README.md).
+
+- **Zeichen:** ein „B“ aus einem einzigen, runden Strich (runde Enden und Ecken), darunter eine
+  Tachonadel mit Kugel, die auf den unteren Bogen zeigt. Das Zeichen sitzt zentriert im Quadrat und füllt rund
+  63 % der Höhe.
+- **Farben:** Navy `#101C32` (Fläche), Türkis `#7ED0CC` (B), Orange `#F09166` (Nadel). Kontrast auf Navy 9,5 : 1
+  bzw. 7,2 : 1. Die Farbtokens aus Abschnitt 3 (`Brand`, `BrandDeep`) werden erst mit dem Namenswechsel
+  angepasst, nicht vorher.
+- **Schutzraum:** mindestens die Strichstärke des „B“ (rund 10 % der Icon-Kante) um das Zeichen, wenn es
+  ohne Fläche steht (`biazu-glyph.svg`).
+- **Nicht tun:** Zeichen verzerren, Farben tauschen, Schatten oder Leuchten hinzufügen (siehe 1.1),
+  Nadel weglassen, auf Fotos ohne Navy-Fläche setzen.
+- **iOS und Android** legen die Rundung selbst an: dort immer die Vollfläche (`icon-1024.png`,
+  `icon-maskable-512.png`) verwenden, nie die vorgerundete Variante.
+
 ## 3. Farben
 
 Eine Markenfarbe, ein dunkler Anker, sonst neutral. Jede Farbe ist ein **Token mit Hell- und Dunkelwert**;

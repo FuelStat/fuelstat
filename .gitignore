@@ -28,7 +28,8 @@ $RECYCLE.BIN/
 /storage/
 
 # Falls du aktuell direkt /images/ für Uploads benutzt:
-/images/
+/images/*
+!/images/marke/
 !/images/new-icon-*x*.png
 !/images/icon-*x*.png
 

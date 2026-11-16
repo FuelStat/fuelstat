@@ -47,6 +47,41 @@ Werbebanner.
 5. **Die Daten kommen von der API.** Kennzahlen, Kategorien und deren Farben liefert die API; das Design
    legt fest, *wie* sie erscheinen, nicht *was* berechnet wird.
 
+### 1.1 Was wir vermeiden: der „KI-Look“
+
+Bestimmte Muster gelten inzwischen als Erkennungszeichen automatisch erzeugter Oberflächen („AI Slop“). Sie
+sind Schmuck ohne Information und lassen jede App wie die nächste aussehen. Fuelstat soll wie ein Werkzeug
+wirken: ruhig, sachlich, Zahlen zuerst. Die Liste gilt auf **allen Plattformen** und für Entwürfe, Mockups
+(auch KI-generierte), Code, Texte, Mails, Release-Notes und Store-Screenshots.
+
+| Muster | Warum nicht | Bei uns stattdessen |
+|---|---|---|
+| **Eyebrow-Labels:** kleine Überschrift in Großbuchstaben über der eigentlichen Überschrift („FAHRZEUG“, „NEU“) | Sagt doppelt, was der Titel schon sagt; Vorlagen-Optik | Der Titel steht allein (`sectionTitle`). Eine Beschriftung gehört zu einem Wert (`label` unter der Kennzahl), nicht über eine Überschrift. Kein `text-transform: uppercase`, keine Kapitälchen für Beschriftungen. |
+| **Monospace in Großbuchstaben** als Stil für „technisch“ | Schlechter lesbar, wirkt aufgesetzt | Systemschrift (Abschnitt 4). Zahlen in Tabellen: gleich breite Ziffern statt Monospace-Schrift. **Ausnahmen mit Grund:** Kennzeichen im `VehicleHero` (nachgebildetes Schild), Codes (`CodeField`, Wiederherstellungscodes), FIN. |
+| **Zufällige Serifenschrift** für Überschriften „für Wärme“ | Mischt Schriften ohne Regel | Eine Systemschrift je Plattform, keine eigenen Schriften, keine Serifen. |
+| **Beige/Creme** als Flächenfarbe („warm minimal“) | Austauschbar; kollidiert mit der Marke und mit `StatusSoon` (Bernstein) | Flächen nur aus den Tokens (Abschnitt 3): `Background`, `Card`, `CardTint`. Keine zusätzlichen Neutraltöne, keine neue Akzentfarbe ohne Eintrag in Abschnitt 3. |
+| **Zähler 01 / 02 / 03** als Gestaltung für Abschnitte, Funktionen oder Karten | Täuscht eine Reihenfolge vor; führende Nullen sind Zierde | Nummern nur, wenn eine Reihenfolge gilt, dann als echter Schritt („Schritt 2 von 4“, ohne führende Null), z. B. im Assistenten „Fahrzeug anlegen“. Sonst eine Liste. |
+| **Leuchtende Kugeln** („Orbs“), unscharfe Farbflecken, Glühen um Elemente, Verlauf als Hintergrund | Nur Stimmung; kostet Kontrast und Rechenleistung | Kein Glühen, keine Blur-Flecken, kein Verlaufstext, **keine farbigen Schatten**. Schatten nur neutral und weich (Abschnitt 5.4). Der Verlauf auf Fotos für die Lesbarkeit bleibt, ebenso der Fokusring (Barrierefreiheit). Hintergrundunschärfe nur auf Leisten, die Inhalt überlagern (Kopf- und Tab-Leiste), nie auf Karten. |
+| **Schockwellen-Ringe:** Wellen und Pulse, die aus Knöpfen und Karten springen, Endlos-Animationen | Lenkt ohne Anlass ab; Bewegung ohne Funktion | Standardübergänge und Touch-Rückmeldung der Plattform (Abschnitt 5.5), Ladeanzeige per Spinner oder Platzhalter. Keine Dauerbewegung ohne Funktion; „Bewegung reduzieren“ wird respektiert. |
+| **Geviertstrich „—“** als Stilmittel in Texten | Bekanntestes Erkennungszeichen KI-erzeugter Texte; im Deutschen ist der Gedankenstrich der Halbgeviertstrich mit Leerzeichen | Kurze Sätze, Punkt, Komma, Doppelpunkt. Wenn nötig „ – “ (Halbgeviertstrich mit Leerzeichen, wie in diesem Dokument), sparsam. Kein „—“ in Oberflächentexten, Mails, Release-Notes und Store-Texten. Leerer Wert in einer Kachel: „–“ mit Screenreader-Text „keine Angabe“. |
+
+**Verwandte Muster, gleiche Ursache:**
+
+- Emojis als Symbole oder Aufzählungszeichen; Funkel-Symbole (✨) für Funktionen.
+- Verlauf auf Knöpfen oder in Schrift (Lila-Blau); Glasflächen auf Karten.
+- Jede Zeile mit Symbolkachel, jede Karte mit farbigem Seitenstreifen.
+- Werbefloskeln in Texten („nahtlos“, „mühelos“, „entfessle“, „in der heutigen schnelllebigen Welt“) und
+  Dreierreihen ohne Inhalt.
+- Erzeugte oder Stock-Illustrationen statt echter Fahrzeugfotos (Ausnahme: der Platzhalter, Abschnitt 8).
+
+**Prüffragen vor jedem Entwurf und jedem Review:** Hat jedes Element eine Aufgabe (Information, Aktion oder
+Rückmeldung)? Würde die Stelle unverändert auch in einer anderen App stehen? Dann streichen.
+
+**Stand im Web (zum Nachziehen, kein Blocker):** Der „+“-Knopf hat einen farbigen Schatten
+(`rgba(var(--fs-brand-rgb), .4)`), er wird neutral (Abschnitt 5.4). Leere Werte in Kacheln zeigen „—“ an
+rund 40 Stellen, sie werden zu „–“. Kennzeichen in Monospace und die Hintergrundunschärfe der Leisten sind
+bewusste Ausnahmen.
+
 ## 2. Marke
 
 > **Markenspezifisch.** Alles in diesem Abschnitt hängt am Namen und Logo „Fuelstat“ und ändert sich bei
@@ -64,6 +99,24 @@ Werbebanner.
 
 Warum Petrol: Es liegt zwischen Blau (Technik, Vertrauen) und Grün (Strom, Sparen) und passt damit zu
 Verbrennern **und** E-Autos. Reines Grün bleibt frei für Status und Strom.
+
+### 2.1 Logo „Biazu“ (Umbenennung, #207)
+
+Das neue Logo steht fest, die Tabelle oben wird mit dem Namenswechsel umgestellt (#207, Phase 1). Dateien in
+allen Größen: [`images/marke/`](../images/marke/README.md).
+
+- **Zeichen:** ein „B“ aus einem einzigen, runden Strich (runde Enden und Ecken), darunter eine
+  Tachonadel mit Kugel, die auf den unteren Bogen zeigt. Das Zeichen sitzt zentriert im Quadrat und füllt rund
+  63 % der Höhe.
+- **Farben:** Navy `#101C32` (Fläche), Türkis `#7ED0CC` (B), Orange `#F09166` (Nadel). Kontrast auf Navy 9,5 : 1
+  bzw. 7,2 : 1. Die Farbtokens aus Abschnitt 3 (`Brand`, `BrandDeep`) werden erst mit dem Namenswechsel
+  angepasst, nicht vorher.
+- **Schutzraum:** mindestens die Strichstärke des „B“ (rund 10 % der Icon-Kante) um das Zeichen, wenn es
+  ohne Fläche steht (`biazu-glyph.svg`).
+- **Nicht tun:** Zeichen verzerren, Farben tauschen, Schatten oder Leuchten hinzufügen (siehe 1.1),
+  Nadel weglassen, auf Fotos ohne Navy-Fläche setzen.
+- **iOS und Android** legen die Rundung selbst an: dort immer die Vollfläche (`icon-1024.png`,
+  `icon-maskable-512.png`) verwenden, nie die vorgerundete Variante.
 
 ## 3. Farben
 
@@ -355,7 +408,8 @@ Tausenderpunkt, `€` nachgestellt mit Leerzeichen, Datum `TT.MM.JJJJ`).
 
 Bei einem E-Auto heißt die erste Kachel „16,8 kWh/100 km“ und der Eintrag „Laden · … · 18,40 €“.
 
-**Häufige Fehler in Entwürfen:** englische Texte oder Zahlenformate (`6.4`, `$10.00`), Token-Namen als
+**Häufige Fehler in Entwürfen** (dazu die Muster des „KI-Looks“ in
+[1.1](#11-was-wir-vermeiden-der-ki-look)): englische Texte oder Zahlenformate (`6.4`, `$10.00`), Token-Namen als
 Beschriftung, rote Badges für „bald fällig“, farbige Flächen mit weißer Schrift, Ziffernkästchen
 (`CodeField`) für Kilometerstand oder Beträge, zwei „+“ auf einem Bildschirm, Farbe ohne Text (z. B.
 farbige Pillen in Tabellen), sehr kleiner grauer Text.

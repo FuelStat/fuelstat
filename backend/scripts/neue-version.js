@@ -58,4 +58,4 @@ for (const datei of ['backend/package.json', 'backend/package-lock.json']) {
 }
 
 console.log(`Version ${alt} -> ${version} (${datum}) eingetragen: VERSION, CHANGELOG.md, docs/update-hinweise.md, backend/package.json, backend/package-lock.json`);
-console.log(`Weiter: committen, PR mergen, dann auf main: git tag -a v${version} -m "Fuelstat ${version}" && git push origin v${version}`);
+console.log(`Weiter: committen, PR mergen, dann auf dem Server: sudo infra/veroeffentlichen.sh ${version} (Tag, Release abwarten, sichern, ausrollen)`);

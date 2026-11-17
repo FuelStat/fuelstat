@@ -15,14 +15,23 @@ Fuelstat folgt [Semantic Versioning](https://semver.org/lang/de/) (`MAJOR.MINOR.
   ```
 
   Dann committen und als PR mergen.
-- **Veröffentlichen** auf dem gemergten `main`:
+- **Veröffentlichen und ausrollen**, erst wenn der Release-PR gemergt ist, auf dem Server im Projektordner:
 
   ```bash
-  git tag -a v0.10.0 -m "Fuelstat 0.10.0"
-  git push origin v0.10.0
+  sudo infra/veroeffentlichen.sh 0.10.0
   ```
 
-  Der Workflow `.github/workflows/release.yml` prüft Tag, `VERSION` und `CHANGELOG.md`, legt das GitHub-Release mit dem Text der Version an (0.x und Vorabversionen als „Pre-release“) und veröffentlicht das API-Image `ghcr.io/fuelstat/fuelstat-api:X.Y.Z` (#134).
+  Das Skript
+  1. prüft, dass `main` den Release-PR enthält (`VERSION`, `backend/package.json`, Abschnitt `## [0.10.0]` im CHANGELOG) und das Tag noch frei ist oder schon auf genau diesem Commit steht, und zeigt die Mindest-App-Version aus `backend/src/lib/appVersions.js` neben der neuesten iOS-App;
+  2. wartet, bis alle Checks der CI von `main` grün sind;
+  3. setzt nach einer Rückfrage das Tag `v0.10.0` auf diesen Commit und pusht es (Git als Besitzer des Projektordners, braucht Push-Rechte);
+  4. wartet auf den Workflow `.github/workflows/release.yml`: Er prüft Tag, `VERSION` und `CHANGELOG.md`, legt das GitHub-Release mit dem Text der Version an (0.x und Vorabversionen als „Pre-release“) und veröffentlicht das API-Image `ghcr.io/fuelstat/fuelstat-api:X.Y.Z` (#134);
+  5. sichert (`fuelstat-backup.service`) und
+  6. ruft `infra/ausrollen.sh 0.10.0` auf (siehe „Aktualisieren“).
+
+  Nur prüfen, ohne Tag und Ausrollen: `sudo infra/veroeffentlichen.sh 0.10.0 --pruefen`. GitHub wird ohne Anmeldung abgefragt (öffentliches Repository); bei erreichtem Limit mit `sudo --preserve-env=GITHUB_TOKEN …`. Braucht `curl` und `python3`.
+
+  **Ein Tag nie vor dem Merge des Release-PRs setzen:** Es stünde auf dem alten `VERSION`, der Workflow bricht ab, und es gibt weder Release noch Image (`ausrollen.sh` meldet das jetzt). Ist dabei kein GitHub-Release entstanden, das falsche Tag löschen (`git push origin :refs/tags/vX.Y.Z`, auf dem Server zusätzlich `sudo -u <besitzer> -H git tag -d vX.Y.Z`) und das Skript erneut starten. Ein veröffentlichtes Release wird nie verschoben, dann folgt ein Patch-Release.
 - **Changelog-Prüfung:** Die CI (`.github/workflows/changelog.yml`) verlangt in jedem PR einen Eintrag unter `## [Unreleased]`. Für PRs ohne sichtbare Änderung das Label `kein changelog` setzen.
 - **Ausrollen:** wie unter „Aktualisieren“. Unter „Neuigkeiten“ sehen Admins eine Warnung, wenn API und Frontend unterschiedliche Versionen melden (API-Image nicht neu gebaut).
 - **Welche Version?** PATCH für Fehlerbehebungen, MINOR für neue Funktionen, MAJOR für Brüche (z. B. API-Änderungen, die Apps anpassen müssen). Vorabversionen: `1.0.0-rc.1`.
@@ -32,6 +41,8 @@ Fuelstat folgt [Semantic Versioning](https://semver.org/lang/de/) (`MAJOR.MINOR.
 Live läuft immer genau eine **veröffentlichte Version** (Tag `vX.Y.Z`) mit dem fertigen API-Image dieser Version aus der GitHub Container Registry (#134). Reihenfolge einhalten: **Migrationen vor dem Neustart der API**, sonst startet neuer API-Code gegen ein altes Schema.
 
 ### Mit dem Skript (empfohlen)
+
+Für ein **neues Release** übernimmt `sudo infra/veroeffentlichen.sh X.Y.Z` die Schritte 1 und 2 (siehe „Versionen und Releases“). Die Schritte hier gelten für ein schon veröffentlichtes Tag, zum Zurückrollen und für Zwischenstände von `main`.
 
 1. **Sichern** (empfohlen, vor allem wenn Migrationen anstehen), falls die Datensicherung eingerichtet ist:
 

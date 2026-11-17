@@ -47,17 +47,20 @@ API-Änderungen, die Apps anpassen müssen). Die geplanten Versionen sind die Mi
    Das setzt `VERSION`, `backend/package.json` und `backend/package-lock.json` und schließt
    `[Unreleased]` als `## [X.Y.Z] - JJJJ-MM-TT` ab. Vor dem PR `php tests/VersionTest.php`.
 4. **PR mergen.**
-5. **Tag setzen** auf dem gemergten `main` – das löst `.github/workflows/release.yml` aus, der
-   Tag, `VERSION`, `package.json` und CHANGELOG prüft und das GitHub-Release mit dem Text aus dem
-   CHANGELOG anlegt (0.x als „Pre-release“):
+5. **Veröffentlichen und ausrollen in einem Zug**, erst **nachdem** der Release-PR gemergt ist, auf dem Server im
+   Projektordner:
 
    ```bash
-   git tag -a vX.Y.Z -m "Fuelstat X.Y.Z"
-   git push origin vX.Y.Z
+   sudo infra/veroeffentlichen.sh X.Y.Z
    ```
 
-   Der Tag baut außerdem das API-Image `ghcr.io/fuelstat/fuelstat-api:X.Y.Z` (#134).
-6. **Ausrollen** auf dem Server, genau in der Reihenfolge aus `docs/betrieb.md` („Aktualisieren“):
+   Das Skript prüft, dass `main` den Release-PR enthält (`VERSION`, `package.json`, CHANGELOG-Abschnitt), zeigt die
+   Mindest-App-Version, wartet auf die grüne CI von `main`, setzt das Tag `vX.Y.Z` auf genau diesen Commit, wartet auf
+   `.github/workflows/release.yml` (GitHub-Release mit dem CHANGELOG-Text, 0.x als „Pre-release“, und API-Image
+   `ghcr.io/fuelstat/fuelstat-api:X.Y.Z`, #134), sichert (`fuelstat-backup.service`) und ruft `infra/ausrollen.sh X.Y.Z`
+   auf. `--pruefen` macht nur die Prüfungen. Ein Tag **vor** dem Merge des Release-PRs (auf dem alten `VERSION`) war
+   die häufigste Fehlerquelle; deshalb Tags nicht mehr von Hand setzen.
+6. **Ausrollen** (macht Schritt 5 mit), genau in der Reihenfolge aus `docs/betrieb.md` („Aktualisieren“):
    sichern → `sudo infra/ausrollen.sh X.Y.Z`. Das Skript zeigt die Hinweise aus `docs/update-hinweise.md`, neue
    Migrationen und geänderte Beispieldateien, lädt das Image, stellt den Code aufs Tag um, spielt
    **Migrationen ein, bevor die API neu startet**, fragt nach `.env`/nginx, startet die API, lädt

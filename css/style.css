@@ -1920,3 +1920,78 @@ details > summary {
 .card-header h3 small {
     font: var(--fs-font-label);
 }
+
+/* Zustände beim Nachladen (#211, docs/design.md 8.1, js/zustaende.js) */
+.platzhalter-liste {
+    display: grid;
+    gap: var(--fs-space-xs);
+}
+
+.platzhalter-zeile {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--fs-space-xs);
+    min-height: 3.75rem;
+    padding: var(--fs-space-s) var(--fs-space-m);
+    border-radius: var(--fs-radius-tile);
+    background: var(--fs-card);
+}
+
+.platzhalter-zeile span {
+    display: block;
+    height: .75rem;
+    width: 55%;
+    border-radius: var(--fs-radius-capsule);
+    background: var(--fs-card-tint);
+    animation: platzhalter-atmen 1.6s ease-in-out 3; /* ruhig: kurz, dann still (8.1, keine Dauerbewegung) */
+}
+
+.platzhalter-zeile span + span {
+    width: 30%;
+}
+
+@keyframes platzhalter-atmen {
+    50% { opacity: .55; }
+}
+
+.zustand-fehler {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--fs-space-s);
+}
+
+.zustand-fehler > span {
+    flex: 1 1 12rem;
+}
+
+.knopf-laedt::before {
+    content: "";
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    margin-right: var(--fs-space-xs);
+    vertical-align: -.125em;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: knopf-drehen .8s linear infinite;
+}
+
+@keyframes knopf-drehen {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .platzhalter-zeile span,
+    .knopf-laedt::before {
+        animation: none;
+    }
+}
+
+/* Leerer Filter: ein Satz und „Zurücksetzen“ (docs/design.md 8.1) */
+.leer-filter {
+    margin: var(--fs-space-l) 0;
+    text-align: center;
+}

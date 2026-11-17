@@ -19,8 +19,10 @@ try {
     if (!$nurZeilen) {
         $fahrtSumme = $api->getTripSummary($fahrzeug_id, $fahrtJahr);
     }
+    $ladeFehler = false;
 } catch (Throwable $e) {
     error_log('[Fahrten] ' . $e->getMessage());
+    $ladeFehler = true;
 }
 $fahrtListe = $seiteDaten['data'] ?? [];
 $alleJahre = array_map('intval', $seiteDaten['years'] ?? []);
@@ -76,6 +78,10 @@ $zeigeMonate = function () use ($fahrtenJeMonat, $monatsKm, $km, $zwecke, $ichId
     <?php endforeach;
 };
 
+if ($nurZeilen && $ladeFehler) {
+    http_response_code(503); // das Skript zeigt die Meldung mit „Erneut versuchen“
+    return;
+}
 if ($nurZeilen) {
     echo '<div data-weitere="' . ($weitere ? '1' : '0') . '">';
     $zeigeMonate();
@@ -114,7 +120,12 @@ if ($nurZeilen) {
     <?php endforeach; ?>
   </nav>
 
-  <?php if (!$fahrtSumme || $fahrtSumme['count'] === 0): ?>
+  <?php if ($ladeFehler): ?>
+    <div class="alert alert-warning zustand-fehler" role="alert">
+      <span>Das hat gerade nicht geklappt. Versuche es gleich noch einmal.</span>
+      <a class="btn btn-secondary btn-sm" href="">Erneut versuchen</a>
+    </div>
+  <?php elseif (!$fahrtSumme || $fahrtSumme['count'] === 0): ?>
     <div class="card leer-zustand mx-auto">
       <div class="card-body">
         <span class="symbol-kreis symbol-kreis-token symbol-kreis-gross" style="--farbe: var(--fs-brand)" aria-hidden="true"><i class="fas fa-route"></i></span>
@@ -187,7 +198,12 @@ if ($nurZeilen) {
     <div class="liste-mehr">
       <button type="button" class="btn btn-secondary" id="mehrFahrten" <?= $weitere ? '' : 'hidden' ?>>Weitere Fahrten anzeigen</button>
     </div>
-    <?php if (!$fahrtListe): ?><p class="text-body-secondary text-center my-4">Keine Fahrten für diesen Filter.</p><?php endif; ?>
+    <?php if (!$fahrtListe): ?>
+    <div class="leer-filter">
+      <p class="text-body-secondary mb-2">Keine Fahrten für diesen Filter.</p>
+      <a class="btn btn-secondary btn-sm" href="<?= htmlspecialchars($filterUrl(null)) ?>">Zurücksetzen</a>
+    </div>
+    <?php endif; ?>
     <p class="fs-footnote mt-4">Fahrtenbuch zur eigenen Übersicht, kein vom Finanzamt anerkanntes Fahrtenbuch. Geschätzte Kosten: Kosten pro km des Fahrzeugs × Strecke.</p>
   <?php endif; ?>
 </div>
@@ -199,16 +215,13 @@ if ($nurZeilen) {
   var knopf = document.getElementById('mehrFahrten');
   if (!bereich || !knopf) return;
   var seite = 1;
-  knopf.addEventListener('click', function () {
-    knopf.disabled = true;
+  var Z = window.fsZustand;
+  function mehrLaden() {
+    Z.knopfLaedt(knopf, true);
     var p = new URLSearchParams({ id: bereich.dataset.fahrzeug, reiter: 'fahrten', nur: 'zeilen', seite: String(seite + 1) });
     if (bereich.dataset.jahr) p.set('fjahr', bereich.dataset.jahr);
     if (bereich.dataset.zweck) p.set('fzweck', bereich.dataset.zweck);
-    fetch('reiter.php?' + p.toString(), { credentials: 'same-origin', headers: { 'Accept': 'text/html' } }).then(function (r) {
-      if (r.status === 401) { window.location.reload(); throw new Error('abgemeldet'); }
-      if (!r.ok) throw new Error('Status ' + r.status);
-      return r.text();
-    }).then(function (html) {
+    Z.holen('reiter.php?' + p.toString()).then(function (html) {
       var neu = document.createElement('div');
       neu.innerHTML = html;
       var huelle = neu.firstElementChild;
@@ -222,14 +235,13 @@ if ($nurZeilen) {
         }
       });
       seite += 1;
+      Z.knopfLaedt(knopf, false);
       knopf.hidden = huelle.dataset.weitere !== '1';
-      knopf.disabled = false;
-    }).catch(function () {
-      knopf.disabled = false;
-      if (!bereich.querySelector('.fahrt-fehler')) {
-        knopf.insertAdjacentHTML('beforebegin', '<div class="alert alert-warning fahrt-fehler" role="alert">Das hat gerade nicht geklappt. Bitte noch einmal versuchen.</div>');
-      }
+    }).catch(function (err) {
+      Z.knopfLaedt(knopf, false);
+      Z.fehler(knopf, err, mehrLaden, true);
     });
-  });
+  }
+  knopf.addEventListener('click', mehrLaden);
 })();
 </script>

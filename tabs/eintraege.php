@@ -144,10 +144,16 @@ $zeigeMonate = function () use ($eintraege, $monatsSummen, $artVon, $euro, $fuel
 // Nur die Liste (Filter, Suche) bzw. nur weitere Zeilen (nächste Seite)
 $zeigeListe = function () use ($zeigeMonate, $eintraege, $weitere, $jahr, $filterArt, $suche, $ladeFehler, $liste, $darfErfassen, $fahrzeug_id) { ?>
     <?php if ($ladeFehler): ?>
-      <div class="alert alert-warning">Die Einträge konnten gerade nicht geladen werden. Bitte die Seite neu laden.</div>
+      <div class="alert alert-warning zustand-fehler" role="alert">
+        <span>Das hat gerade nicht geklappt. Versuche es gleich noch einmal.</span>
+        <a class="btn btn-secondary btn-sm" href="">Erneut versuchen</a>
+      </div>
     <?php elseif (empty($eintraege)): ?>
       <?php if ($filterArt !== '' || $suche !== ''): ?>
-      <div class="alert alert-secondary">Keine passenden Einträge<?= $jahr !== null ? ' in ' . $jahr : '' ?>.</div>
+      <div class="leer-filter">
+        <p class="text-body-secondary mb-2">Keine Einträge für diesen Filter<?= $jahr !== null ? ' in ' . $jahr : '' ?>.</p>
+        <button type="button" class="btn btn-secondary btn-sm" data-filter-zuruecksetzen>Zurücksetzen</button>
+      </div>
       <?php else: ?>
       <div class="card leer-zustand mx-auto">
         <div class="card-body">
@@ -168,6 +174,11 @@ $zeigeListe = function () use ($zeigeMonate, $eintraege, $weitere, $jahr, $filte
     <?php endif;
 };
 
+// Nachladen ohne Antwort der API: Fehlerstatus, das Skript zeigt die Meldung mit „Erneut versuchen“
+if ($ladeFehler && $nur !== '') {
+    http_response_code(503);
+    return;
+}
 if ($nur === 'zeilen') {
     echo '<div data-weitere="' . ($weitere ? '1' : '0') . '">';
     $zeigeMonate();
@@ -251,33 +262,28 @@ $filterArten = array_filter([
     if (zustand.q) p.set('q', zustand.q);
     return 'reiter.php?' + p.toString();
   }
-  function holen(adresse) {
-    return fetch(adresse, { credentials: 'same-origin', headers: { 'Accept': 'text/html' } }).then(function (r) {
-      if (r.status === 401) { window.location.reload(); throw new Error('abgemeldet'); }
-      if (!r.ok) throw new Error('Status ' + r.status);
-      return r.text();
-    });
-  }
-  function fehler() {
-    liste.setAttribute('aria-busy', 'false');
-    liste.insertAdjacentHTML('afterbegin', '<div class="alert alert-warning" role="alert">Das hat gerade nicht geklappt. Bitte noch einmal versuchen.</div>');
-  }
-  // Filter oder Suche geändert: Liste neu von Seite 1
+  var Z = window.fsZustand;
+  // Filter oder Suche geändert: Liste neu von Seite 1; Platzhalter erst nach 300 ms
   function neuLaden() {
     var nr = ++anfrage;
     zustand.seite = 1;
-    liste.setAttribute('aria-busy', 'true');
-    holen(url('liste', 1)).then(function (html) {
+    var fertig = Z.laden(liste);
+    Z.holen(url('liste', 1)).then(function (html) {
       if (nr !== anfrage) return; // eine neuere Anfrage läuft schon
+      fertig();
       liste.innerHTML = html;
-      liste.setAttribute('aria-busy', 'false');
       mehrKnopf();
-    }).catch(fehler);
+    }).catch(function (err) {
+      if (nr !== anfrage) return;
+      fertig();
+      liste.innerHTML = '';
+      Z.fehler(liste, err, neuLaden);
+    });
   }
   // Nächste Seite: Monate anhängen; ein Monat, der schon da ist, bekommt die neuen Zeilen dazu
   function mehrLaden(knopf) {
-    knopf.disabled = true;
-    holen(url('zeilen', zustand.seite + 1)).then(function (html) {
+    Z.knopfLaedt(knopf, true);
+    Z.holen(url('zeilen', zustand.seite + 1)).then(function (html) {
       var neu = document.createElement('div');
       neu.innerHTML = html;
       var huelle = neu.firstElementChild;
@@ -291,14 +297,29 @@ $filterArten = array_filter([
         }
       });
       zustand.seite += 1;
+      Z.knopfLaedt(knopf, false);
       knopf.hidden = huelle.dataset.weitere !== '1';
-      knopf.disabled = false;
-    }).catch(function () { knopf.disabled = false; fehler(); });
+    }).catch(function (err) {
+      Z.knopfLaedt(knopf, false);
+      Z.fehler(knopf.parentNode, err, function () { mehrLaden(knopf); }, true);
+    });
   }
   function mehrKnopf() {
     var knopf = document.getElementById('mehrEintraege');
     if (knopf) knopf.addEventListener('click', function () { mehrLaden(knopf); });
   }
+  // Leerer Filter: „Zurücksetzen“ steht im nachgeladenen HTML, deshalb am Bereich lauschen
+  bereich.addEventListener('click', function (event) {
+    if (!event.target.closest('[data-filter-zuruecksetzen]')) return;
+    zustand.art = '';
+    zustand.q = '';
+    suche.value = '';
+    bereich.querySelectorAll('#artFilter [data-art]').forEach(function (k) {
+      k.classList.toggle('active', k.dataset.art === '');
+      k.setAttribute('aria-pressed', k.dataset.art === '' ? 'true' : 'false');
+    });
+    neuLaden();
+  });
 
   bereich.querySelectorAll('#artFilter [data-art]').forEach(function (knopf) {
     knopf.addEventListener('click', function () {

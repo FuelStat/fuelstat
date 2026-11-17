@@ -261,6 +261,9 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
       })();
     </script>
 
+    <!-- Lade- und Fehlerzustände beim Nachladen (#211); früh geladen, weil Skripte in den Seiten es sofort nutzen -->
+    <script src="<?= htmlspecialchars($baseUrl) ?>js/zustaende.js?v=<?= @filemtime(__DIR__ . '/../js/zustaende.js') ?: 1 ?>"></script>
+
     <!-- Bibliotheken lokal (vendor/), damit beim Aufruf keine Daten an CDNs gehen -->
     <link href="<?= htmlspecialchars(assetUrl($baseUrl, 'vendor/bootstrap/bootstrap.min.css')) ?>" rel="stylesheet">
 

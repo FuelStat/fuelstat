@@ -40,5 +40,5 @@ try {
 } catch (Throwable $e) {
     $_SESSION['error_message'] = $meldungen[$e->getMessage()] ?? $e->getMessage();
 }
-header('Location: fahrzeug_detail.php?id=' . rawurlencode($fahrzeug_id) . '#service', true, 303);
+header('Location: ../' . fahrzeugSeite('service', (string)($fahrzeug_id)), true, 303);
 exit;

@@ -105,7 +105,7 @@ try {
         : ($eintragstyp === 'Kilometerstand' ? 'Kilometerstand notiert.' : 'Eintrag gespeichert.');
     // Schnellerfassung (#42): zuletzt genutztes Fahrzeug merken
     setcookie('fuelstat_fahrzeug', $fahrzeug_id, ['expires' => time() + 365 * 86400, 'path' => '/', 'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off', 'httponly' => true, 'samesite' => 'Lax']);
-    header('Location: fahrzeug_detail.php?id=' . rawurlencode($fahrzeug_id));
+    header('Location: ../' . fahrzeugSeite('eintraege', (string)($fahrzeug_id)));
     exit;
 } catch (Throwable $e) {
     $_SESSION['error_message'] = eintragFehlerText($e);

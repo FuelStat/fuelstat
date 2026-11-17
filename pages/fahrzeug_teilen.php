@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isApiAuthenticated()) {
 $api = getApiClient();
 $fahrzeugId = trim((string)($_POST['fahrzeug_id'] ?? ''));
 $aktion = (string)($_POST['aktion'] ?? '');
-$zurueck = 'fahrzeug_detail.php?id=' . urlencode($fahrzeugId) . '#einstellungen';
+$zurueck = '../' . fahrzeugSeite('fahrzeugdaten', (string)($fahrzeugId));
 
 $fehlertexte = [
     'invalid_email' => 'Bitte eine gültige E-Mail-Adresse eingeben.',

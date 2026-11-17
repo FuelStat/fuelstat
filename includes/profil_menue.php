@@ -6,6 +6,8 @@ $eintragKlasse = $alsListe ? 'list-group-item list-group-item-action d-flex alig
 $icon = fn(string $name) => '<i class="fas ' . $name . ($alsListe ? ' fa-fw me-3' : ' me-2') . '"></i>';
 $menue = [
     ['pages/einstellungen.php', 'fa-user-edit', 'Profil bearbeiten'],
+    // Fahrzeuge liegen unter Profil (#206, docs/design.md 7.4): Liste, Archiv, Reihenfolge, hinzufügen
+    ['pages/fahrzeuge.php', 'fa-car-side', 'Fahrzeuge'],
     ['pages/passwort_aendern.php', 'fa-key', 'Passwort ändern'],
     ['pages/mfa_einrichten.php', 'fa-shield-alt', 'Zwei-Faktor-Schutz'],
     ['pages/benachrichtigungen.php', 'fa-bell', 'Benachrichtigungen'],

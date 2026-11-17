@@ -125,14 +125,14 @@ function reminderPush(due) {
   if (due.length === 1) {
     const r = due[0];
     return { title: ueberfaellig ? 'Termin überfällig' : 'Termin bald fällig', body: `${r.vehicle}: ${r.title} – ${faelligText(r)}`,
-      url: `pages/fahrzeug_detail.php?id=${encodeURIComponent(r.vehicle_id)}`, tag: 'termine',
+      url: `pages/service.php?id=${encodeURIComponent(r.vehicle_id)}`, tag: 'termine',
       badge: 1, ttl: 3 * 86400, urgency: ueberfaellig ? 'high' : 'normal' };
   }
   const fahrzeuge = [...new Set(due.map((r) => r.vehicle_id))];
   return {
     title: ueberfaellig ? `${due.length} Termine, davon überfällige` : `${due.length} Termine bald fällig`,
     body: due.slice(0, 3).map((r) => `${r.vehicle}: ${r.title}`).join(' · ') + (due.length > 3 ? ' …' : ''),
-    url: fahrzeuge.length === 1 ? `pages/fahrzeug_detail.php?id=${encodeURIComponent(fahrzeuge[0])}` : '',
+    url: fahrzeuge.length === 1 ? `pages/service.php?id=${encodeURIComponent(fahrzeuge[0])}` : '',
     tag: 'termine',
     badge: due.length,
     ttl: 3 * 86400,
@@ -150,7 +150,7 @@ function odometerPush(rows) {
       ttl: 2 * 86400, urgency: 'normal' };
   }
   return { title: `${rows.length} Kilometerstände nachtragen`, body: [...new Set(rows.map((f) => f.vehicle))].join(', '),
-    url: `pages/fahrzeug_detail.php?id=${encodeURIComponent(rows[0].vehicle_id)}#eintraege`, tag: 'tachostand', ttl: 2 * 86400, urgency: 'normal' };
+    url: `pages/eintraege.php?id=${encodeURIComponent(rows[0].vehicle_id)}`, tag: 'tachostand', ttl: 2 * 86400, urgency: 'normal' };
 }
 
 function reportPush(report) {

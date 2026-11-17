@@ -9,7 +9,7 @@ if (!isApiAuthenticated()) {
 $api = getApiClient();
 $fahrzeugId = (string)($_GET['fahrzeug_id'] ?? $_POST['fahrzeug_id'] ?? '');
 $fahrtId = (string)($_GET['id'] ?? $_POST['id'] ?? '');
-$zurueck = 'fahrzeug_detail.php?id=' . urlencode($fahrzeugId) . '#fahrten';
+$zurueck = '../' . fahrzeugSeite('fahrten', (string)($fahrzeugId));
 $fehler = '';
 $fahrt = ['started_at' => date('c'), 'purpose' => 'private'];
 
@@ -17,7 +17,7 @@ if ($fahrtId !== '') {
     try {
         $fahrt = $api->getTrip($fahrtId);
         $fahrzeugId = (string)$fahrt['vehicle_id'];
-        $zurueck = 'fahrzeug_detail.php?id=' . urlencode($fahrzeugId) . '#fahrten';
+        $zurueck = '../' . fahrzeugSeite('fahrten', (string)($fahrzeugId));
     } catch (Throwable $e) {
         $_SESSION['error_message'] = 'Diese Fahrt gibt es nicht (mehr).';
         header('Location: ' . $zurueck);

@@ -1,5 +1,5 @@
 <?php
-// Gemeinsame Angaben für die Reiter der Fahrzeugseite (pages/fahrzeug_detail.php, pages/reiter.php).
+// Gemeinsame Angaben für die Ansichten eines Fahrzeugs (includes/fahrzeug_seite.php, pages/reiter.php).
 // Erwartet: $fahrzeug (aus der API)
 // Für Tabs: API-Fahrzeug in altes Format abbilden (marke/modell wo erwartet)
 $fahrzeug['marke'] = '';

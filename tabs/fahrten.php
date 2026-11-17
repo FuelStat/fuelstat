@@ -27,9 +27,9 @@ $alleJahre = array_map('intval', $seiteDaten['years'] ?? []);
 $monatsKm = array_column($seiteDaten['months'] ?? [], 'km', 'month');
 $weitere = !empty($seiteDaten['pagination']['has_more']);
 // Filter-Chips: Zweck als Link (Jahr bleibt erhalten)
-$filterUrl = fn(?string $zweck) => 'fahrzeug_detail.php?' . http_build_query(array_filter([
+$filterUrl = fn(?string $zweck) => 'fahrten.php?' . http_build_query(array_filter([
     'id' => $fahrzeug_id, 'fjahr' => $fahrtJahr, 'fzweck' => $zweck,
-], fn($v) => $v !== null && $v !== '')) . '#fahrten';
+], fn($v) => $v !== null && $v !== ''));
 // Liste nach Monat gruppieren, wie im Reiter „Einträge“ (#144)
 $fahrtenJeMonat = [];
 foreach ($fahrtListe as $t) {
@@ -88,7 +88,7 @@ if ($nurZeilen) {
     <?php if ($darfErfassen): ?>
     <a href="../pages/fahrt.php?fahrzeug_id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>" class="btn btn-primary"><i class="fas fa-route" aria-hidden="true"></i>Fahrt erfassen</a>
     <?php endif; ?>
-    <form method="get" action="fahrzeug_detail.php#fahrten" class="d-flex gap-2">
+    <form method="get" action="fahrten.php" class="d-flex gap-2">
       <input type="hidden" name="id" value="<?= htmlspecialchars($fahrzeug_id) ?>">
       <?php if ($fahrtZweck !== null): ?><input type="hidden" name="fzweck" value="<?= htmlspecialchars($fahrtZweck) ?>"><?php endif; ?>
       <select name="fjahr" class="form-select w-auto" aria-label="Jahr" onchange="this.form.submit()">

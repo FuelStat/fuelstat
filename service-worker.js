@@ -14,7 +14,8 @@
 //   Neue Versionen haben eine neue Adresse (?v=Änderungszeit), veraltete Dateien gibt es dadurch nicht.
 // - API und alles andere: nicht abfangen.
 const cacheName = 'fuelstat-v9';
-const seitenCache = 'fuelstat-seiten-v1';
+// v2 (#206): die Fahrzeugseite mit Reitern gibt es nicht mehr, gemerkt werden Start und die Ansichten
+const seitenCache = 'fuelstat-seiten-v2';
 const bilderCache = 'fuelstat-bilder-v1';
 const SEITEN_MAX = 20;
 const BILDER_MAX = 60;
@@ -41,17 +42,17 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
-// Pfad relativ zum Scope, z. B. "index.php" oder "pages/fahrzeug_detail.php"
+// Pfad relativ zum Scope, z. B. "index.php" oder "pages/eintraege.php"
 function pfadImScope(url) {
   const scope = new URL(self.registration.scope);
   if (url.origin !== scope.origin || !url.pathname.startsWith(scope.pathname)) return null;
   return url.pathname.slice(scope.pathname.length);
 }
 
-// Seiten, die offline lesbar sein sollen: Übersicht und Fahrzeugseite
+// Seiten, die offline lesbar sein sollen: Start und die Ansichten eines Fahrzeugs (#206)
+const OFFLINE_SEITEN = ['', 'index.php', 'pages/eintraege.php', 'pages/statistik.php', 'pages/service.php', 'pages/fahrten.php', 'pages/fahrzeugdaten.php'];
 function offlineLesbar(url) {
-  const pfad = pfadImScope(url);
-  return pfad === '' || pfad === 'index.php' || pfad === 'pages/fahrzeug_detail.php';
+  return OFFLINE_SEITEN.includes(pfadImScope(url));
 }
 
 // Beim Abmelden und Anmelden die gemerkten Seiten löschen (anderes Konto, geteiltes Gerät)

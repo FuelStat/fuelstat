@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $r = $api->postInvitationAnswer($id, $annehmen);
         if ($annehmen) {
             $_SESSION['success_message'] = 'Einladung angenommen. Das Fahrzeug steht jetzt in deiner Übersicht.';
-            header('Location: fahrzeug_detail.php?id=' . urlencode((string)($r['vehicleId'] ?? '')));
+            header('Location: ../' . fahrzeugSeite('uebersicht', (string)((string)($r['vehicleId'] ?? ''))));
         } else {
             $_SESSION['success_message'] = 'Einladung abgelehnt.';
             header('Location: einladungen.php');

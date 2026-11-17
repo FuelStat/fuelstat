@@ -25,7 +25,7 @@ try {
     } else {
         $_SESSION['success_message'] = 'Fahrzeug aktualisiert.';
     }
-    header('Location: fahrzeug_detail.php?id=' . rawurlencode($fahrzeug_id));
+    header('Location: ../' . fahrzeugSeite('fahrzeugdaten', (string)($fahrzeug_id)));
     exit;
 } catch (Throwable $e) {
     $_SESSION['error_message'] = fahrzeugFehlerText($e);

@@ -50,7 +50,7 @@ if ($type === 'entry') {
         header('Location: eintrag_bearbeiten.php?id=' . rawurlencode($eintrag_id) . '&fahrzeug_id=' . rawurlencode($fahrzeug_id) . '&type=entry');
         exit;
     }
-    header('Location: fahrzeug_detail.php?id=' . rawurlencode($fahrzeug_id) . '#eintraege');
+    header('Location: ../' . fahrzeugSeite('eintraege', (string)($fahrzeug_id)));
     exit;
 }
 
@@ -101,5 +101,5 @@ try {
         ? 'Tank- und Ladevorgänge können nur innerhalb von 14 Tagen bearbeitet werden. Ältere Einträge kannst du löschen und neu anlegen.'
         : $e->getMessage();
 }
-header('Location: fahrzeug_detail.php?id=' . rawurlencode($fahrzeug_id));
+header('Location: ../' . fahrzeugSeite('eintraege', (string)($fahrzeug_id)));
 exit;

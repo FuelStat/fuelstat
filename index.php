@@ -34,7 +34,8 @@ foreach ($vehicles as $v) {
 
 if ($fz):
     $vid = (string)$fz['id'];
-    $detail = 'pages/fahrzeug_detail.php?id=' . urlencode($vid);
+    // Weitere Ansichten des Fahrzeugs (#206, docs/design.md 7.2): Start ist die Übersicht, der Rest sind eigene Seiten
+    $seite = fn(string $ansicht) => fahrzeugSeite($ansicht, $vid);
     $fuelType = $fz['fuel_type'] ?? null;
     $einheit = einheitKurz(getEinheitFuerKraftstoff($fuelType));
     $kraftstoffNamen = getKraftstoffOptionen();
@@ -120,7 +121,7 @@ endif;
     <div class="row g-3 g-lg-4">
         <div class="col-lg-5">
             <!-- VehicleHero: Foto, Name, Kennzeichen, Kilometerstand, Energie-Badge; führt zum Fahrzeug -->
-            <a href="<?= htmlspecialchars($detail) ?>" class="fahrzeug-hero fahrzeug-hero-gross d-block text-reset text-decoration-none" aria-label="<?= htmlspecialchars(($fz['name'] ?? 'Fahrzeug') . ' öffnen') ?>">
+            <a href="<?= htmlspecialchars($seite('fahrzeugdaten')) ?>" class="fahrzeug-hero fahrzeug-hero-gross d-block text-reset text-decoration-none" aria-label="<?= htmlspecialchars(($fz['name'] ?? 'Fahrzeug') . ' öffnen') ?>">
                 <img src="<?= htmlspecialchars(fahrzeugBildUrl($fz, $baseUrl)) ?>" alt="">
                 <span class="fahrzeug-hero-text">
                     <span class="fahrzeug-hero-name text-truncate d-block"><?= htmlspecialchars($fz['name'] ?? 'Fahrzeug') ?></span>
@@ -135,7 +136,7 @@ endif;
             <div class="d-flex flex-wrap gap-2 mt-2">
                 <?php if (($fz['role'] ?? 'owner') !== 'owner'): ?><span class="fs-label"><i class="fas fa-users me-1" aria-hidden="true"></i>Geteilt von <?= htmlspecialchars((string)($fz['owner_name'] ?? '')) ?></span><?php endif; ?>
                 <?php if ($tachoFehlt > 0): ?>
-                <a class="badge text-bg-warning text-decoration-none" href="<?= htmlspecialchars($detail) ?>#eintraege"><i class="fas fa-gauge-high" aria-hidden="true"></i><?= $tachoFehlt === 1 ? '1 Tachostand fehlt' : $tachoFehlt . ' Tachostände fehlen' ?></a>
+                <a class="badge text-bg-warning text-decoration-none" href="<?= htmlspecialchars($seite('eintraege')) ?>"><i class="fas fa-gauge-high" aria-hidden="true"></i><?= $tachoFehlt === 1 ? '1 Tachostand fehlt' : $tachoFehlt . ' Tachostände fehlen' ?></a>
                 <?php endif; ?>
             </div>
             <?php endif; ?>
@@ -178,7 +179,7 @@ endif;
             <section class="card" aria-labelledby="startTermine">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h2 class="mb-0" id="startTermine">Nächste Termine</h2>
-                    <a href="<?= htmlspecialchars($detail) ?>#allgemein" class="tipp-link">Alle anzeigen</a>
+                    <a href="<?= htmlspecialchars($seite('service')) ?>" class="tipp-link">Alle anzeigen</a>
                 </div>
                 <?php if ($naechste): ?>
                 <ul class="list-group list-group-flush">
@@ -194,7 +195,7 @@ endif;
                     <?php endforeach; ?>
                 </ul>
                 <?php else: ?>
-                <div class="card-body fs-label">Keine Termine mit Datum. <a class="tipp-link" href="<?= htmlspecialchars($detail) ?>#allgemein">TÜV, Wartung und Versicherung eintragen</a>, um erinnert zu werden.</div>
+                <div class="card-body fs-label">Keine Termine mit Datum. <a class="tipp-link" href="<?= htmlspecialchars($seite('service')) ?>">TÜV, Wartung und Versicherung eintragen</a>, um erinnert zu werden.</div>
                 <?php endif; ?>
             </section>
 
@@ -202,7 +203,7 @@ endif;
             <section class="card" aria-labelledby="startEintraege">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h2 class="mb-0" id="startEintraege">Letzte Einträge</h2>
-                    <a href="<?= htmlspecialchars($detail) ?>#eintraege" class="tipp-link">Alle anzeigen</a>
+                    <a href="<?= htmlspecialchars($seite('eintraege')) ?>" class="tipp-link">Alle anzeigen</a>
                 </div>
                 <?php if (!empty($liste['data'])): ?>
                 <ul class="list-group list-group-flush">
@@ -253,6 +254,24 @@ endif;
                     <?php endif; ?>
                 </div>
                 <?php endif; ?>
+            </section>
+
+            <!-- Mehr zum Fahrzeug (#206, docs/design.md 7.8): die Ansichten hinter Start -->
+            <section class="card" aria-labelledby="startMehr">
+                <div class="card-header"><h2 class="mb-0" id="startMehr">Mehr zum Fahrzeug</h2></div>
+                <div class="list-group list-group-flush">
+                    <?php foreach ([
+                        'service' => ['fa-screwdriver-wrench', 'Service', 'Termine, Bauteile und Wechsel'],
+                        'fahrten' => ['fa-route', 'Fahrten', 'Fahrtenbuch'],
+                        'fahrzeugdaten' => ['fa-file-lines', 'Fahrzeugdaten', 'Stammdaten, Status, Teilen'],
+                    ] as $ansicht => [$symbol, $name, $hinweis]): ?>
+                    <a class="list-group-item list-group-item-action d-flex align-items-center gap-3" href="<?= htmlspecialchars($seite($ansicht)) ?>">
+                        <?= symbolKreis($symbol, 'var(--fs-brand)') ?>
+                        <span class="min-w-0 flex-grow-1"><span class="d-block fs-headline"><?= $name ?></span><span class="d-block fs-label"><?= $hinweis ?></span></span>
+                        <i class="fas fa-chevron-right small opacity-50" aria-hidden="true"></i>
+                    </a>
+                    <?php endforeach; ?>
+                </div>
             </section>
         </div>
     </div>

@@ -197,7 +197,7 @@ $filterArten = array_filter([
       <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
       <input type="search" class="form-control" id="eintragSuche" placeholder="Ort oder Beschreibung" aria-label="Einträge durchsuchen" value="<?= htmlspecialchars($suche) ?>">
     </div>
-    <form method="get" action="fahrzeug_detail.php#eintraege" class="d-flex">
+    <form method="get" action="eintraege.php" class="d-flex">
       <input type="hidden" name="id" value="<?= htmlspecialchars($fahrzeug_id) ?>">
       <select name="jahr" class="form-select w-auto" aria-label="Jahr" onchange="this.form.submit()">
         <option value="">Alle Jahre</option>

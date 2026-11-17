@@ -595,6 +595,25 @@ function speichereFahrzeugBild($api, string $vehicleId, array $files, array $pos
 }
 
 /**
+ * Adresse einer Ansicht eines Fahrzeugs (#206, docs/design.md 7.2), relativ zum Projektordner. Seiten in pages/ setzen
+ * '../' davor, Seiten im Projektordner nichts. Ansichten: uebersicht (Start mit diesem Fahrzeug), eintraege, statistik,
+ * kosten (Statistik, Teil Kosten), service, fahrten, fahrzeugdaten.
+ */
+if (!function_exists('fahrzeugSeite')) {
+function fahrzeugSeite(string $ansicht, string $fahrzeugId, array $query = []): string
+{
+    $id = rawurlencode($fahrzeugId);
+    $extra = $query ? '&' . http_build_query($query) : '';
+    return match ($ansicht) {
+        'uebersicht' => 'index.php?fahrzeug=' . $id . $extra,
+        'kosten' => 'pages/statistik.php?id=' . $id . '&teil=kosten' . $extra,
+        'eintraege', 'statistik', 'service', 'fahrten', 'fahrzeugdaten' => 'pages/' . $ansicht . '.php?id=' . $id . $extra,
+        default => throw new InvalidArgumentException('Unbekannte Ansicht: ' . $ansicht),
+    };
+}
+}
+
+/**
  * Fälligkeiten (TÜV, Wartung, Versicherung, Steuer) aus der API (Regeln in backend/src/services/reminders.js).
  * @return array Liste mit titel, kategorie, letzte, faellig_datum, faellig_km, status (ok|bald|ueberfaellig|unbekannt), tage
  */

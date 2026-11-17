@@ -170,7 +170,7 @@
   (function () {
     var blatt = document.getElementById('blattFahrzeuge');
     if (!blatt) return;
-    var titel = {details: 'Fahrzeuge', eintrag: 'Eintrag für welches Fahrzeug?', statistik: 'Statistik für welches Fahrzeug?'};
+    var titel = {details: 'Fahrzeuge', eintrag: 'Eintrag für welches Fahrzeug?', eintraege: 'Einträge für welches Fahrzeug?', statistik: 'Statistik für welches Fahrzeug?'};
     blatt.addEventListener('show.bs.offcanvas', function (event) {
       var aktion = (event.relatedTarget && event.relatedTarget.dataset.aktion) || 'details';
       document.getElementById('blattFahrzeugeTitel').textContent = titel[aktion] || titel.details;

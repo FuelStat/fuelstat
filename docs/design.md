@@ -529,9 +529,12 @@ Ein Inhalt, der hier fehlt, bekommt vor der Umsetzung eine Zeile in dieser Tabel
 Diese Tabelle ist die einzige Stelle, an der sich Plattformen im Aufbau unterscheiden dürfen; die Bereiche, Namen,
 Reihenfolgen und Heimaten (7.1 bis 7.6) sind gleich.
 
-**Stand der Umsetzung (Web):** Die Web-App hat noch die Fahrzeugseite mit Reitern (Allgemein, Einträge, Statistiken,
-Ausgaben, Service, Fahrten, Einstellungen). Sie wird in Etappen auf diesen Aufbau umgestellt (#206, Meilenstein
-0.14.0 und 1.0.0). Bis dahin gilt dieser Abschnitt für alles Neue. iOS (#84) und Android (#62) folgen ebenfalls.
+**Stand der Umsetzung (Web):** Leiste, Bereiche und Ansichten folgen diesem Aufbau (#206, Etappe 2): Einträge,
+Statistik (Teile „Verbrauch“ und „Kosten“), Service, Fahrten und Fahrzeugdaten sind eigene Seiten
+(`pages/eintraege.php` usw., Adressen über `fahrzeugSeite()`), Start hat „Mehr zum Fahrzeug“, die Fahrzeuge stehen im
+Profil. Alte Links auf `pages/fahrzeug_detail.php` (auch mit `#Reiter`) leiten weiter. **Noch offen:** Wahl nur für
+die Sitzung (7.2), Flotten-Start, gruppiertes Profil (7.4), ein Menü „Berichte und Export“, Löschen und Status nur in
+Fahrzeugdaten. iOS (#84) und Android (#62) folgen.
 
 ### 7.8 Start – Beispielinhalt
 
@@ -701,8 +704,10 @@ Plattform-Besonderheiten der Web-App (PHP mit Bootstrap 5.3):
 - **Bereiche:** Aufbau, Namen und Heimaten wie in 7.1 bis 7.6, Abbildung in 7.7. Die Fahrzeugwahl der Sitzung liegt
   im Web künftig in der PHP-Sitzung (statt im Cookie `fuelstat_fahrzeug`); „Start“ zeigt ohne Wahl das
   Standardfahrzeug. Ohne „In der Nähe“: Die Web-App fragt den Standort nur im Erfassen-Formular ab.
-  **Abweichung bis zur Umsetzung (#206):** Die Fahrzeugseite hat noch Reiter, „Fahrzeuge“ steht noch in der Leiste
-  und das Fahrzeug wird noch per Cookie gemerkt; neue Seiten folgen schon dem neuen Aufbau.
+  **Abweichung bis zur Umsetzung (#206):** Das Fahrzeug wird noch per Cookie gemerkt statt nur für die Sitzung; offen
+  sind außerdem die Punkte aus 7.7 („Stand der Umsetzung“). Ansichten des Fahrzeugs bauen auf
+  `includes/fahrzeug_seite.php` auf (Überschrift, Hinweis bei archivierten und geteilten Fahrzeugen); „Weitere anzeigen“
+  holt Zeilen über `pages/reiter.php`.
 - **Seitentitel und Symbol:** Jede Seite hat einen eigenen `<title>` der Form „Seite – {App}“ (Start nur „{App}“),
   gleich dem sichtbaren Seitentitel; Favicon und Touch-Icons stammen aus [`images/marke/`](../images/marke/README.md).
   Der Wert von `<meta name="theme-color">` bleibt wie oben.

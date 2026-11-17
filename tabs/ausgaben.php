@@ -156,8 +156,9 @@ $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'aller Jah
     }
     ?>
     <!-- Zeitraum -->
-    <form method="get" action="fahrzeug_detail.php#ausgaben" class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <form method="get" action="statistik.php" class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <input type="hidden" name="id" value="<?= htmlspecialchars($fahrzeug_id) ?>">
+        <input type="hidden" name="teil" value="kosten">
         <h3 class="h5 mb-0">Ausgaben <?= htmlspecialchars($zeitraumText) ?></h3>
         <select name="jahr" class="form-select w-auto" aria-label="Zeitraum" onchange="this.form.submit()">
             <option value="">Alle Jahre</option>

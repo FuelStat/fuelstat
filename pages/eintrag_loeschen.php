@@ -36,5 +36,5 @@ if ($type === 'fillup') {
         $_SESSION['error_message'] = tarifHinweis($e) ?? $e->getMessage();
     }
 }
-header('Location: fahrzeug_detail.php?id=' . rawurlencode($fahrzeug_id));
+header('Location: ../' . fahrzeugSeite('eintraege', (string)($fahrzeug_id)));
 exit;

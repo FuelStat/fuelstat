@@ -864,7 +864,7 @@ Umgebungsvariablen des Backends:
 * `DELETE /push/devices/:deviceId` bzw. `DELETE /push/devices` `{ "endpoint" }` (aus dem Browser, der seine id nicht kennt) → 204, sonst 404 `device_not_found`
 * `POST /push/test` → `{ sent, failed, removed }`; 409 `no_push_devices`, höchstens 5 in 15 Minuten
 
-**Nachricht** (Payload, Ende-zu-Ende verschlüsselt nach RFC 8291): `{ title, body, url, tag, badge? }`. `url` ist relativ zur Web-App (z. B. `pages/fahrzeug_detail.php?id=…`), `tag` fasst Nachrichten desselben Anlasses zusammen, `badge` ist die Zahl fürs App-Symbol (Termine). Der Service Worker zeigt die Nachricht und öffnet beim Tippen die Seite.
+**Nachricht** (Payload, Ende-zu-Ende verschlüsselt nach RFC 8291): `{ title, body, url, tag, badge? }`. `url` ist relativ zur Web-App (z. B. `pages/service.php?id=…`), `tag` fasst Nachrichten desselben Anlasses zusammen, `badge` ist die Zahl fürs App-Symbol (Termine). Der Service Worker zeigt die Nachricht und öffnet beim Tippen die Seite.
 
 **Versand** (wie die Mails stündlich, `services/notifier.js` mit `services/push.js`): je Anlass eigenes Versandprotokoll (`mail_log.kind` mit `push:` davor), damit E-Mail und Push unabhängig genau einmal kommen. Je Anlass `TTL` (Termine 3 Tage, Kilometerstand 2, Monatsbericht 7, lange kein Eintrag 3, Test 1 Stunde), `Urgency` (überfällige Termine `high`, Bericht und „lange kein Eintrag“ `low`, sonst `normal`) und `Topic` (= `tag`). Der VAPID-JWT wird je Push-Dienst höchstens alle 6 Stunden neu signiert (gültig 12 Stunden; Apple: nicht öfter als stündlich). 404/410 löschen das Gerät; 403 (z. B. `BadJwtToken`, `VapidPkHashMismatch`), 413 und andere Fehler stehen in `last_error`. Kommt bei keinem Gerät etwas an (z. B. 429/503), wird der Anlass beim nächsten Lauf wiederholt.
 

@@ -69,7 +69,7 @@ $f2 = fn($v) => number_format((float)$v, 2, ',', '.');
 <body class="p-4">
     <div class="no-print mb-4 d-flex gap-2">
         <button class="btn btn-primary" onclick="window.print()">Drucken / als PDF speichern</button>
-        <a class="btn btn-outline-secondary" href="fahrzeug_detail.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>">Zurück</a>
+        <a class="btn btn-outline-secondary" href="../<?= htmlspecialchars(fahrzeugSeite('eintraege', (string)($fahrzeug_id))) ?>">Zurück</a>
     </div>
 
     <h1 class="h3 mb-1"><?= htmlspecialchars($fahrzeug['name'] ?? 'Fahrzeug') ?></h1>

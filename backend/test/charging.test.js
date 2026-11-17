@@ -247,3 +247,33 @@ test('Verbrauch ohne „voll geladen“: ohne Ladestände gilt wie bisher voll b
   const f = (await api('GET', `/vehicles/${falsch.id}/stats`, { token })).body;
   assert.equal(f.segments.length, 0, 'verbraucht wären −38 kWh');
 });
+
+test('Eigener CO₂-Wert für Strom (#25): je Fahrzeug, wirkt nur auf kWh, fehlendes Feld bleibt, null löscht', async () => {
+  const token = await newUser();
+  const v = (await api('POST', '/vehicles', { token, body: { name: 'PHEV', fuelType: 'phev', electricityCo2Factor: '0,05' } })).body;
+  assert.equal(v.electricity_co2_factor, 0.05, 'Komma wird angenommen');
+  const f = (data) => api('POST', '/fillups', { token, body: { vehicleId: v.id, ...data } });
+  await f({ odometerKm: 1000, amount: 40, totalCostEur: 70, filledAt: '2026-01-05T10:00:00Z' });
+  await f({ odometerKm: 1100, amount: 20, totalCostEur: 6, unit: 'kwh', filledAt: '2026-01-10T10:00:00Z' });
+
+  let c = (await api('GET', `/vehicles/${v.id}/consumption`, { token })).body;
+  assert.deepEqual([c.byEnergy.electricity.co2.factor, c.byEnergy.electricity.co2.source, c.byEnergy.electricity.co2.totalKg], [0.05, 'vehicle', 1]);
+  // Benzin bleibt beim Standardwert
+  assert.deepEqual([c.byUnit.l.co2.factor, c.byUnit.l.co2.source], [2.37, 'default']);
+  assert.equal(c.co2.totalKg, Math.round((40 * 2.37 + 20 * 0.05) * 10) / 10);
+
+  // PATCH ohne das Feld (z. B. ältere App): Wert bleibt
+  assert.equal((await api('PATCH', `/vehicles/${v.id}`, { token, body: { name: 'PHEV neu' } })).body.electricity_co2_factor, 0.05);
+  // Ungültig: 400, Wert bleibt
+  for (const falsch of [-0.1, 2.5, 'viel']) {
+    assert.equal((await api('PATCH', `/vehicles/${v.id}`, { token, body: { electricityCo2Factor: falsch } })).body.error, 'invalid_electricityCo2Factor', String(falsch));
+  }
+  // null löscht: wieder deutscher Strommix
+  assert.equal((await api('PATCH', `/vehicles/${v.id}`, { token, body: { electricityCo2Factor: null } })).body.electricity_co2_factor, null);
+  c = (await api('GET', `/vehicles/${v.id}/consumption`, { token })).body;
+  assert.deepEqual([c.byEnergy.electricity.co2.factor, c.byEnergy.electricity.co2.source], [0.363, 'default']);
+  // 0 ist ein gültiger Wert (z. B. reiner PV-Strom), nicht „leer“
+  assert.equal((await api('PATCH', `/vehicles/${v.id}`, { token, body: { electricityCo2Factor: 0 } })).body.electricity_co2_factor, 0);
+  c = (await api('GET', `/vehicles/${v.id}/consumption`, { token })).body;
+  assert.deepEqual([c.byEnergy.electricity.co2.factor, c.byEnergy.electricity.co2.source, c.byEnergy.electricity.co2.totalKg], [0, 'vehicle', 0]);
+});

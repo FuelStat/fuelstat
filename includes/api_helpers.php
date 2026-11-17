@@ -487,6 +487,7 @@ function fahrzeugZusatzFelder(): array
         'purchaseDate' => ['datum', 'Kaufdatum'],
         'purchasePrice' => ['zahl', 'Kaufpreis'],
         'residualValue' => ['zahl', 'Restwert'],
+        'electricityCo2Factor' => ['zahl', 'CO₂-Wert für Strom'],
         'serviceIntervalMonths' => ['ganzzahl', 'Wartungsintervall (Monate)'],
         'serviceIntervalKm' => ['ganzzahl', 'Wartungsintervall (km)'],
         'oilIntervalMonths' => ['ganzzahl', 'Ölwechsel (Monate)'],

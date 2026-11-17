@@ -76,7 +76,7 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 - Ausgaben nach Kategorien und Kostengruppen
 - Wartungskosten je 10.000 Kilometer
 - Jahresvergleiche
-- CO₂-Ausstoß insgesamt und pro Kilometer
+- CO₂-Ausstoß insgesamt und pro Kilometer; für Strom ein eigener Wert je Fahrzeug (Ökostrom, PV), sonst der deutsche Strommix
 
 ### Erinnerungen und Benachrichtigungen
 

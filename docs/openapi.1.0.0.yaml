@@ -2339,6 +2339,7 @@ paths:
         - { name: type, in: query, required: false, description: "Kommagetrennt: fuel, charge, expense, trip, odometer", schema: { type: string, example: "fuel,charge" } }
         - { name: year, in: query, required: false, schema: { type: integer, minimum: 1900, maximum: 2100 } }
         - { name: q, in: query, required: false, schema: { type: string, maxLength: 100 } }
+        - { name: missing_odometer, in: query, required: false, description: "1/true: nur Tank-/Ladevorgänge ohne echten Tachostand (fehlt oder geschätzt, #187)", schema: { type: string, enum: ["1", "true", "0", "false"] } }
       responses:
         "200":
           description: OK
@@ -2366,8 +2367,11 @@ paths:
                     type: object
                     description: "Anzahl je Art, z. B. { fuel: 120, charge: 880 }"
                     additionalProperties: { type: integer }
+                  missingOdometer:
+                    type: integer
+                    description: "Tank-/Ladevorgänge ohne echten Tachostand, ohne Filter (wie /stats, #187)"
         "400":
-          description: invalid_page | invalid_per_page | invalid_type | invalid_year
+          description: invalid_page | invalid_per_page | invalid_type | invalid_year | invalid_missing_odometer
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -2773,6 +2777,7 @@ paths:
                           type: object
                           properties:
                             factor: { type: number, nullable: true }
+                            source: { type: string, nullable: true, enum: [vehicle, default, null], description: "vehicle: eigener Strom-Wert des Fahrzeugs (#25), default: Standardwert" }
                             totalKg: { type: number, nullable: true }
                             gPerKm: { type: number, nullable: true }
                         segments:
@@ -4340,6 +4345,12 @@ components:
           type: number
           nullable: true
           description: "Geschätzter Restwert in € eines Fahrzeugs, das noch gefahren wird (#79); zusammen mit purchasePrice der Wertverlust in /tco"
+        electricityCo2Factor:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 2
+          description: "Eigener CO₂-Wert für Strom in kg/kWh (#25), z. B. Ökostrom oder PV; null = deutscher Strommix. Nicht gesendet = unverändert"
         serviceIntervalMonths:
           type: integer
           nullable: true
@@ -4492,6 +4503,12 @@ components:
           type: number
           nullable: true
           description: "Geschätzter Restwert in € eines Fahrzeugs, das noch gefahren wird (#79); zusammen mit purchasePrice der Wertverlust in /tco"
+        electricityCo2Factor:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 2
+          description: "Eigener CO₂-Wert für Strom in kg/kWh (#25), z. B. Ökostrom oder PV; null = deutscher Strommix. Nicht gesendet = unverändert"
         serviceIntervalMonths:
           type: integer
           nullable: true
@@ -4624,6 +4641,10 @@ components:
         residual_value:
           type: number
           nullable: true
+        electricity_co2_factor:
+          type: number
+          nullable: true
+          description: "Eigener CO₂-Wert für Strom in kg/kWh (#25); null = deutscher Strommix"
         status:
           type: string
           enum: [active, sold, decommissioned]

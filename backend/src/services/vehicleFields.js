@@ -10,6 +10,11 @@ const money = (v) => {
   const n = Number(v);
   return Number.isFinite(n) && n >= 0 && n < 10000000 ? Math.round(n * 100) / 100 : undefined;
 };
+// Dezimalzahl in [min, max] mit höchstens drei Nachkommastellen (gerundet)
+const decimal = (min, max) => (v) => {
+  const n = Number(String(v).replace(',', '.'));
+  return Number.isFinite(n) && n >= min && n <= max ? Math.round(n * 1000) / 1000 : undefined;
+};
 const int = (min, max) => (v) => {
   const n = Number(v);
   return Number.isInteger(n) && n >= min && n <= max ? n : undefined;
@@ -25,6 +30,8 @@ const VEHICLE_EXTRA_FIELDS = [
   ['saleDate', 'sale_date', date],
   ['salePrice', 'sale_price', money],
   ['residualValue', 'residual_value', money],
+  // Eigener CO₂-Faktor für Strom in kg/kWh (#25), z. B. Ökostrom oder PV; null = deutscher Strommix
+  ['electricityCo2Factor', 'electricity_co2_factor', decimal(0, 2)],
   ['serviceIntervalMonths', 'service_interval_months', int(1, 60)],
   ['serviceIntervalKm', 'service_interval_km', int(1000, 100000)],
   ['oilIntervalMonths', 'oil_interval_months', int(1, 60)],

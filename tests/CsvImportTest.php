@@ -40,6 +40,12 @@ $zuordnung = importErkenneZuordnung($daten['kopf']);
 assert($zuordnung === ['datum' => 0, 'art' => 1, 'tachostand' => 2, 'menge' => 3, 'kosten' => 4, 'vollgetankt' => 5, 'ort' => 7, 'beschreibung' => 8]);
 $r = importWandleUm($daten['zeilen'], $zuordnung, 'Werkstatt');
 assert(count($r['fillups']) === 2);
+
+// Überschriften der „Voll“-Spalte aus dem API-Export (entriesExport.js, terms()) werden alle erkannt (#191)
+foreach (['Vollgetankt', 'Vollgeladen', 'Voll getankt/geladen', 'Voll getankt bzw. geladen'] as $vollKopf) {
+    $z = importErkenneZuordnung(['Datum', 'Kategorie', 'Kosten (EUR)', $vollKopf]);
+    assert(($z['vollgetankt'] ?? null) === 3, $vollKopf);
+}
 assert(count($r['entries']) === 1);
 assert($r['fehler'] === [5 => 'Datum fehlt oder ist ungültig']);
 assert($r['fillups'][0] === ['filledAt' => '2026-01-05T12:00:00.000Z', 'odometerKm' => 38337, 'amount' => 33.5, 'totalCostEur' => 61.2, 'station' => 'SB Tankstelle', 'isFull' => true, 'skipPrevious' => false, 'unit' => 'l']);

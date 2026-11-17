@@ -38,7 +38,9 @@ $zuletzt = function (array $f, string $wort = 'zuletzt'): string {
     if (!empty($f['letzte_beschreibung'])) {
         $teile[] = $f['letzte_beschreibung'];
     }
-    return htmlspecialchars(implode(' · ', $teile));
+    // Höchstens zwei Zeilen (#205); Antippen bzw. Fokus zeigt den ganzen Text, title für die Maus
+    $text = htmlspecialchars(implode(' · ', $teile));
+    return '<span class="termin-zuletzt" tabindex="0" title="' . $text . '">' . $text . '</span>';
 };
 // Kachel "Ø Verbrauch": Durchschnitt über alle Abschnitte, darunter der letzte Abschnitt im Vergleich dazu
 $schnitt = $stats['avgConsumption'] ?? null;
@@ -96,21 +98,21 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
             </div>
         </div>
         <div class="col-lg-7">
-            <div class="row g-2">
-                <div class="col-6 col-md-4">
+            <div class="kennzahl-raster">
+                <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Tachostand</div>
                         <div class="kennzahl-wert"><?= $currentOdo !== null ? number_format($currentOdo, 0, ',', '.') . ' km' : '—' ?></div>
                     </div>
                 </div>
-                <div class="col-6 col-md-4">
+                <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Fahrleistung</div>
                         <div class="kennzahl-wert"><?= $fahrleistung !== null ? number_format($fahrleistung['km'], 0, ',', '.') . ' km' : '—' ?></div>
                         <?php if ($fahrleistung !== null): ?><div class="small text-body-secondary"><?= htmlspecialchars($fahrleistung['basis']) ?></div><?php endif; ?>
                     </div>
                 </div>
-                <div class="col-6 col-md-4">
+                <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Kosten <?= $diesesJahr ?></div>
                         <div class="kennzahl-wert"><?= number_format($kostenJahr, 2, ',', '.') ?> €</div>
@@ -118,7 +120,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                 </div>
                 <?php if ($kostenHaupt !== null):
                     $best = $ratePerioden['best'] ?? null; $worst = $ratePerioden['worst'] ?? null; ?>
-                <div class="col-6 col-md-4">
+                <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Energiekosten</div>
                         <div class="kennzahl-wert"><?= $kostenHaupt ?></div>
@@ -134,7 +136,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                         $wAktuell !== null ? 'zuletzt ' . number_format($wAktuell, 2, ',', '.') : '',
                         $w['avgPrice'] !== null ? 'Ø ' . number_format((float)$w['avgPrice'], 3, ',', '.') . ' €/' . einheitKurz($u) : '',
                     ]); ?>
-                <div class="col-6 col-md-4">
+                <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Ø Verbrauch <?= begriffeFuerEinheit($fuel_type, $u)['energie'] ?></div>
                         <div class="kennzahl-wert"><?= $wSchnitt !== null ? number_format($wSchnitt, 2, ',', '.') . ' <small class="fw-normal">' . einheitKurz($u) . '/100 km</small>' : '—' ?></div>
@@ -143,7 +145,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                 </div>
                 <?php endforeach; ?>
                 <?php if (!$verbrauchJeEinheit): ?>
-                <div class="col-6 col-md-4">
+                <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Ø Verbrauch</div>
                         <div class="kennzahl-wert"><?= $schnitt !== null ? number_format($schnitt, 2, ',', '.') . ' <small class="fw-normal">' . $einheitKurz . '/100 km</small>' : '—' ?></div>
@@ -153,7 +155,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                         <?php endif; ?>
                     </div>
                 </div>
-                <div class="col-6 col-md-4">
+                <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Ø Preis/<?= $einheitKurz ?></div>
                         <div class="kennzahl-wert"><?= $avgPrice !== null ? number_format($avgPrice, 3, ',', '.') . ' €' : '—' ?></div>

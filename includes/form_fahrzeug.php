@@ -165,6 +165,12 @@ $abschnittEnde = fn() => $istNeu ? '</section>' : '</div></div></div>';
                 <input type="number" id="batteryCapacity" name="batteryCapacity" class="form-control" min="0" step="0.1" inputmode="decimal" value="<?= $zahl('battery_capacity') ?>">
                 <div class="form-text">Kapazität laut Hersteller (brutto oder nutzbar).</div>
             </div>
+            <!-- Elektro und Plug-in-Hybrid: eigener CO₂-Wert für Strom (#25) -->
+            <div class="col-md-6" id="electricityCo2FactorFeld">
+                <label for="electricityCo2Factor" class="form-label">CO₂ für Strom (kg/kWh)</label>
+                <input type="number" id="electricityCo2Factor" name="electricityCo2Factor" class="form-control" min="0" max="2" step="0.001" inputmode="decimal" placeholder="0,363" value="<?= $zahl('electricity_co2_factor') ?>" aria-describedby="electricityCo2FactorHinweis">
+                <div class="form-text" id="electricityCo2FactorHinweis">Leer lassen für den deutschen Strommix (0,363). Mit Ökostrom oder Strom aus der eigenen PV-Anlage einen kleineren Wert eintragen, z. B. 0,03.</div>
+            </div>
             <div class="col-md-6">
                 <label for="tireSizeSummer" class="form-label">Reifengröße Sommer</label>
                 <input type="text" id="tireSizeSummer" name="tireSizeSummer" class="form-control" placeholder="z. B. 205/55 R16 91V" value="<?= $wert('tire_size_summer') ?>" maxlength="30">
@@ -316,6 +322,7 @@ $abschnittEnde = fn() => $istNeu ? '</section>' : '</div></div></div>';
     document.getElementById('tankCapacityLabel').textContent = t[0];
     document.getElementById('tankCapacityHinweis').textContent = t[1];
     document.getElementById('batteryCapacityFeld').hidden = auswahl.value !== 'phev';
+    document.getElementById('electricityCo2FactorFeld').hidden = auswahl.value !== 'phev' && auswahl.value !== 'electric';
     vorschau();
   }
   auswahl.addEventListener('change', function () {

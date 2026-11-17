@@ -6,7 +6,15 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+### Neu
+- Eigener CO₂-Wert für Strom: Bei Elektroautos und Plug-in-Hybriden lässt sich in den Fahrzeugdaten ein eigener Wert in kg CO₂ je kWh eintragen, z. B. für Ökostrom oder Strom aus der eigenen PV-Anlage. Ohne Angabe rechnet Fuelstat weiter mit dem deutschen Strommix (#25).
+
+### Behoben
+- CSV-Import: Die Spalte „Voll getankt/geladen“ aus dem eigenen Export wird wieder erkannt. Bisher galt beim erneuten Import jede Tankfüllung als Teilfüllung (#191).
+- Darstellung auf dem Handy: Der Schließen-Knopf von Meldungen sitzt rechts auf Höhe des Textes, Kennzahl-Kacheln füllen jede Reihe (keine einzelne halbe Kachel mehr), und die Liste „Nächste Termine“ hat ein festes Muster mit Symbol an der Überschrift, Status darunter und höchstens zwei Zeilen Beschreibung (#205).
+
 ### Technik
+- API: Die Eintragsliste (`/vehicles/:id/timeline`) filtert mit `missing_odometer=1` Tank- und Ladevorgänge ohne echten Tachostand und nennt deren Anzahl (`missingOdometer`), damit die Apps fehlende Kilometerstände vollständig auflisten können (#187).
 - Hinweise für Betreiber (einmalige Befehle, Einstellungen) stehen nicht mehr im CHANGELOG, sondern in `docs/update-hinweise.md`; `infra/ausrollen.sh` zeigt sie von dort an, `node backend/scripts/neue-version.js` schließt beide Dateien ab.
 
 ## [0.13.0] - 2026-11-15

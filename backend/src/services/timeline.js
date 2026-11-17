@@ -55,9 +55,12 @@ const FILTER = `($2::text[] IS NULL OR a.kind = ANY($2))
 
 const MONTH = `to_char(a.at AT TIME ZONE '${TZ}', 'YYYY-MM')`;
 
+// Nur Tank-/Ladevorgänge ohne echten Tachostand (#187): fehlt oder nur geschätzt (#41), wie missingOdometer in /stats
+const MISSING_ODOMETER = (param) => `(${param}::boolean IS NOT TRUE OR (a.type = 'fillup' AND (a.odometer_km IS NULL OR a.odometer_estimated)))`;
+
 /**
  * Filter aus der Anfrage prüfen.
- * @returns {{ kinds: string[]|null, year: number|null, q: string|null } | { error: string }}
+ * @returns {{ kinds: string[]|null, year: number|null, q: string|null, missingOdometer: boolean } | { error: string }}
  */
 function parseFilter(query = {}) {
   let kinds = null;
@@ -71,7 +74,13 @@ function parseFilter(query = {}) {
     if (!Number.isInteger(year) || year < 1900 || year > 2100) return { error: 'invalid_year' };
   }
   const q = query.q !== undefined ? String(query.q).trim().slice(0, 100) : '';
-  return { kinds, year, q: q || null };
+  let missingOdometer = false;
+  if (query.missing_odometer !== undefined && query.missing_odometer !== '') {
+    const m = String(query.missing_odometer).toLowerCase();
+    if (!['1', 'true', '0', 'false'].includes(m)) return { error: 'invalid_missing_odometer' };
+    missingOdometer = m === '1' || m === 'true';
+  }
+  return { kinds, year, q: q || null, missingOdometer };
 }
 
 // Suchtext als ILIKE-Muster; % und _ im Text gelten wörtlich
@@ -90,21 +99,27 @@ async function consumptionByFillup(db, userId, vehicleId) {
  * @param p Seitenangaben aus lib/pagination
  */
 async function getTimeline(db, userId, vehicleId, filter, p) {
-  const params = [vehicleId, filter.kinds, filter.year, pattern(filter.q)];
-  const [rows, count, kinds, years] = await Promise.all([
+  const params = [vehicleId, filter.kinds, filter.year, pattern(filter.q), filter.missingOdometer === true];
+  const where = `${FILTER} AND ${MISSING_ODOMETER('$5')}`;
+  const [rows, count, kinds, years, missing] = await Promise.all([
     db.query(
       `WITH a AS (${UNION})
        SELECT a.*, (SELECT COALESCE(u.username, u.email) FROM users u WHERE u.id = a.created_by) AS created_by_name
-         FROM a WHERE ${FILTER}
+         FROM a WHERE ${where}
         ORDER BY a.at DESC, a.created_at DESC, a.id DESC
-        LIMIT $5 OFFSET $6`,
+        LIMIT $6 OFFSET $7`,
       [...params, p.limit, p.offset]
     ),
-    db.query(`WITH a AS (${UNION}) SELECT COUNT(*)::int AS total FROM a WHERE ${FILTER}`, params),
+    db.query(`WITH a AS (${UNION}) SELECT COUNT(*)::int AS total FROM a WHERE ${where}`, params),
     // Arten und Jahre ohne Filter, für Filter-Chips und Jahresauswahl
     db.query(`WITH a AS (${UNION}) SELECT a.kind, COUNT(*)::int AS n FROM a GROUP BY a.kind`, [vehicleId]),
     db.query(
       `WITH a AS (${UNION}) SELECT DISTINCT EXTRACT(YEAR FROM a.at AT TIME ZONE '${TZ}')::int AS year FROM a ORDER BY 1 DESC`,
+      [vehicleId]
+    ),
+    // Anzahl ohne echten Tachostand (#187), ohne Filter – dieselbe Zählung wie missingOdometer in /stats
+    db.query(
+      'SELECT COUNT(*) FILTER (WHERE odometer_km IS NULL OR odometer_estimated)::int AS n FROM fillups WHERE vehicle_id = $1',
       [vehicleId]
     )
   ]);
@@ -117,8 +132,8 @@ async function getTimeline(db, userId, vehicleId, filter, p) {
       `WITH a AS (${UNION})
        SELECT ${MONTH} AS month, COUNT(*)::int AS count,
               COALESCE(SUM(a.cost) FILTER (WHERE a.kind IN ('fuel', 'charge')
-                                          OR (a.kind = 'expense' AND NOT (a.category = ANY($6::text[])))), 0)::float8 AS total
-         FROM a WHERE ${FILTER} AND ${MONTH} = ANY($5::text[])
+                                          OR (a.kind = 'expense' AND NOT (a.category = ANY($7::text[])))), 0)::float8 AS total
+         FROM a WHERE ${where} AND ${MONTH} = ANY($6::text[])
         GROUP BY 1 ORDER BY 1 DESC`,
       [...params, monthKeys, NON_COST_KEYS]
     );
@@ -143,7 +158,8 @@ async function getTimeline(db, userId, vehicleId, filter, p) {
     ...paginated(data, count.rows[0].total, p),
     months,
     years: years.rows.map((r) => r.year),
-    kinds: Object.fromEntries(kinds.rows.map((r) => [r.kind, r.n]))
+    kinds: Object.fromEntries(kinds.rows.map((r) => [r.kind, r.n])),
+    missingOdometer: missing.rows[0]?.n ?? 0
   };
 }
 

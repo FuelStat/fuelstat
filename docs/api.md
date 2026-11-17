@@ -707,11 +707,12 @@ Alle Endpunkte, die eine Liste von Datensätzen liefern, kommen seitenweise (#16
 
 Die **Eintragsliste** eines Fahrzeugs: Tank-/Ladevorgänge, Ausgaben und Fahrten gemischt, neueste zuerst – damit Clients für die Liste nicht alle Einträge laden und selbst zusammenführen.
 
-* Query: `page`, `per_page`, `type` (kommagetrennt: `fuel`, `charge`, `expense`, `trip`, `odometer`), `year` (Europe/Berlin), `q` (Suche in Ort, Beschreibung, Kategorie, Start und Ziel; `%` und `_` gelten wörtlich)
+* Query: `page`, `per_page`, `type` (kommagetrennt: `fuel`, `charge`, `expense`, `trip`, `odometer`), `year` (Europe/Berlin), `q` (Suche in Ort, Beschreibung, Kategorie, Start und Ziel; `%` und `_` gelten wörtlich), `missing_odometer` (`1`/`true`: nur Tank-/Ladevorgänge ohne echten Tachostand, also fehlend oder nur geschätzt; mit den anderen Filtern kombinierbar, #187)
 * `data[]`: `type` (`fillup`, `entry`, `trip` – zum Bearbeiten über den jeweiligen Endpunkt), `kind`, `id`, `at`, `category`, `cost`, `countsAsCost`, `amount`, `unit`, `fuel`, `odometer_km`, `odometer_estimated`, `is_full`, `skip_previous`, `place`, `description`, Fahrten zusätzlich `purpose`, `distance_km`, `start_place`, `end_place`; `consumption` (Verbrauch pro 100 km des Abschnitts, den eine volle Füllung abschließt; `null` bei nebenbei getankten Energiearten, #140); `created_by`, `created_by_name`
 * `months`: Summen der Monate auf dieser Seite – über den **ganzen** Monat und mit denselben Filtern (`{ month, count, total }`; Fahrten und km-Notizen zählen nicht als Kosten)
 * `years`, `kinds`: Jahre und Anzahl je Art **ohne** Filter, für Jahresauswahl und Filter-Chips
-* Fehler: 400 `invalid_type`, `invalid_year`, `invalid_page`, `invalid_per_page`; 404 `vehicle_not_found`
+* `missingOdometer`: Anzahl der Tank-/Ladevorgänge ohne echten Tachostand, **ohne** Filter (gleiche Zählung wie in `/stats`), für einen Hinweis wie „3 Tankfüllungen ohne Kilometerstand“ (#187)
+* Fehler: 400 `invalid_type`, `invalid_year`, `invalid_missing_odometer`, `invalid_page`, `invalid_per_page`; 404 `vehicle_not_found`
 
 ## Fahrzeug archivieren: verkauft oder stillgelegt (#79)
 

@@ -147,6 +147,43 @@ test('Eintragsliste /timeline: gemischt, gefiltert, gesucht, mit Monatssummen un
   assert.equal((await api('GET', `/vehicles/${v}/timeline`, { token: fremd })).status, 404);
 });
 
+test('Eintragsliste /timeline: Einträge ohne Tachostand filtern und zählen (#187)', async () => {
+  const token = await newUser();
+  const v = (await api('POST', '/vehicles', { token, body: { name: 'Ohne km', fuelType: 'e10' } })).body.id;
+  const f = (data) => api('POST', '/fillups', { token, body: { vehicleId: v, ...data } });
+  await f({ odometerKm: 1000, amount: 40, totalCostEur: 70, filledAt: '2026-01-05T10:00:00Z' });
+  await f({ amount: 30, totalCostEur: 54, station: 'Ohne Tacho', filledAt: '2026-01-20T10:00:00Z' });
+  await f({ amount: 20, totalCostEur: 36, station: 'Auch ohne', filledAt: '2026-02-02T10:00:00Z' });
+  await api('POST', '/entries', { token, body: { vehicleId: v, category: 'Werkstatt', amountEur: 120, occurredAt: '2026-01-25T10:00:00Z' } });
+
+  // Ohne Filter: alle Einträge, die Anzahl steht trotzdem dabei (wie missingOdometer in /stats)
+  let r = await api('GET', `/vehicles/${v}/timeline`, { token });
+  assert.equal(r.body.pagination.total, 4);
+  assert.equal(r.body.missingOdometer, 2);
+  assert.equal((await api('GET', `/vehicles/${v}/stats`, { token })).body.missingOdometer, 2, 'gleiche Zählung wie /stats');
+
+  // Filter: nur Tank-/Ladevorgänge ohne echten Tachostand, Ausgaben ohne km zählen nicht
+  r = await api('GET', `/vehicles/${v}/timeline?missing_odometer=1`, { token });
+  assert.equal(r.status, 200, JSON.stringify(r.body));
+  assert.deepEqual(r.body.data.map((x) => x.place), ['Auch ohne', 'Ohne Tacho']);
+  assert.equal(r.body.pagination.total, 2);
+  assert.deepEqual(r.body.months, [{ month: '2026-02', count: 1, total: 36 }, { month: '2026-01', count: 1, total: 54 }]);
+  // Kombinierbar mit den übrigen Filtern; die Anzahl gilt ohne Filter
+  r = await api('GET', `/vehicles/${v}/timeline?missing_odometer=true&year=2026&q=auch`, { token });
+  assert.deepEqual(r.body.data.map((x) => x.place), ['Auch ohne']);
+  assert.equal(r.body.missingOdometer, 2);
+  r = await api('GET', `/vehicles/${v}/timeline?missing_odometer=0`, { token });
+  assert.equal(r.body.pagination.total, 4);
+  assert.equal((await api('GET', `/vehicles/${v}/timeline?missing_odometer=vielleicht`, { token })).body.error, 'invalid_missing_odometer');
+
+  // Nachgetragener Tachostand: zählt nicht mehr
+  const ohne = (await api('GET', `/vehicles/${v}/timeline?missing_odometer=1`, { token })).body.data.find((x) => x.place === 'Ohne Tacho');
+  assert.equal((await api('PATCH', `/fillups/${ohne.id}`, { token, body: { odometerKm: 1500 } })).status, 200);
+  r = await api('GET', `/vehicles/${v}/timeline?missing_odometer=1`, { token });
+  assert.deepEqual(r.body.data.map((x) => x.place), ['Auch ohne']);
+  assert.equal(r.body.missingOdometer, 1);
+});
+
 test('Fahrten seitenweise mit Monaten (ganzer Monat, gefiltert) und Jahren (ohne Filter)', async () => {
   const token = await newUser();
   const v = (await api('POST', '/vehicles', { token, body: { name: 'Fahrten', fuelType: 'e10' } })).body.id;

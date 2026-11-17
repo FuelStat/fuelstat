@@ -10,6 +10,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - CSV-Import: Die Spalte „Voll getankt/geladen“ aus dem eigenen Export wird wieder erkannt. Bisher galt beim erneuten Import jede Tankfüllung als Teilfüllung (#191).
 
 ### Technik
+- API: Die Eintragsliste (`/vehicles/:id/timeline`) filtert mit `missing_odometer=1` Tank- und Ladevorgänge ohne echten Tachostand und nennt deren Anzahl (`missingOdometer`), damit die Apps fehlende Kilometerstände vollständig auflisten können (#187).
 - Hinweise für Betreiber (einmalige Befehle, Einstellungen) stehen nicht mehr im CHANGELOG, sondern in `docs/update-hinweise.md`; `infra/ausrollen.sh` zeigt sie von dort an, `node backend/scripts/neue-version.js` schließt beide Dateien ab.
 
 ## [0.13.0] - 2026-11-15

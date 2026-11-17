@@ -2339,6 +2339,7 @@ paths:
         - { name: type, in: query, required: false, description: "Kommagetrennt: fuel, charge, expense, trip, odometer", schema: { type: string, example: "fuel,charge" } }
         - { name: year, in: query, required: false, schema: { type: integer, minimum: 1900, maximum: 2100 } }
         - { name: q, in: query, required: false, schema: { type: string, maxLength: 100 } }
+        - { name: missing_odometer, in: query, required: false, description: "1/true: nur Tank-/Ladevorgänge ohne echten Tachostand (fehlt oder geschätzt, #187)", schema: { type: string, enum: ["1", "true", "0", "false"] } }
       responses:
         "200":
           description: OK
@@ -2366,8 +2367,11 @@ paths:
                     type: object
                     description: "Anzahl je Art, z. B. { fuel: 120, charge: 880 }"
                     additionalProperties: { type: integer }
+                  missingOdometer:
+                    type: integer
+                    description: "Tank-/Ladevorgänge ohne echten Tachostand, ohne Filter (wie /stats, #187)"
         "400":
-          description: invalid_page | invalid_per_page | invalid_type | invalid_year
+          description: invalid_page | invalid_per_page | invalid_type | invalid_year | invalid_missing_odometer
         "404":
           $ref: "#/components/responses/NotFound"
 

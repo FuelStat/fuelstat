@@ -136,16 +136,21 @@ $groesste = array_map(fn($x) => [
     'beschreibung' => (string)($x['description'] ?? ''), 'standort' => (string)($x['vendor'] ?? ''),
 ], $kosten['largestExpenses'] ?? []);
 
-$zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'gesamt';
+$zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'aller Jahre';
 ?>
 
 <div class="mt-3 mt-lg-4">
     <?php
-    // Gesamtkosten (#79): ganze Besitzzeit, die API rechnet; erst zeigen, wenn es Kosten oder einen Kaufpreis gibt
+    // Gesamtkosten (#79): ganze Besitzzeit, die API rechnet; erst zeigen, wenn es Kosten oder einen Kaufpreis gibt.
+    // Ohne gewähltes Jahr ist sie der einzige Kennzahlen-Block (#206): Summe, pro Monat und pro km stünden sonst zweimal
+    // mit verschiedenen Werten da (Besitzzeit gegen Monate mit Einträgen), die Anteile zeigt die Kostenstruktur darunter.
+    $tcoGezeigt = false;
     try {
         $tco = $api->getVehicleTco($fahrzeug_id);
         if (($tco['running']['total'] ?? 0) > 0 || ($tco['purchase']['price'] ?? null) !== null) {
+            $tcoMitAnteilen = $selectedYear !== null;
             include __DIR__ . '/../includes/tco_karte.php';
+            $tcoGezeigt = true;
         }
     } catch (Throwable $e) {
     }
@@ -172,7 +177,8 @@ $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'gesamt';
         </div>
     <?php else: ?>
 
-    <!-- Kennzahlen -->
+    <!-- Kennzahlen des gewählten Jahres; ohne Jahr stehen sie in der Gesamtkosten-Karte (#206) -->
+    <?php if ($selectedYear !== null || !$tcoGezeigt): ?>
     <div class="kennzahl-raster kennzahl-raster-4 kennzahl-raster-weit mb-3">
         <div>
             <div class="kennzahl">
@@ -203,6 +209,7 @@ $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'gesamt';
             </div>
         </div>
     </div>
+    <?php endif; ?>
 
     <!-- Kostenstruktur: ein Balken, aufgeteilt nach Gruppen -->
     <div class="card border-0 shadow-sm mb-3">

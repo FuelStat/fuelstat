@@ -1,6 +1,8 @@
 <?php
 // Gesamtkosten (TCO, #79): Kennzahlen und Anteile aus GET /vehicles/:id/tco. Die Zahlen rechnet die API, hier wird nur dargestellt.
 // Erwartet: $tco (Antwort der API), $fahrzeug_id, $darfAendern (bool, Link zum Ergänzen der Angaben)
+// Optional: $tcoMitAnteilen (bool, Standard true): Anteile als Balken. Im Reiter „Ausgaben“ ohne gewähltes Jahr zeigt die
+// Kostenstruktur darunter dieselbe Aufteilung, dann entfällt sie hier (#206: jede Zahl nur einmal).
 $tcoZahl = fn($wert, int $stellen = 2) => number_format((float)$wert, $stellen, ',', '.');
 $tcoGruppen = kategorieGruppen();
 $tcoName = fn(string $k) => $k === 'wertverlust' ? 'Wertverlust' : ($tcoGruppen[$k]['name'] ?? $k);
@@ -45,7 +47,7 @@ $tcoVerkauft = ($tco['valueBasis'] ?? null) === 'sale' || ($tco['sale'] ?? null)
         </p>
         <?php endif; ?>
 
-        <?php if ($tco['shares']): ?>
+        <?php if ($tco['shares'] && ($tcoMitAnteilen ?? true)): ?>
         <div class="progress mb-3" style="height: 0.75rem" role="img" aria-label="Anteile an den Gesamtkosten">
             <?php foreach ($tco['shares'] as $s): ?>
                 <div class="progress-bar" style="width: <?= round((float)$s['share'], 2) ?>%; background-color: <?= $tcoFarbe($s['key']) ?>" title="<?= htmlspecialchars($tcoName($s['key'])) ?>"></div>

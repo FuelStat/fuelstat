@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Throwable $e) {
         $error = $e->getMessage() === 'email_already_exists'
             ? 'Diese E-Mail-Adresse wird bereits verwendet.'
-            : (tarifHinweis($e) ?? $e->getMessage());
+            : fehlerText($e);
     }
 }
 

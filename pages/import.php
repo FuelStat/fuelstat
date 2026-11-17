@@ -150,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $schritt === 'importieren' && $umge
             header('Location: ../' . fahrzeugSeite('eintraege', (string)($fahrzeug_id)));
             exit;
         } catch (Throwable $e) {
-            $error = tarifHinweis($e) ?? 'Import fehlgeschlagen: ' . $e->getMessage() . '. Bereits übertragene Pakete bleiben gespeichert; ein erneuter Import überspringt sie.';
+            $error = tarifHinweis($e) ?? 'Der Import ist abgebrochen. ' . fehlerText($e) . ' Bereits übertragene Pakete bleiben gespeichert; ein erneuter Import überspringt sie.';
         }
     }
 }

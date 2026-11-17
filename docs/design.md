@@ -617,6 +617,10 @@ entworfen**, nicht nachträglich.
 **Web: Seite nicht gefunden.** Eine eigene Seite im Aussehen der App (Kopfleiste, `EmptyState`, Titel „Seite nicht
 gefunden“, ein Satz, Knopf „Zur Startseite“), auch für Fehler 403 und 5xx der Seiten. Keine Server-Standardseite.
 
+**Umsetzung im Web (#211):** `pages/fehler.php` (403/404, über `error_page` in nginx) und die statische `fehler.html`
+(500–504, ohne PHP); Texte der Tabelle über `fehlerText()` in `includes/api_helpers.php`; beim Nachladen
+`js/zustaende.js` (Platzhalter nach 300 ms, Fehler mit „Erneut versuchen“, Ladezustand am Knopf).
+
 ### 8.2 Muster: Meldung, Kachelraster, Terminzeile
 
 Feste Muster, damit Bildschirme mit wechselndem Inhalt nicht verrutschen (#205). Gilt auf allen Plattformen; wie

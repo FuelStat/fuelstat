@@ -38,7 +38,7 @@ try {
         $_SESSION['success_message'] = 'Bauteil entfernt.';
     }
 } catch (Throwable $e) {
-    $_SESSION['error_message'] = $meldungen[$e->getMessage()] ?? $e->getMessage();
+    $_SESSION['error_message'] = $meldungen[$e->getMessage()] ?? fehlerText($e);
 }
 header('Location: ../' . fahrzeugSeite('service', (string)($fahrzeug_id)), true, 303);
 exit;

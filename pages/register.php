@@ -37,7 +37,7 @@ try {
                 } elseif ($msg === 'registration_disabled') {
                     $error = "Die Registrierung neuer Konten ist auf dieser Installation deaktiviert.";
                 } else {
-                    $error = $msg;
+                    $error = fehlerText($e);
                 }
             }
         }

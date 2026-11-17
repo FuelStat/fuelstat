@@ -30,7 +30,7 @@ $serviceUrl = '../pages/service_speichern.php';
         <div class="card-body">
             <span class="symbol-kreis symbol-kreis-token symbol-kreis-gross" style="--farbe: var(--fs-brand)" aria-hidden="true"><i class="fas fa-screwdriver-wrench"></i></span>
             <h2 class="h4">Noch keine Bauteile erfasst</h2>
-            <p class="mb-3">Wähle beim Erfassen einer Ausgabe der Art Werkstatt, Wartung, Reparatur, Inspektion oder Reifen, was gewechselt wurde (Motoröl, Bremsbeläge, Reifen …). Daraus entsteht hier die Historie mit Lebensdauer und nächstem Wechsel.</p>
+            <p class="text-body-secondary mb-3">Trag bei einer Wartung ein, was gewechselt wurde, dann siehst du hier Lebensdauer und nächsten Wechsel.</p>
             <?php if ($darfErfassen): ?><a class="btn btn-primary" href="../pages/eintrag_hinzufuegen.php?fahrzeug_id=<?= urlencode($fahrzeug_id) ?>&kategorie=Wartung"><i class="fas fa-plus" aria-hidden="true"></i>Wartung erfassen</a><?php endif; ?>
         </div>
     </div>

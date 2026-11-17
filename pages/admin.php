@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: admin.php');
         exit;
     } catch (Throwable $e) {
-        $error = $e->getMessage();
+        $error = fehlerText($e);
     }
 }
 
@@ -73,7 +73,7 @@ try {
     $benutzer = $api->getUsers();
 } catch (Throwable $e) {
     $benutzer = [];
-    $error = $e->getMessage();
+    $error = fehlerText($e);
 }
 try {
     $feedback = $api->getFeedback();

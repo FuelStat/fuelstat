@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: passkeys.php', true, 303);
         exit;
     } catch (Throwable $e) {
-        $error = $meldungen[$e->getMessage()] ?? $e->getMessage();
+        $error = $meldungen[$e->getMessage()] ?? fehlerText($e);
     }
 }
 
@@ -37,7 +37,7 @@ $liste = [];
 try {
     $liste = $api->getPasskeys();
 } catch (Throwable $e) {
-    $error = $error ?: $e->getMessage();
+    $error = $error ?: fehlerText($e);
 }
 
 $datum = function (?string $wert): string {

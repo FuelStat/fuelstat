@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ' . $zurueck);
         exit;
     } catch (Throwable $e) {
-        $fehler = tarifHinweis($e) ?? ($fehlertexte[$e->getMessage()] ?? $e->getMessage());
+        $fehler = $fehlertexte[$e->getMessage()] ?? fehlerText($e);
         $fahrt = array_merge($fahrt, [
             'start_place' => $_POST['startort'] ?? '', 'end_place' => $_POST['zielort'] ?? '', 'note' => $_POST['notiz'] ?? '',
             'purpose' => $_POST['zweck'] ?? 'private', 'odometer_start' => $_POST['tachostand_start'] ?? '',

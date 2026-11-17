@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $fehler = tarifHinweis($e) ?? ([
             'invitation_not_found' => 'Diese Einladung gibt es nicht (mehr).',
             'invitation_expired' => 'Diese Einladung ist abgelaufen oder wurde schon beantwortet.',
-        ][$e->getMessage()] ?? $e->getMessage());
+        ][$e->getMessage()] ?? fehlerText($e));
     }
 }
 

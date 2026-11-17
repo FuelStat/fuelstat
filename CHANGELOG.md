@@ -6,6 +6,9 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+### Neu
+- Eigener CO₂-Wert für Strom: Bei Elektroautos und Plug-in-Hybriden lässt sich in den Fahrzeugdaten ein eigener Wert in kg CO₂ je kWh eintragen, z. B. für Ökostrom oder Strom aus der eigenen PV-Anlage. Ohne Angabe rechnet Fuelstat weiter mit dem deutschen Strommix (#25).
+
 ### Behoben
 - CSV-Import: Die Spalte „Voll getankt/geladen“ aus dem eigenen Export wird wieder erkannt. Bisher galt beim erneuten Import jede Tankfüllung als Teilfüllung (#191).
 

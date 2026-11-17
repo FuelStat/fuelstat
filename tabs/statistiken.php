@@ -50,6 +50,8 @@ foreach ($einheitenDaten as $u => $ud) {
         'preis' => $a['avgPrice'] ?? null,
         // CO₂: gekaufte Menge × Emissionsfaktor (API)
         'co2_faktor' => $a['co2']['factor'] ?? null,
+        // vehicle: eigener Wert des Fahrzeugs für Strom (#25), default: Standardwert der API
+        'co2_quelle' => $a['co2']['source'] ?? null,
         'co2' => $a['co2']['totalKg'] ?? null,
     ];
 }
@@ -139,7 +141,9 @@ $co2Hinweise = [];
 foreach ($proEinheit as $u => $p) {
     if ($p['co2_faktor'] === null) continue;
     $co2Hinweise[] = $p['einheit'] === 'kwh'
-        ? 'Strom mit dem deutschen Strommix (' . $zahl($p['co2_faktor'], 3) . ' kg CO₂/kWh)'
+        ? (($p['co2_quelle'] ?? null) === 'vehicle'
+            ? 'Strom mit dem eigenen Wert des Fahrzeugs (' . $zahl($p['co2_faktor'], 3) . ' kg CO₂/kWh)'
+            : 'Strom mit dem deutschen Strommix (' . $zahl($p['co2_faktor'], 3) . ' kg CO₂/kWh)')
         : 'Direkte Emission bei der Verbrennung (' . $zahl($p['co2_faktor']) . ' kg CO₂/' . $p['kurz'] . ')';
 }
 $co2Hinweis = 'Berechnet: ' . implode(', ', $co2Hinweise);

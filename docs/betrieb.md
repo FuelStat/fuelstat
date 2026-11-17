@@ -103,7 +103,7 @@ Hinweis: Das PHP-Frontend liegt im Repository und nutzt den neuen Code schon ab 
 
 ## Datenbank-Migrationen
 
-Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält bereits alles bis einschließlich 028. Bestehende Installationen spielen alle noch fehlenden Migrationen der Reihe nach ein.
+Neue Installationen brauchen keine Migrationen: `postgres_init.sql` enthält bereits alles bis einschließlich 029. Bestehende Installationen spielen alle noch fehlenden Migrationen der Reihe nach ein.
 
 Migrationen werden entfernt, sobald alle bekannten Installationen sie eingespielt haben (während der Beta: tanken.1emc.de). Zuletzt entfernt: 002 bis 020, enthalten in `postgres_init.sql`. Eine Installation vor Version 0.11.0 lässt sich deshalb nicht mehr direkt aktualisieren; sie spielt zuerst Version 0.11.0 ein (`sudo infra/ausrollen.sh 0.11.0`, die Migrationen stehen im Tag).
 
@@ -117,6 +117,7 @@ Migrationen werden entfernt, sobald alle bekannten Installationen sie eingespiel
 | `postgres_026_parts.sql` | Service-Historie je Bauteil: `vehicle_parts` (eigene Bauteile), `expense_parts` (Bauteile an Einträgen), `vehicle_part_intervals` (#78) |
 | `postgres_027_vehicle_status.sql` | Fahrzeug-Lebenszyklus: `vehicles.status` (aktiv, verkauft, stillgelegt), `sale_odometer_km`, `decommissioned_from`, `decommissioned_until` (#79); alle bestehenden Fahrzeuge bleiben aktiv |
 | `postgres_028_residual_value.sql` | Gesamtkosten: `vehicles.residual_value` (geschätzter Restwert für den Wertverlust, #79) |
+| `postgres_029_electricity_co2.sql` | CO₂ beim Laden: `vehicles.electricity_co2_factor` (eigener Faktor für Strom in kg/kWh, z. B. Ökostrom oder PV, #25) |
 
 Alle Migrationen laufen in einer Transaktion und lassen sich gefahrlos ein zweites Mal ausführen. Mit `infra/ausrollen.sh` passiert das automatisch; von Hand wie unter [Aktualisieren](#von-hand-oder-ohne-registry), Schritt 4, z. B. `< ../backend/database/postgres_021_fuels.sql`.
 

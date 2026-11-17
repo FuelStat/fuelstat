@@ -2777,6 +2777,7 @@ paths:
                           type: object
                           properties:
                             factor: { type: number, nullable: true }
+                            source: { type: string, nullable: true, enum: [vehicle, default, null], description: "vehicle: eigener Strom-Wert des Fahrzeugs (#25), default: Standardwert" }
                             totalKg: { type: number, nullable: true }
                             gPerKm: { type: number, nullable: true }
                         segments:
@@ -4344,6 +4345,12 @@ components:
           type: number
           nullable: true
           description: "Geschätzter Restwert in € eines Fahrzeugs, das noch gefahren wird (#79); zusammen mit purchasePrice der Wertverlust in /tco"
+        electricityCo2Factor:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 2
+          description: "Eigener CO₂-Wert für Strom in kg/kWh (#25), z. B. Ökostrom oder PV; null = deutscher Strommix. Nicht gesendet = unverändert"
         serviceIntervalMonths:
           type: integer
           nullable: true
@@ -4496,6 +4503,12 @@ components:
           type: number
           nullable: true
           description: "Geschätzter Restwert in € eines Fahrzeugs, das noch gefahren wird (#79); zusammen mit purchasePrice der Wertverlust in /tco"
+        electricityCo2Factor:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 2
+          description: "Eigener CO₂-Wert für Strom in kg/kWh (#25), z. B. Ökostrom oder PV; null = deutscher Strommix. Nicht gesendet = unverändert"
         serviceIntervalMonths:
           type: integer
           nullable: true
@@ -4628,6 +4641,10 @@ components:
         residual_value:
           type: number
           nullable: true
+        electricity_co2_factor:
+          type: number
+          nullable: true
+          description: "Eigener CO₂-Wert für Strom in kg/kWh (#25); null = deutscher Strommix"
         status:
           type: string
           enum: [active, sold, decommissioned]

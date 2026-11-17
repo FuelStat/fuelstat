@@ -92,7 +92,7 @@ function primaryMetric(fuelType, costPer100km, mainUnit) {
 async function getVehicleConsumption(db, userId, vehicleId) {
   const stats = await getVehicleStats(db, userId, vehicleId);
   if (stats?.error) return null;
-  const v = await db.query('SELECT fuel_type, fuels, default_fuel FROM vehicles WHERE id = $1', [vehicleId]);
+  const v = await db.query('SELECT fuel_type, fuels, default_fuel, electricity_co2_factor FROM vehicles WHERE id = $1', [vehicleId]);
   const vehicle = v.rows[0] ?? {};
   const fuelType = vehicle.fuel_type ?? null;
   const { fuels: vehicleFuelList, defaultFuel } = vehicleFuels(vehicle);
@@ -120,7 +120,9 @@ async function getVehicleConsumption(db, userId, vehicleId) {
   const byEnergy = {};
   for (const energy of energies) {
     const unit = ENERGIES[energy]?.unit ?? 'l';
-    const factor = energyCo2(energy);
+    // Strom: eigener Faktor des Fahrzeugs (#25, z. B. Ökostrom oder PV), sonst der deutsche Strommix
+    const ownFactor = energy === 'electricity' && vehicle.electricity_co2_factor != null ? Number(vehicle.electricity_co2_factor) : null;
+    const factor = ownFactor ?? energyCo2(energy);
 
     // Abschnitte, älteste zuerst (stats liefert neueste zuerst)
     const segments = stats.segments
@@ -210,6 +212,8 @@ async function getVehicleConsumption(db, userId, vehicleId) {
       minor: false,
       co2: {
         factor,
+        // Woher der Faktor kommt: vehicle (eigener Wert des Fahrzeugs) oder default (Standardwert der API)
+        source: factor === null ? null : ownFactor !== null ? 'vehicle' : 'default',
         totalKg: factor === null ? null : round(amountBought * factor, 1),
         // g/km aus dem Ø-Verbrauch: l/100 km ÷ 100 × kg/l × 1000
         gPerKm: factor === null || avg === null ? null : round((avg / 100) * factor * 1000, 1)

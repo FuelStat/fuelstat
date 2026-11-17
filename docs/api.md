@@ -402,8 +402,9 @@ Authorization: Bearer <jwt>
 | `insuranceCompany`, `insurancePremium`, `insuranceDueMonth` (1–12) | | mit Monat: Erinnerung auch ohne Eintrag |
 | `taxAmount`, `taxDueMonth` (1–12) | | mit Monat: Erinnerung auch ohne Eintrag |
 | `tireSizeSummer`, `tireSizeWinter` | Text, max. 30 | |
+| `electricityCo2Factor` | Zahl 0–2, drei Nachkommastellen | eigener CO₂-Wert für Strom in kg/kWh (#25), z. B. Ökostrom oder PV; ohne Wert gilt der deutsche Strommix (0,363). Wirkt auf alle Ladevorgänge des Fahrzeugs (`/consumption`, Berichte) |
 
-`null` bzw. leer löscht einen Wert; ungültige Werte liefern 400 `invalid_<feld>` (z. B. `invalid_taxDueMonth`). Antworten enthalten die Felder als Spalten (`license_plate`, `first_registration`, …); Datumsfelder als `YYYY-MM-DD`.
+`null` bzw. leer löscht einen Wert, **ein nicht gesendetes Feld bleibt unverändert**; ungültige Werte liefern 400 `invalid_<feld>` (z. B. `invalid_taxDueMonth`). Antworten enthalten die Felder als Spalten (`license_plate`, `first_registration`, …); Datumsfelder als `YYYY-MM-DD`.
 
 ### GET /vehicles
 
@@ -618,7 +619,7 @@ Verbrauch, Mengen und CO₂ je Einheit (#82). Grundlage sind dieselben Full-to-F
     "l": {
       "unit": "l", "avg": 4, "min": 4, "max": 4,
       "kmConsumed": 1000, "amountConsumed": 40, "amountBought": 70, "cost": 122.5, "avgPrice": 1.75, "fillCount": 2,
-      "co2": { "factor": 2.37, "totalKg": 165.9, "gPerKm": 94.8 },
+      "co2": { "factor": 2.37, "source": "default", "totalKg": 165.9, "gPerKm": 94.8 },
       "segments": [{ "fullId": "<fillup-uuid>", "date": "2026-01-20", "month": "2026-01", "km": 1000, "amount": 40, "consumption": 4 }],
       "months": [{ "month": "2026-01", "km": 1000, "amount": 40, "consumption": 4 }],
       "years": [{ "year": 2026, "fillCount": 2, "amountBought": 70, "cost": 122.5, "amountConsumed": 40, "kmConsumed": 1000, "consumption": 4, "co2Kg": 165.9 }]
@@ -634,7 +635,7 @@ Verbrauch, Mengen und CO₂ je Einheit (#82). Grundlage sind dieselben Full-to-F
 * `units`: vorhandene Einheiten, die zur Antriebsart passende zuerst (Plug-in-Hybrid: Liter, dann kWh); ohne Einträge die Standardeinheit
 * `consumption`, `avg`, `min`, `max`: Einheit pro 100 km (l, kWh oder kg). Ein Abschnitt gehört zu Tag, Monat und Jahr der vollen Füllung, die ihn abschließt (Europe/Berlin). Monats-, Jahres- und Ø-Werte sind Menge ÷ Strecke aller Abschnitte im Zeitraum (nach km gewichtet), nicht der Mittelwert der Einzelwerte
 * `amountBought`, `cost`, `fillCount`: alle Tank-/Ladevorgänge, auch ohne Tachostand; `amountConsumed`, `kmConsumed`: nur abgeschlossene Abschnitte
-* CO₂: gekaufte Menge × Faktor (`factor` in kg je Einheit: Benzin 2,37, Diesel 2,65, Autogas 1,64, Erdgas 2,79, Strom 0,363 deutscher Strommix, Wasserstoff 0; Plug-in-Hybrid: Liter wie Benzin, kWh wie Strom); `gPerKm` aus dem Ø-Verbrauch. `null`, wenn kein Faktor bekannt ist
+* CO₂: gekaufte Menge × Faktor (`factor` in kg je Einheit: Benzin 2,37, Diesel 2,65, Autogas 1,64, Erdgas 2,79, Strom 0,363 deutscher Strommix, Wasserstoff 0; Plug-in-Hybrid: Liter wie Benzin, kWh wie Strom); `gPerKm` aus dem Ø-Verbrauch. `null`, wenn kein Faktor bekannt ist. Hat das Fahrzeug einen eigenen Wert für Strom (`electricityCo2Factor`, #25), gilt dieser für die kWh; `co2.source` sagt, woher der Faktor stammt (`vehicle` oder `default`, `null` ohne Faktor)
 * `electricShare`: Anteil der Ladekosten an den Energiekosten in %, nur bei mehreren Einheiten
 * **Je Energieart (#140):** `energies` (Energiearten mit Einträgen, die des Standards zuerst) und `byEnergy` mit denselben Feldern wie `byUnit`, dazu `name`, `costShare` (% der Energiekosten) und `minor` (unter 10 %: Verbrauch nicht als Wert zeigen). `byUnit[u].energy` sagt, welche Energieart dort steht. CO₂-Faktor je Energieart.
 * `byFuel` je Sorte: `fillCount`, `amount`, `cost`, `avgPrice`, `shareOfEnergy` (% der Menge der Energieart, z. B. 80 % Premium-Diesel) und bei Premium-Sorten `markup` (`perUnit`, `percent`, `basePrice`): Mehrpreis gegenüber dem mengengewichteten Ø Preis der übrigen Sorten derselben Energieart

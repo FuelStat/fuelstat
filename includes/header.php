@@ -192,6 +192,11 @@ $seitenInfo = [
 // Start nur „App“). tests/SeitentitelTest.php prüft, dass jede Seite hier steht.
 [$seitenTitel, $zurueckUrl] = $angemeldet && isset($seitenInfo[$skript]) ? $seitenInfo[$skript] : [null, null];
 $dokumentTitel = $seitenInfo[$skript][0] ?? null;
+// Fehlerseite (#211): Kopfleiste mit Logo wie ohne Anmeldung; die Überschrift steht schon in der Karte, und ohne
+// Zurück-Ziel wäre der Titel oben nur doppelt
+if ($skript === 'fehler.php') {
+    [$seitenTitel, $zurueckUrl] = [null, null];
+}
 
 // Aktiver Eintrag der unteren Leiste (Statistik wird auf der Fahrzeugseite per JS umgeschaltet)
 $tabbarAktiv = [

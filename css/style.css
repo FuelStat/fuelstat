@@ -1842,12 +1842,13 @@ details > summary {
     align-items: start;
     gap: var(--fs-space-xs) var(--fs-space-m);
 }
-.termin-zeile > .symbol-kreis { grid-row: span 2; }
+/* Nur mit Badge zwei Zeilen; ohne Badge (z. B. Reifen) entstünde sonst eine leere Zeile mit Abstand */
+.termin-zeile:has(> .badge) > .symbol-kreis { grid-row: span 2; }
 .termin-zeile > .badge { grid-column: 2; justify-self: start; margin-left: 0 !important; }
 .termin-text { min-width: 0; }
 @media (min-width: 576px) {
     .termin-zeile { grid-template-columns: auto minmax(0, 1fr) auto; }
-    .termin-zeile > .symbol-kreis { grid-row: auto; }
+    .termin-zeile:has(> .badge) > .symbol-kreis { grid-row: auto; }
     .termin-zeile > .badge { grid-column: 3; grid-row: 1; justify-self: end; margin-top: .125rem; }
 }
 /* Letzter Eintrag mit Beschreibung: höchstens zwei Zeilen; Antippen bzw. Fokus zeigt den ganzen Text,
@@ -1860,7 +1861,8 @@ details > summary {
     overflow: hidden;
     cursor: pointer;
 }
-.termin-zuletzt:focus, .termin-zuletzt:focus-visible { -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; outline: none; }
+.termin-zuletzt:focus { -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; }
+.termin-zuletzt:focus-visible { outline: 2px solid var(--fs-brand); outline-offset: 2px; border-radius: 2px; }
 
 /* Statistik: Höhepunkte (sparsamster Monat usw.) als Zeile mit Symbolkreis auf der Kartenfläche */
 .hoehepunkt {

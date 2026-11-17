@@ -5433,7 +5433,7 @@ components:
     Reminder:
       type: object
       additionalProperties: false
-      required: [title, category, kind, last, last_odometer_km, last_description, due_date, due_km, status, days, source]
+      required: [title, category, kind, group, last, last_odometer_km, last_description, due_date, due_km, status, days, source]
       properties:
         title: { type: string, example: "TÜV" }
         category: { type: string, example: "TUV" }
@@ -5446,6 +5446,7 @@ components:
         status: { type: string, enum: [ok, bald, ueberfaellig, unbekannt] }
         days: { type: integer, nullable: true }
         source: { type: string, nullable: true, enum: [eintrag, erstzulassung, faelligkeitsmonat, bauteil, lebensdauer, null], description: "bauteil und lebensdauer (#78) nur bei Zeilen zu Bauteilen: Intervall bzw. Schätzung aus der Ø-Lebensdauer (nie ueberfaellig, ohne Mail und Push)" }
+        group: { type: string, enum: [deadline, part, estimate, info], description: "Gruppe (#206), in dieser Reihenfolge: deadline (Fristen TÜV, Wartung, Versicherung, Steuer), part (Bauteil mit Intervall), estimate (Schätzung aus der Ø-Lebensdauer), info (letzter Reifenwechsel)" }
         part_key: { type: string, description: "Nur bei Bauteil-Zeilen (#78): Schlüssel des Bauteils; category ist dann part:<key>" }
         icon: { type: string, description: "Nur bei Bauteil-Zeilen (#78): Font-Awesome-Symbol" }
 

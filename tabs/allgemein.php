@@ -29,9 +29,12 @@ $fahrzeugDetails = array_filter([
 $verbrauchJeEinheit = count($stats['units'] ?? []) > 1 ? $stats['units'] : [];
 uksort($verbrauchJeEinheit, fn($a, $b) => array_search($a, ['l', 'kwh', 'kg']) <=> array_search($b, ['l', 'kwh', 'kg']));
 
-// Termine: dringendste zuerst, Reifen (nur Info, ohne Fälligkeit) zuletzt; alles aus /reminders (API-first)
+// Termine: erst die Fristen, dann die Bauteile (Gruppe aus /reminders, #206); innerhalb einer Gruppe die dringendsten
+// zuerst, die reine Info (letzter Reifenwechsel) zuletzt. Alles aus der API.
 $statusReihenfolge = ['ueberfaellig' => 0, 'bald' => 1, 'ok' => 2, 'unbekannt' => 3];
-usort($faelligkeiten, fn($a, $b) => [$a['art'] === 'info', $statusReihenfolge[$a['status']] ?? 9, $a['tage'] ?? PHP_INT_MAX] <=> [$b['art'] === 'info', $statusReihenfolge[$b['status']] ?? 9, $b['tage'] ?? PHP_INT_MAX]);
+$gruppeRang = fn(array $f) => ($f['gruppe'] ?? 'deadline') === 'deadline' ? 0 : 1;
+usort($faelligkeiten, fn($a, $b) => [$gruppeRang($a), $a['art'] === 'info', $statusReihenfolge[$a['status']] ?? 9, $a['tage'] ?? PHP_INT_MAX]
+    <=> [$gruppeRang($b), $b['art'] === 'info', $statusReihenfolge[$b['status']] ?? 9, $b['tage'] ?? PHP_INT_MAX]);
 // Tachostand und Beschreibung des letzten Eintrags, z. B. „zuletzt 12.03.2026 bei 61.200 km · Ölwechsel“
 $zuletzt = function (array $f, string $wort = 'zuletzt'): string {
     $teile = [$wort . ' ' . date('d.m.Y', strtotime($f['letzte'])) . (!empty($f['letzte_km']) ? ' bei ' . number_format((int)$f['letzte_km'], 0, ',', '.') . ' km' : '')];
@@ -173,7 +176,18 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                     <?php endif; ?>
                 </div>
                 <ul class="list-group list-group-flush">
+                    <?php
+                    // Zwischenüberschriften (#206): Fristen, dann Bauteile (mit Intervall, Schätzung, letzter Reifenwechsel);
+                    // nur wenn beide Gruppen vorkommen. Reihenfolge und Gruppe liefert die API.
+                    $gruppeName = fn(array $f) => ($f['gruppe'] ?? 'deadline') === 'deadline' ? 'Fristen' : 'Bauteile';
+                    $mitUeberschriften = count(array_unique(array_map($gruppeName, $faelligkeiten))) > 1;
+                    $letzteGruppe = null;
+                    ?>
                     <?php foreach ($faelligkeiten as $f):
+                        if ($mitUeberschriften && $gruppeName($f) !== $letzteGruppe):
+                            $letzteGruppe = $gruppeName($f); ?>
+                    <li class="list-group-item termin-gruppe"><h3 class="fs-label fw-semibold mb-0"><?= $letzteGruppe ?></h3></li>
+                    <?php endif;
                         // Status kommt aus der API; hier nur der Abstand in Worten („in 12 Tagen“, „seit 5 Tagen überfällig“)
                         $text = isset($f['tage']) && !empty($f['faellig_datum'])
                             ? (($f['quelle'] ?? '') === 'lebensdauer' ? 'ca. ' : '') . terminAbstand((int)$f['tage'])

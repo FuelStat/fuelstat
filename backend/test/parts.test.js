@@ -181,10 +181,13 @@ test('Termine (#78): Bauteile mit Intervall oder Lebensdauer; Schätzungen nie �
   await wechsel('2024-01-01', 40000, ['battery_12v']);
   await api('PUT', `/vehicles/${v.id}/part-intervals/oil`, { token, body: { intervalMonths: 12, intervalKm: 15000 } });
   const r = (await api('GET', `/vehicles/${v.id}/reminders`, { token })).body;
-  // Feste Termine bleiben, wie sie waren (vor den Bauteil-Zeilen)
-  assert.deepEqual(r.slice(0, 5).map((x) => x.title), ['TÜV', 'Wartung / Inspektion', 'Versicherung', 'Kfz-Steuer', 'Reifen']);
-  const teile = r.slice(5);
-  assert.deepEqual(teile.map((x) => x.category).sort(), ['part:oil', 'part:spark_plugs']);
+  // Gruppen (#206): Fristen, Bauteile mit Intervall, Schätzungen, zuletzt die Info-Zeile Reifen
+  assert.deepEqual(r.map((x) => [x.title, x.group]), [
+    ['TÜV', 'deadline'], ['Wartung / Inspektion', 'deadline'], ['Versicherung', 'deadline'], ['Kfz-Steuer', 'deadline'],
+    ['Motoröl & Filter', 'part'], ['Zündkerzen', 'estimate'], ['Reifen', 'info']
+  ]);
+  const teile = r.filter((x) => x.part_key);
+  assert.deepEqual(teile.map((x) => x.category), ['part:oil', 'part:spark_plugs']);
   const oel = teile.find((x) => x.part_key === 'oil');
   assert.deepEqual([oel.source, oel.status, oel.kind, oel.title], ['bauteil', 'ueberfaellig', 'due', 'Motoröl & Filter']);
   assert.equal(oel.last, '2022-01-01');
@@ -198,6 +201,23 @@ test('Termine (#78): Bauteile mit Intervall oder Lebensdauer; Schätzungen nie �
   const meine = faellig.filter((x) => x.vehicle_id === v.id && String(x.category).startsWith('part:'));
   assert.deepEqual(meine.map((x) => x.category), ['part:oil']);
   assert.ok(meine[0].ref.includes('part:oil'));
+});
+
+test('Termine (#206): Info-Zeile Reifen entfällt, wenn Sommer- oder Winterreifen als Bauteil einen Termin haben', async () => {
+  const token = await newUser();
+  const v = await newVehicle(token);
+  const reifen = (datum, km, parts, description) => entry(token, v.id, { category: 'Reifen', occurredAt: `${datum}T10:00:00Z`, odometerKm: km, parts, description });
+  // Ein Wechsel: noch keine Lebensdauer, also kein Bauteil-Termin; die Info-Zeile bleibt
+  await reifen('2025-04-10', 30000, ['tires_summer'], 'Sommerreifen montiert');
+  let r = (await api('GET', `/vehicles/${v.id}/reminders`, { token })).body;
+  assert.deepEqual(r.filter((x) => x.group === 'info').map((x) => [x.title, x.last_description]), [['Reifen', 'Sommerreifen montiert']]);
+  // Zweiter Wechsel: Sommerreifen haben eine Schätzung, die Info-Zeile würde denselben Wechsel wiederholen
+  await reifen('2026-04-12', 46000, ['tires_summer'], 'Sommerreifen montiert');
+  r = (await api('GET', `/vehicles/${v.id}/reminders`, { token })).body;
+  assert.equal(r.some((x) => x.category === 'Reifen'), false, 'keine doppelte Reifen-Zeile');
+  const sommer = r.find((x) => x.part_key === 'tires_summer');
+  assert.deepEqual([sommer.group, sommer.last, sommer.last_description], ['estimate', '2026-04-12', 'Sommerreifen montiert']);
+  assert.deepEqual(r.slice(0, 4).map((x) => x.group), ['deadline', 'deadline', 'deadline', 'deadline']);
 });
 
 test('Service-Übersicht: Historie, Kosten, Lebensdauer, Intervall, nächster Wechsel', async () => {

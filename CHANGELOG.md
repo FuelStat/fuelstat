@@ -8,9 +8,11 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ### Verbessert
 - Einheitliche Begriffe in allen Apps: Die Reiter der Fahrzeugseite heißen „Übersicht“, „Statistik“ und „Fahrzeugdaten“, der Knopf bei den Terminen „Wartung eintragen“, der reine Kilometereintrag „Kilometerstand“, die Liste „Fahrzeuge“ (im Wechsler „Fahrzeuge verwalten“) und die Zwei-Faktor-Anmeldung überall „Zwei-Faktor-Schutz“. Die Seite „Passkeys“ zeigt auf dem Handy ihren Titel (#206).
+- „Nächste Termine“ zeigt zuerst die Fristen (TÜV, Wartung, Versicherung, Steuer) und darunter die Bauteile; der letzte Reifenwechsel steht nicht mehr doppelt da, wenn Sommer- oder Winterreifen schon als Bauteil erscheinen (#206).
 - Leere Werte in Kacheln und Tabellen zeigen einen kurzen Strich „–“, den Screenreader als „keine Angabe“ vorlesen (#209).
 
 ### Technik
+- API: Termine (`/vehicles/:id/reminders`) haben das Feld `group` (`deadline`, `part`, `estimate`, `info`) und kommen in dieser Reihenfolge (#206).
 - Releases in einem Zug: `infra/veroeffentlichen.sh X.Y.Z` prüft den gemergten Release-PR und die CI, setzt das Tag, wartet auf GitHub-Release und API-Image, sichert und rollt aus. `infra/ausrollen.sh` bricht früh mit einer klaren Meldung ab, wenn ein Tag auf dem falschen Commit steht.
 
 ## [0.13.1] - 2026-11-17

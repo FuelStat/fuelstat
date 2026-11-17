@@ -1846,6 +1846,13 @@ details > summary {
 .termin-zeile:has(> .badge) > .symbol-kreis { grid-row: span 2; }
 .termin-zeile > .badge { grid-column: 2; justify-self: start; margin-left: 0 !important; }
 .termin-text { min-width: 0; }
+/* Gruppen der Termine (#206): Zwischenüberschrift „Fristen“ bzw. „Bauteile“, ohne eigene Fläche */
+.list-group-item.termin-gruppe {
+    padding-top: var(--fs-space-m);
+    padding-bottom: var(--fs-space-xxs);
+    border-bottom-width: 0;
+    color: var(--fs-text-secondary);
+}
 @media (min-width: 576px) {
     .termin-zeile { grid-template-columns: auto minmax(0, 1fr) auto; }
     .termin-zeile:has(> .badge) > .symbol-kreis { grid-row: auto; }

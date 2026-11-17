@@ -617,6 +617,7 @@ function getFaelligkeitenFromApi($api, string $vehicleId): array
         'teil' => $r['part_key'] ?? null, // nur bei Bauteil-Terminen (#78)
         'symbol' => $r['icon'] ?? null,
         'art' => $r['kind'] ?? 'due', // due: Termin mit Fälligkeit, info: nur letzter Eintrag (Reifen)
+        'gruppe' => $r['group'] ?? null, // deadline | part | estimate | info (#206), Reihenfolge kommt aus der API
         'letzte_km' => $r['last_odometer_km'] ?? null,
         'letzte_beschreibung' => $r['last_description'] ?? null,
     ], $liste);

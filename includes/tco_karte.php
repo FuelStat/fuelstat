@@ -14,23 +14,23 @@ $tcoVerkauft = ($tco['valueBasis'] ?? null) === 'sale' || ($tco['sale'] ?? null)
         <a class="btn btn-sm btn-outline-secondary" target="_blank" href="../pages/bericht_gesamtkosten.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>"><i class="fas fa-print me-1" aria-hidden="true"></i>Bericht</a>
     </div>
     <div class="card-body">
-        <div class="row g-2 g-md-3 mb-3">
-            <div class="col-6 col-lg-3"><div class="kennzahl">
+        <div class="kennzahl-raster kennzahl-raster-4 kennzahl-raster-weit mb-3">
+            <div><div class="kennzahl">
                 <div class="fs-label">Gesamtkosten</div>
                 <div class="kennzahl-wert"><?= $tcoZahl($tco['total']) ?> <small class="fw-normal">€</small></div>
                 <div class="small text-body-secondary"><?= !empty($tco['complete']) ? 'mit Wertverlust' : 'ohne Wertverlust' ?></div>
             </div></div>
-            <div class="col-6 col-lg-3"><div class="kennzahl">
+            <div><div class="kennzahl">
                 <div class="fs-label">Pro Monat</div>
                 <div class="kennzahl-wert"><?= $tco['perMonth'] !== null ? $tcoZahl($tco['perMonth']) . ' <small class="fw-normal">€</small>' : '—' ?></div>
                 <div class="small text-body-secondary"><?= $tco['ownershipMonths'] !== null ? $tcoZahl($tco['ownershipMonths'], 1) . ' Monate Besitzzeit' : 'noch keine Besitzzeit' ?></div>
             </div></div>
-            <div class="col-6 col-lg-3"><div class="kennzahl">
+            <div><div class="kennzahl">
                 <div class="fs-label">Pro Kilometer</div>
                 <div class="kennzahl-wert"><?= $tco['perKm'] !== null ? $tcoZahl($tco['perKm']) . ' <small class="fw-normal">€/km</small>' : '—' ?></div>
                 <div class="small text-body-secondary"><?= $tco['distanceKm'] ? $tcoZahl($tco['distanceKm'], 0) . ' km gefahren' : 'Tachostände fehlen' ?></div>
             </div></div>
-            <div class="col-6 col-lg-3"><div class="kennzahl">
+            <div><div class="kennzahl">
                 <div class="fs-label">Wertverlust</div>
                 <div class="kennzahl-wert"><?= $tco['valueLoss'] !== null ? $tcoZahl($tco['valueLoss']) . ' <small class="fw-normal">€</small>' : '—' ?></div>
                 <div class="small text-body-secondary"><?= $tco['valueLossPerYear'] !== null ? $tcoZahl($tco['valueLossPerYear'], 0) . ' € pro Jahr' : 'nicht berechenbar' ?></div>

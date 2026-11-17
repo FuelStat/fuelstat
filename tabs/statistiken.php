@@ -92,7 +92,7 @@ $rateJahre = array_column($ratePerioden['years'] ?? [], null, 'period');
 $rateMonate = array_values(array_filter(array_reverse($ratePerioden['months'] ?? []), fn($m) => $m['costPer100km'] !== null));
 $kostenTile = function () use ($kostenHaupt, $energieKosten, $stromAnteil, $zahl, $ratePerioden) {
     ob_start(); ?>
-        <div class="col-6 col-lg-3">
+        <div>
             <div class="kennzahl">
                 <div class="small text-body-secondary">Energiekosten</div>
                 <div class="kennzahl-wert"><?= $kostenHaupt ?? '—' ?></div>
@@ -175,11 +175,11 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
     <?php else: ?>
 
     <!-- Kennzahlen -->
-    <div class="row g-2 g-md-3 mb-3">
+    <div class="kennzahl-raster kennzahl-raster-4 kennzahl-raster-weit mb-3">
         <?php if ($mehrereEinheiten): ?>
         <?php if ($kostenHaupt !== null) { echo $kostenTile(); } ?>
         <?php foreach ($proEinheit as $u => $p): ?>
-        <div class="col-6 col-lg-3">
+        <div>
             <div class="kennzahl">
                 <div class="small text-body-secondary">Ø <?= htmlspecialchars($p['name']) ?></div>
                 <?php if ($p['nebenbei']): ?>
@@ -194,7 +194,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
         </div>
         <?php endforeach; ?>
         <?php if ($kostenHaupt === null): ?>
-        <div class="col-6 col-lg-3">
+        <div>
             <div class="kennzahl">
                 <div class="small text-body-secondary"><?= $begriffe['kosten'] ?></div>
                 <div class="kennzahl-wert"><?= $kraftstoffKostenProKm !== null ? $zahl($kraftstoffKostenProKm * 100) . ' <small class="fw-normal">€/100 km</small>' : '—' ?></div>
@@ -203,7 +203,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
         </div>
         <?php endif; ?>
         <?php else: ?>
-        <div class="col-6 col-lg-3">
+        <div>
             <div class="kennzahl">
                 <div class="small text-body-secondary">Ø Verbrauch</div>
                 <div class="kennzahl-wert"><?= $durchschnittVerbrauch !== null ? $zahl($durchschnittVerbrauch) . ' <small class="fw-normal">' . $haupt['kurz'] . '/100 km</small>' : '—' ?></div>
@@ -211,14 +211,14 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                 <?php if ($haupt['summe']): ?><div class="small text-body-secondary">aus der Summe aller <?= $begriffe['vorgaenge'] ?>, ohne vollen Abschnitt</div><?php endif; ?>
             </div>
         </div>
-        <div class="col-6 col-lg-3">
+        <div>
             <div class="kennzahl">
                 <div class="small text-body-secondary"><?= $begriffe['kosten'] ?></div>
                 <div class="kennzahl-wert"><?= $kraftstoffKostenProKm !== null ? $zahl($kraftstoffKostenProKm * 100) . ' <small class="fw-normal">€/100 km</small>' : '—' ?></div>
                 <?php if ($durchschnittPreis !== null): ?><div class="small text-body-secondary">Ø <?= $zahl($durchschnittPreis, 3) ?> €/<?= $haupt['kurz'] ?></div><?php endif; ?>
             </div>
         </div>
-        <div class="col-6 col-lg-3">
+        <div>
             <div class="kennzahl">
                 <div class="small text-body-secondary"><?= $begriffe['menge_gesamt'] ?></div>
                 <div class="kennzahl-wert"><?= $zahl($gekauftMenge, 0) ?> <small class="fw-normal"><?= $haupt['kurz'] ?></small></div>
@@ -226,7 +226,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
             </div>
         </div>
         <?php endif; ?>
-        <div class="col-6 col-lg-3">
+        <div>
             <div class="kennzahl" title="<?= htmlspecialchars($co2Hinweis) ?>">
                 <div class="small text-body-secondary">CO₂ gesamt</div>
                 <div class="kennzahl-wert"><?= $co2Gesamt !== null ? $zahl($co2Gesamt / 1000) . ' <small class="fw-normal">t</small>' : '—' ?></div>

@@ -173,29 +173,29 @@ $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'gesamt';
     <?php else: ?>
 
     <!-- Kennzahlen -->
-    <div class="row g-2 g-md-3 mb-3">
-        <div class="col-6 col-lg-3">
+    <div class="kennzahl-raster kennzahl-raster-4 kennzahl-raster-weit mb-3">
+        <div>
             <div class="kennzahl">
                 <div class="small text-body-secondary">Ausgaben</div>
                 <div class="kennzahl-wert"><?= $zahl($gesamt) ?> <small class="fw-normal">€</small></div>
                 <div class="small text-body-secondary"><?= count($eintraege) ?> <?= count($eintraege) === 1 ? 'Eintrag' : 'Einträge' ?></div>
             </div>
         </div>
-        <div class="col-6 col-lg-3">
+        <div>
             <div class="kennzahl">
                 <div class="small text-body-secondary">Ø pro Monat</div>
                 <div class="kennzahl-wert"><?= $proMonat !== null ? $zahl($proMonat) . ' <small class="fw-normal">€</small>' : '—' ?></div>
                 <div class="small text-body-secondary"><?= $monate ?> <?= $monate === 1 ? 'Monat' : 'Monate' ?></div>
             </div>
         </div>
-        <div class="col-6 col-lg-3">
+        <div>
             <div class="kennzahl" title="Alle Ausgaben geteilt durch die gefahrenen Kilometer im Zeitraum">
                 <div class="small text-body-secondary">Kosten pro km</div>
                 <div class="kennzahl-wert"><?= $proKm !== null ? $zahl($proKm) . ' <small class="fw-normal">€/km</small>' : '—' ?></div>
                 <div class="small text-body-secondary"><?= $km ? $zahl($km, 0) . ' km gefahren' : 'Tachostände fehlen' ?></div>
             </div>
         </div>
-        <div class="col-6 col-lg-3">
+        <div>
             <div class="kennzahl">
                 <div class="small text-body-secondary">Größter Posten</div>
                 <div class="kennzahl-wert text-truncate"><?= htmlspecialchars($kategorieName($groessteKategorie)) ?></div>

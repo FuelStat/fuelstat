@@ -11,6 +11,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ### Behoben
 - CSV-Import: Die Spalte „Voll getankt/geladen“ aus dem eigenen Export wird wieder erkannt. Bisher galt beim erneuten Import jede Tankfüllung als Teilfüllung (#191).
+- Darstellung auf dem Handy: Der Schließen-Knopf von Meldungen sitzt rechts auf Höhe des Textes, Kennzahl-Kacheln füllen jede Reihe (keine einzelne halbe Kachel mehr), und die Liste „Nächste Termine“ hat ein festes Muster mit Symbol an der Überschrift, Status darunter und höchstens zwei Zeilen Beschreibung (#205).
 
 ### Technik
 - API: Die Eintragsliste (`/vehicles/:id/timeline`) filtert mit `missing_odometer=1` Tank- und Ladevorgänge ohne echten Tachostand und nennt deren Anzahl (`missingOdometer`), damit die Apps fehlende Kilometerstände vollständig auflisten können (#187).

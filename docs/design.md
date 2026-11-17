@@ -613,6 +613,20 @@ entworfen**, nicht nachträglich.
 **Web: Seite nicht gefunden.** Eine eigene Seite im Aussehen der App (Kopfleiste, `EmptyState`, Titel „Seite nicht
 gefunden“, ein Satz, Knopf „Zur Startseite“), auch für Fehler 403 und 5xx der Seiten. Keine Server-Standardseite.
 
+### 8.2 Muster: Meldung, Kachelraster, Terminzeile
+
+Feste Muster, damit Bildschirme mit wechselndem Inhalt nicht verrutschen (#205). Gilt auf allen Plattformen; wie
+sie gebaut werden, entscheidet die Plattform.
+
+| Muster | Regel |
+|---|---|
+| **Meldung** (Erfolg, Warnung, Fehler) | Symbol, Text, Schließen-Knopf auf **einer** Linie; der Knopf sitzt rechts auf Höhe der ersten Textzeile und hat 44 × 44 Tippfläche, ohne die Meldung höher zu machen. Mehrzeiliger Text bricht neben dem Knopf um. |
+| **Kachelraster** (`StatTile`) | Handy zwei Kacheln je Reihe, breiter drei bzw. vier. Eine Reihe mit weniger Kacheln **füllt die Breite** (keine halbe Kachel allein, keine Lücke), Kacheln einer Reihe sind gleich hoch. Wie viele Kacheln es sind, hängt vom Fahrzeug ab und darf das Raster nicht verändern. |
+| **Terminzeile** (Symbol, Text, `StatusBadge`) | Alle Zeilen gleich aufgebaut. Handy: Symbol links **auf Höhe der Überschrift**, darunter Text, Badge unter dem Text bündig mit ihm. Breiter: Badge rechts oben. Der Zusatz „zuletzt … · Beschreibung“ hat höchstens zwei Zeilen; Antippen zeigt den ganzen Text, Screenreader lesen ihn immer ganz. |
+
+Im Web: `.alert-dismissible`, `.kennzahl-raster` (`-4` für vier Kacheln ab 992 px) und `.termin-zeile` mit
+`.termin-zuletzt` in `css/style.css`.
+
 ## 9. Plattform-Leitplanken
 
 **Fest auf allen Plattformen (Marke):** Farb-Tokens, Abstände, Radien, Schriftrollen, Begriffe und

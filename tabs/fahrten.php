@@ -125,17 +125,17 @@ if ($nurZeilen) {
     </div>
   <?php else: ?>
     <!-- Kennzahlen -->
-    <div class="row g-2 mb-3">
-      <div class="col-6 col-lg-3"><div class="kennzahl">
+    <div class="kennzahl-raster kennzahl-raster-4 mb-3">
+      <div><div class="kennzahl">
         <div>Gefahren · <?= (int)$fahrtSumme['count'] ?> <?= (int)$fahrtSumme['count'] === 1 ? 'Fahrt' : 'Fahrten' ?></div>
         <div class="kennzahl-wert"><?= $km($fahrtSumme['totalKm']) ?></div>
       </div></div>
-      <div class="col-6 col-lg-3"><div class="kennzahl">
+      <div><div class="kennzahl">
         <div>Anteil dienstlich</div>
         <div class="kennzahl-wert"><?= $fahrtSumme['businessShare'] !== null ? number_format((float)$fahrtSumme['businessShare'], 1, ',', '.') . ' %' : '–' ?></div>
       </div></div>
       <?php foreach ($zwecke as $wert => $name): $z = $fahrtSumme['byPurpose'][$wert] ?? ['km' => 0, 'count' => 0, 'estimatedCost' => null]; if (!$z['count']) continue; ?>
-      <div class="col-6 col-lg-3"><div class="kennzahl">
+      <div><div class="kennzahl">
         <div><span class="farb-punkt" style="--farbe: <?= fahrtFarbe($wert) ?>" aria-hidden="true"></span><?= htmlspecialchars($name) ?></div>
         <div class="kennzahl-wert"><?= $km($z['km']) ?></div>
         <?php if ($z['estimatedCost'] !== null): ?><div title="Kosten pro km des Fahrzeugs × Strecke">≈ <?= number_format((float)$z['estimatedCost'], 2, ',', '.') ?> € geschätzt</div><?php endif; ?>

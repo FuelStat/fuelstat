@@ -449,6 +449,17 @@ a { text-underline-offset: .15em; }
     --bs-alert-padding-x: var(--fs-space-m);
     --bs-alert-padding-y: var(--fs-space-s);
 }
+/* Schließen-Knopf (#205): 44 × 44 px Tippfläche ohne Bootstraps Innenabstand (der den Knopf auf 84 px wachsen ließ),
+   rechts auf Höhe der ersten Textzeile; die Meldung wird dadurch nicht höher */
+.alert-dismissible { padding-right: calc(2.75rem + var(--fs-space-xs)); }
+.alert-dismissible .btn-close {
+    box-sizing: border-box;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    top: calc(var(--bs-alert-padding-y) + .75rem - 1.375rem);
+    right: 0;
+}
 .alert-success { --bs-alert-bg: rgba(var(--fs-status-ok-rgb), .12); }
 .alert-warning { --bs-alert-bg: rgba(var(--fs-status-soon-rgb), .14); }
 .alert-danger { --bs-alert-bg: rgba(var(--fs-status-overdue-rgb), .12); }
@@ -1092,6 +1103,26 @@ body.mit-tabbar {
 .kennzahl-wert .fw-normal {
     font: var(--fs-font-unit);
     color: var(--fs-text-secondary);
+}
+
+/* Kachelraster (#205): zwei Kacheln je Reihe auf dem Handy, drei ab md (mit -4: vier ab lg). Eine Reihe mit weniger
+   Kacheln füllt die Breite (flex-grow), es bleibt also nie eine halbe Kachel allein; Kacheln einer Reihe sind gleich hoch. */
+.kennzahl-raster {
+    --kachel-abstand: var(--fs-space-xs);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--kachel-abstand);
+}
+.kennzahl-raster > * {
+    flex: 1 1 calc(50% - var(--kachel-abstand));
+    min-width: 0;
+}
+@media (min-width: 768px) {
+    .kennzahl-raster.kennzahl-raster-weit { --kachel-abstand: var(--fs-space-m); }
+    .kennzahl-raster:not(.kennzahl-raster-4) > * { flex-basis: calc(33.333% - var(--kachel-abstand)); }
+}
+@media (min-width: 992px) {
+    .kennzahl-raster-4 > * { flex-basis: calc(25% - var(--kachel-abstand)); }
 }
 
 /* Kacheln direkt auf dem Seitenhintergrund bekommen die Kartenfläche */
@@ -1803,18 +1834,33 @@ details > summary {
     cursor: pointer;
 }
 
-/* Termin-Zeile: Symbol, Text, Status-Badge; wird es eng, rutscht das Badge in eine eigene Zeile */
+/* Termin-Zeile (#205): ein festes Muster für alle Zeilen. Handy: Symbol | Text, das Badge darunter bündig mit dem
+   Text. Ab 576 px steht das Badge rechts oben. Das Symbol sitzt auf Höhe der Überschrift, nicht mittig zur Zeile. */
 .termin-zeile {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
     gap: var(--fs-space-xs) var(--fs-space-m);
 }
-
-.termin-text {
-    flex: 1 1 9rem;
-    min-width: 0;
+.termin-zeile > .symbol-kreis { grid-row: span 2; }
+.termin-zeile > .badge { grid-column: 2; justify-self: start; margin-left: 0 !important; }
+.termin-text { min-width: 0; }
+@media (min-width: 576px) {
+    .termin-zeile { grid-template-columns: auto minmax(0, 1fr) auto; }
+    .termin-zeile > .symbol-kreis { grid-row: auto; }
+    .termin-zeile > .badge { grid-column: 3; grid-row: 1; justify-self: end; margin-top: .125rem; }
 }
+/* Letzter Eintrag mit Beschreibung: höchstens zwei Zeilen; Antippen bzw. Fokus zeigt den ganzen Text,
+   Screenreader lesen ihn immer ganz */
+.termin-zuletzt {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    cursor: pointer;
+}
+.termin-zuletzt:focus, .termin-zuletzt:focus-visible { -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; outline: none; }
 
 /* Statistik: Höhepunkte (sparsamster Monat usw.) als Zeile mit Symbolkreis auf der Kartenfläche */
 .hoehepunkt {

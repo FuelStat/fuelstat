@@ -13,7 +13,11 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - Reiter „Ausgaben“: Ohne gewähltes Jahr steht nur noch die Karte „Gesamtkosten“ mit Summe, pro Monat und pro Kilometer. Bisher standen dieselben Kennzahlen darunter noch einmal mit anderen Werten. Mit gewähltem Jahr erscheinen die Zahlen dieses Jahres unter „Ausgaben im Jahr …“ (#206).
 - Leere Werte in Kacheln und Tabellen zeigen einen kurzen Strich „–“, den Screenreader als „keine Angabe“ vorlesen (#209).
 
+### Sicherheit
+- Fahrzeug- und Profilbilder lassen sich nur noch aus eigenen Uploads setzen. Bisher nahm die API jede Adresse an; über ein geteiltes Fahrzeug hätte so ein Bild von einem fremden Server die IP-Adresse der anderen verraten können. Solche Adressen werden beim Update entfernt, das Bild fällt dann auf den Platzhalter zurück. Beim Löschen eines Kontos werden nur noch dessen eigene Dateien entfernt (#196).
+
 ### Technik
+- API: `imageUrl` (Fahrzeuge) und `profileImageUrl` (Konto) antworten bei fremden Adressen und Dateien anderer Konten mit 400 `invalid_imageUrl` bzw. `invalid_profileImageUrl` (#196).
 - API: Termine (`/vehicles/:id/reminders`) haben das Feld `group` (`deadline`, `part`, `estimate`, `info`) und kommen in dieser Reihenfolge (#206).
 - Releases in einem Zug: `infra/veroeffentlichen.sh X.Y.Z` prüft den gemergten Release-PR und die CI, setzt das Tag, wartet auf GitHub-Release und API-Image, sichert und rollt aus. `infra/ausrollen.sh` bricht früh mit einer klaren Meldung ab, wenn ein Tag auf dem falschen Commit steht.
 

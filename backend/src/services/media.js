@@ -65,6 +65,30 @@ function normalizeInput(value) {
   return NAME_RE.test(name) ? `${MEDIA_BASE_URL}/${name}` : s;
 }
 
+/**
+ * Bildadresse aus einer Client-Eingabe prüfen (#196): erlaubt sind nur Dateien, die das Konto selbst hochgeladen hat
+ * (user_media oder vehicle_media), der bisherige Wert (unverändert zurückgeschickt) und null/leer zum Entfernen.
+ * Fremde Server, javascript:/data:-Adressen und Upload-Dateien anderer Konten sind ungültig.
+ * @param {import('pg').Pool|import('pg').PoolClient} db
+ * @param {*} value Eingabe (undefined = nicht gesendet)
+ * @param {{ accountId: string, current?: string|null }} opts Konto, dem die Datei gehören muss; gespeicherter Wert
+ * @returns {Promise<{ ok: boolean, value?: string|null }>} value: interne Adresse "/uploads/<name>" oder null
+ */
+async function checkOwnUpload(db, value, { accountId, current = null }) {
+  if (value === undefined) return { ok: true, value: undefined };
+  if (value === null || String(value).trim() === '') return { ok: true, value: null };
+  const stored = normalizeInput(String(value).trim());
+  if (!nameFromStored(stored)) return { ok: false };
+  if (current && stored === current) return { ok: true, value: stored };
+  const r = await db.query(
+    `SELECT 1 FROM user_media WHERE url = $1 AND user_id = $2
+     UNION ALL SELECT 1 FROM vehicle_media WHERE url = $1 AND user_id = $2
+     LIMIT 1`,
+    [stored, accountId]
+  );
+  return r.rowCount > 0 ? { ok: true, value: stored } : { ok: false };
+}
+
 const KEYS = new Set(['image_url', 'profile_image_url', 'url']);
 // Alle Bildadressen in einer API-Antwort signieren (Objekte und Listen beliebiger Tiefe)
 function signDeep(body, now = Date.now()) {
@@ -105,5 +129,5 @@ async function exists(p) {
 
 module.exports = {
   MEDIA_BASE_URL, FILES_PATH, MAX_EDGE, NAME_RE,
-  signedUrl, verify, normalizeInput, signDeep, optimizeImage, filePath, expiry, exists
+  signedUrl, verify, normalizeInput, checkOwnUpload, signDeep, optimizeImage, filePath, expiry, exists
 };

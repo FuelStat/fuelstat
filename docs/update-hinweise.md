@@ -8,6 +8,13 @@ Was beim Ausrollen einer Version zu tun ist, soweit es über `sudo infra/ausroll
 
 ## [Unreleased]
 
+- Migration `030_image_urls` (spielt `infra/ausrollen.sh` vor dem Neustart der API ein) leert Fahrzeug- und Profilbilder, die auf fremde Server oder `javascript:`/`data:` zeigen (#196). Wer vorher sehen will, ob es solche Einträge gibt (erwartet: 0):
+
+  ```bash
+  cd infra
+  sudo docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT (SELECT count(*) FROM vehicles WHERE image_url ~ '"'"'^\s*([A-Za-z][A-Za-z0-9+.-]*:|//)'"'"') AS fahrzeuge, (SELECT count(*) FROM users WHERE profile_image_url ~ '"'"'^\s*([A-Za-z][A-Za-z0-9+.-]*:|//)'"'"') AS profile"'
+  ```
+
 ## [0.13.1] - 2026-11-17
 
 - Nichts Besonderes: sichern (`sudo systemctl start fuelstat-backup.service`), dann `sudo infra/ausrollen.sh 0.13.1`. Das Skript spielt die neue Migration `029_electricity_co2` vor dem Neustart der API ein (eine neue, leere Spalte; mit dem alten API-Code verträglich). Die Mindest-App-Version bleibt bei iOS 0.2.2.

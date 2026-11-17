@@ -66,7 +66,6 @@ router.post('/vehicles', auth, async (req, res) => {
   const brand = req.body?.brand ? String(req.body.brand).trim() : null;
   const model = req.body?.model ? String(req.body.model).trim() : null;
   const year = optionalNumber(req.body?.year) ?? null;
-  const imageUrl = req.body?.imageUrl ? media.normalizeInput(String(req.body.imageUrl).trim()) : null;
   const odometerKm = optionalNumber(req.body?.odometerKm) ?? null;
   const mileageKm = optionalNumber(req.body?.mileageKm) ?? null;
   const tankCapacity = optionalNumber(req.body?.tankCapacity) ?? null;
@@ -96,6 +95,11 @@ router.post('/vehicles', auth, async (req, res) => {
   if (extras.error) return res.status(400).json({ error: extras.error });
 
   try {
+    // Bild nur aus eigenen Uploads (#196), z. B. vorher mit POST /media/upload hochgeladen
+    const bild = await media.checkOwnUpload(pool, req.body?.imageUrl, { accountId: req.user.sub });
+    if (!bild.ok) return res.status(400).json({ error: 'invalid_imageUrl' });
+    const imageUrl = bild.value ?? null;
+
     // Tarifgrenze (nur aktiv mit PLAN_LIMITS_ENABLED=true) für aktive Fahrzeuge; archivierte zählen nicht (#79).
     // Herabstufen löscht nichts, es verhindert nur neue Fahrzeuge.
     const u = await pool.query(
@@ -199,7 +203,7 @@ router.patch('/vehicles/:vehicleId', auth, async (req, res) => {
   const brand = optionalText(req.body?.brand);
   const model = optionalText(req.body?.model);
   const year = optionalNumber(req.body?.year);
-  const imageUrl = media.normalizeInput(optionalText(req.body?.imageUrl));
+  let imageUrl = req.body?.imageUrl === undefined ? undefined : optionalText(req.body.imageUrl);
   const odometerKm = optionalNumber(req.body?.odometerKm);
   const mileageKm = optionalNumber(req.body?.mileageKm);
   const tankCapacity = optionalNumber(req.body?.tankCapacity);
@@ -274,8 +278,14 @@ router.patch('/vehicles/:vehicleId', auth, async (req, res) => {
     // Sorten (#140): geänderte Antriebsart ohne Sortenliste setzt die Sorten der neuen Antriebsart; der Standard
     // bleibt, solange er in der Liste ist
     const cur = (await pool.query(
-      'SELECT fuel_type, fuels, default_fuel, status, sale_date, decommissioned_from, decommissioned_until FROM vehicles WHERE id = $1', [vehicleId]
+      'SELECT fuel_type, fuels, default_fuel, status, sale_date, decommissioned_from, decommissioned_until, image_url FROM vehicles WHERE id = $1', [vehicleId]
     )).rows[0];
+    // Bild nur aus eigenen Uploads des Besitzers (#196); der bisherige Wert darf unverändert zurückkommen
+    if (imageUrl !== undefined) {
+      const bild = await media.checkOwnUpload(pool, imageUrl, { accountId: req.user.sub, current: cur.image_url });
+      if (!bild.ok) return res.status(400).json({ error: 'invalid_imageUrl' });
+      imageUrl = bild.value;
+    }
     // Archivierte Fahrzeuge (#79) sind nur lesbar: erlaubt sind der Status, die Angaben zu Verkauf und Stilllegung und die
     // Reihenfolge; alles andere erst nach dem Wiederaktivieren (auch zusammen mit dem Statuswechsel in einer Anfrage)
     if (vehicleStatus.isArchived(cur.status)) {

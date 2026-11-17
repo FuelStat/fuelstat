@@ -46,7 +46,7 @@ $shareName = fn(string $k) => $k === 'wertverlust' ? 'Wertverlust' : ($gruppen[$
 <body class="p-4">
     <div class="no-print mb-4 d-flex gap-2">
         <button class="btn btn-primary" onclick="window.print()">Drucken / als PDF speichern</button>
-        <a class="btn btn-outline-secondary" href="fahrzeug_detail.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>#ausgaben">Zurück</a>
+        <a class="btn btn-outline-secondary" href="../<?= htmlspecialchars(fahrzeugSeite('kosten', (string)($fahrzeug_id))) ?>">Zurück</a>
     </div>
 
     <h1 class="h3 mb-1">Gesamtkosten: <?= htmlspecialchars($fahrzeug['name'] ?? 'Fahrzeug') ?></h1>

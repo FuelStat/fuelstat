@@ -55,7 +55,8 @@
     } elseif ($faellig) {
         $hinweis = count($faellig) . ' Termine ' . ($ueberfaellig ? 'fällig' : 'bald fällig');
     }
-    $detailLink = 'fahrzeug_detail.php?id=' . urlencode($vehicleId);
+    // Aktive Fahrzeuge öffnen Start mit diesem Fahrzeug, archivierte ihre Fahrzeugdaten (#206)
+    $detailLink = '../' . fahrzeugSeite($archiviert ? 'fahrzeugdaten' : 'uebersicht', (string)$vehicleId);
 ?>
 <div class="col">
     <article class="card fahrzeug-karte h-100">

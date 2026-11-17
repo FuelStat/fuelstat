@@ -12,7 +12,7 @@ try {
     $csv = getApiClient()->getTripsCsv($fahrzeugId, $jahr);
 } catch (Throwable $e) {
     $_SESSION['error_message'] = tarifHinweis($e) ?? 'Der Export ist fehlgeschlagen.';
-    header('Location: fahrzeug_detail.php?id=' . urlencode($fahrzeugId) . '#fahrten');
+    header('Location: ../' . fahrzeugSeite('fahrten', (string)($fahrzeugId)));
     exit;
 }
 header('Content-Type: text/csv; charset=utf-8');

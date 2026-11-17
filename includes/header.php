@@ -10,20 +10,21 @@ $api = getApiClient();
 if (isApiAuthenticated()) {
     $vorabSkript = basename($_SERVER['SCRIPT_NAME'] ?? '');
     $vorab = ['/whoami', FuelstatApi::ersteSeite('/vehicles')];
-    $vorabId = (string)($_GET['fahrzeug_id'] ?? ($vorabSkript === 'fahrzeug_detail.php' ? ($_GET['id'] ?? '') : ''));
+    // Ansichten eines Fahrzeugs (#206) tragen die ID in ?id=
+    $ansichtSkripte = ['eintraege.php', 'statistik.php', 'service.php', 'fahrten.php', 'fahrzeugdaten.php'];
+    $vorabId = (string)($_GET['fahrzeug_id'] ?? (in_array($vorabSkript, $ansichtSkripte, true) ? ($_GET['id'] ?? '') : ''));
     // Start (#158): gewähltes bzw. zuletzt genutztes Fahrzeug mit Kennzahlen, Terminen und letzten Einträgen
     $startId = $vorabSkript === 'index.php' ? (string)($_GET['fahrzeug'] ?? ($_COOKIE['fuelstat_fahrzeug'] ?? '')) : '';
     if ($startId !== '' && preg_match('/^[0-9a-f-]{36}$/', $startId)) {
         $p = '/vehicles/' . rawurlencode($startId);
         array_push($vorab, $p . '/stats', $p . '/reminders', $p . '/costs', $p . '/timeline?per_page=5');
     }
-    if ($vorabId !== '' && in_array($vorabSkript, ['fahrzeug_detail.php', 'eintrag_hinzufuegen.php'], true)) {
+    if ($vorabId !== '' && in_array($vorabSkript, [...$ansichtSkripte, 'eintrag_hinzufuegen.php'], true)) {
         $p = '/vehicles/' . rawurlencode($vorabId);
         array_push($vorab, $p, $p . '/stats');
-        if ($vorabSkript === 'fahrzeug_detail.php') {
-            // Reiter „Allgemein“; die übrigen Reiter laden erst beim Öffnen (#160)
-            array_push($vorab, $p . '/reminders', $p . '/costs');
-        } else {
+        if ($vorabSkript === 'service.php') {
+            $vorab[] = $p . '/reminders';
+        } elseif ($vorabSkript === 'eintrag_hinzufuegen.php') {
             $vorab[] = $p . '/fillups?per_page=100';
         }
     }
@@ -98,7 +99,8 @@ $userVehicles = array_values(array_filter($alleFahrzeuge, fn($v) => $v['status']
 $skript = basename($_SERVER['SCRIPT_NAME'] ?? '');
 
 // Fahrzeug, um das es auf der aktuellen Seite geht (nur eigene Fahrzeuge)
-$kontextId = (string)($_GET['fahrzeug_id'] ?? (in_array($skript, ['fahrzeug_detail.php', 'fahrzeug_bearbeiten.php', 'import.php'], true) ? ($_GET['id'] ?? '') : ''));
+$ansichtSkripte = ['eintraege.php', 'statistik.php', 'service.php', 'fahrten.php', 'fahrzeugdaten.php'];
+$kontextId = (string)($_GET['fahrzeug_id'] ?? (in_array($skript, [...$ansichtSkripte, 'fahrzeug_bearbeiten.php', 'import.php'], true) ? ($_GET['id'] ?? '') : ''));
 $kontextFahrzeug = null;
 foreach ($alleFahrzeuge as $vehicle) {
     if ($kontextId !== '' && (string)$vehicle['id'] === $kontextId) {
@@ -122,12 +124,17 @@ if ($angemeldet && $skript === 'index.php' && $userVehicles) {
     }
     $kontextFahrzeug = $startFahrzeug;
 }
-$detailUrl = $kontextFahrzeug ? 'pages/fahrzeug_detail.php?id=' . urlencode($kontextFahrzeug['id']) : null;
-$eintraegeUrl = $detailUrl ? $detailUrl . '#eintraege' : null;
+$detailUrl = $kontextFahrzeug ? fahrzeugSeite('fahrzeugdaten', $kontextFahrzeug['id']) : null;
+$eintraegeUrl = $kontextFahrzeug ? fahrzeugSeite('eintraege', $kontextFahrzeug['id']) : null;
 
 // [Titel, Zurück-Link relativ zu $baseUrl]
 $seitenInfo = [
-    'fahrzeug_detail.php'      => [$kontextFahrzeug['modell'] ?? 'Fahrzeug', 'index.php'],
+    // Ansichten eines Fahrzeugs (#206): Einträge und Statistik sind Bereiche der Leiste, die übrigen liegen hinter Start
+    'eintraege.php'            => ['Einträge', null],
+    'statistik.php'            => ['Statistik', null],
+    'service.php'              => ['Service', 'index.php'],
+    'fahrten.php'              => ['Fahrten', 'index.php'],
+    'fahrzeugdaten.php'        => ['Fahrzeugdaten', 'index.php'],
     'fahrzeug_hinzufuegen.php' => ['Neues Fahrzeug', 'index.php'],
     'fahrzeuge.php'            => ['Fahrzeuge', 'index.php'],
     'passkeys.php'             => ['Passkeys', null],
@@ -151,23 +158,30 @@ $seitenInfo = [
     'nutzungsbedingungen.php'  => ['Nutzungsbedingungen', null],
     'passwort_vergessen.php'   => ['Passwort vergessen', null],
     'passwort_zuruecksetzen.php' => ['Neues Passwort', null],
-    'fahrt.php'                => ['Fahrt', 'fahrzeug_detail.php?id=' . urlencode((string)($_GET['fahrzeug_id'] ?? '')) . '#fahrten'],
+    'fahrt.php'                => ['Fahrt', fahrzeugSeite('fahrten', (string)($_GET['fahrzeug_id'] ?? ''))],
 ];
 [$seitenTitel, $zurueckUrl] = $angemeldet && isset($seitenInfo[$skript]) ? $seitenInfo[$skript] : [null, null];
 
 // Aktiver Eintrag der unteren Leiste (Statistik wird auf der Fahrzeugseite per JS umgeschaltet)
 $tabbarAktiv = [
-    'index.php' => 'uebersicht',
-    'fahrzeug_detail.php' => 'fahrzeuge', 'fahrzeug_bearbeiten.php' => 'fahrzeuge', 'fahrzeuge.php' => 'fahrzeuge',
-    'fahrzeug_hinzufuegen.php' => 'fahrzeuge', 'import.php' => 'fahrzeuge',
+    // Leiste (#206, docs/design.md 7.1): Start · Einträge · ＋ · Statistik · Profil. Service, Fahrten und Fahrzeugdaten
+    // liegen hinter Start, die Liste der Fahrzeuge unter Profil.
+    'index.php' => 'uebersicht', 'service.php' => 'uebersicht', 'fahrten.php' => 'uebersicht', 'fahrt.php' => 'uebersicht',
+    'fahrzeugdaten.php' => 'uebersicht', 'fahrzeug_bearbeiten.php' => 'uebersicht',
+    'eintraege.php' => 'eintraege', 'import.php' => 'eintraege', 'tachostand_nachtragen.php' => 'eintraege',
+    'statistik.php' => 'statistik',
     'eintrag_hinzufuegen.php' => 'eintrag', 'eintrag_bearbeiten.php' => 'eintrag', 'schnell.php' => 'eintrag',
+    'fahrzeuge.php' => 'profil', 'fahrzeug_hinzufuegen.php' => 'profil', 'passkeys.php' => 'profil',
     'einstellungen.php' => 'profil', 'passwort_aendern.php' => 'profil', 'mfa_einrichten.php' => 'profil',
     'benachrichtigungen.php' => 'profil', 'admin.php' => 'profil', 'feedback.php' => 'profil',
-    'kategorien.php' => 'profil', 'neuigkeiten.php' => 'profil', 'email_bestaetigen.php' => 'profil', 'einladungen.php' => 'profil', 'fahrt.php' => 'fahrzeuge',
+    'kategorien.php' => 'profil', 'neuigkeiten.php' => 'profil', 'email_bestaetigen.php' => 'profil', 'einladungen.php' => 'profil',
 ][$skript] ?? null;
 
 // Ziel von "+ Eintrag" und "Statistik": aktuelles Fahrzeug, das einzige Fahrzeug oder Auswahl im Blatt
-$zielFahrzeug = ($kontextFahrzeug && $kontextFahrzeug['status'] === 'active') ? $kontextFahrzeug : (count($userVehicles) === 1 ? $userVehicles[0] : null);
+$zielFahrzeug = ($kontextFahrzeug && $kontextFahrzeug['status'] === 'active') ? $kontextFahrzeug
+    : ($startFahrzeug ?? (count($userVehicles) === 1 ? $userVehicles[0] : null));
+// Ziel von „Einträge“ und „Statistik“ (#206): das Fahrzeug der Seite (auch archiviert), sonst wie „Eintrag erfassen“
+$bereichFahrzeug = $kontextFahrzeug ?? $zielFahrzeug;
 // Beta-Phase (Kennzeichen neben dem Logo) und Feedback-Link mit der aktuellen Seite als Kontext
 $betaPhase = istBetaPhase();
 $feedbackUrl = $baseUrl . 'pages/feedback.php' . ($skript !== 'feedback.php' ? '?von=' . rawurlencode($_SERVER['REQUEST_URI'] ?? '') : '');
@@ -246,7 +260,7 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
 
         <!-- Mobil: Aktionen rechts in der Kopfleiste -->
         <div class="d-flex d-lg-none align-items-center gap-1 ms-auto">
-            <?php if ($angemeldet && $skript === 'fahrzeug_detail.php' && $kontextFahrzeug): ?>
+            <?php if ($angemeldet && $skript === 'fahrzeugdaten.php' && $kontextFahrzeug && $kontextFahrzeug['status'] === 'active'): ?>
                 <a href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_bearbeiten.php?id=<?= htmlspecialchars(urlencode($kontextFahrzeug['id'])) ?>" class="kopf-symbol" aria-label="Fahrzeug bearbeiten">
                     <i class="fas fa-pen" aria-hidden="true"></i>
                 </a>
@@ -270,7 +284,7 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
             <ul class="dropdown-menu" aria-labelledby="fahrzeugeDropdown">
                 <?php foreach ($userVehicles as $vehicle): ?>
                     <li>
-                        <a class="dropdown-item<?= $kontextFahrzeug && $kontextFahrzeug['id'] === $vehicle['id'] ? ' active' : '' ?>" href="<?= htmlspecialchars($baseUrl) ?><?= $skript === 'index.php' ? 'index.php?fahrzeug=' : 'pages/fahrzeug_detail.php?id=' ?><?php echo htmlspecialchars(urlencode($vehicle['id'])); ?>"<?= $kontextFahrzeug && $kontextFahrzeug['id'] === $vehicle['id'] ? ' aria-current="true"' : '' ?>>
+                        <a class="dropdown-item<?= $kontextFahrzeug && $kontextFahrzeug['id'] === $vehicle['id'] ? ' active' : '' ?>" href="<?= htmlspecialchars($baseUrl . fahrzeugSeite(in_array($skript, $ansichtSkripte, true) ? ($skript === 'statistik.php' && ($_GET['teil'] ?? '') === 'kosten' ? 'kosten' : basename($skript, '.php')) : 'uebersicht', $vehicle['id'])) ?>"<?= $kontextFahrzeug && $kontextFahrzeug['id'] === $vehicle['id'] ? ' aria-current="true"' : '' ?>>
                             <i class="fas fa-car-side fa-fw" aria-hidden="true"></i><?php echo htmlspecialchars(trim($vehicle['marke'] . ' ' . $vehicle['modell'])); ?>
                         </a>
                     </li>
@@ -313,11 +327,29 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
                         <i class="fas fa-house" aria-hidden="true"></i>
                     </a>
                 </li>
-                <?php if ($zielFahrzeug): ?>
+                <?php if ($bereichFahrzeug): $bid = $bereichFahrzeug['id']; ?>
                 <li>
-                    <a class="kopf-symbol" id="kopfStatistik" href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_detail.php?id=<?= htmlspecialchars(urlencode($zielFahrzeug['id'])) ?>#statistiken" aria-label="Statistik" data-tipp="Statistik">
+                    <a class="kopf-symbol<?= $tabbarAktiv === 'eintraege' ? ' active' : '' ?>" href="<?= htmlspecialchars($baseUrl . fahrzeugSeite('eintraege', $bid)) ?>" aria-label="Einträge" data-tipp="Einträge"<?= $tabbarAktiv === 'eintraege' ? ' aria-current="page"' : '' ?>>
+                        <i class="fas fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                </li>
+                <li>
+                    <a class="kopf-symbol<?= $tabbarAktiv === 'statistik' ? ' active' : '' ?>" id="kopfStatistik" href="<?= htmlspecialchars($baseUrl . fahrzeugSeite('statistik', $bid)) ?>" aria-label="Statistik" data-tipp="Statistik"<?= $tabbarAktiv === 'statistik' ? ' aria-current="page"' : '' ?>>
                         <i class="fas fa-chart-line" aria-hidden="true"></i>
                     </a>
+                </li>
+                <!-- Weitere Ansichten des Fahrzeugs (#206, docs/design.md 7.7): am PC als Menü „Fahrzeug“ -->
+                <li class="dropdown">
+                    <?php $fahrzeugMenueAktiv = in_array($skript, ['service.php', 'fahrten.php', 'fahrzeugdaten.php', 'fahrzeug_bearbeiten.php'], true); ?>
+                    <button type="button" class="kopf-symbol dropdown-toggle<?= $fahrzeugMenueAktiv ? ' active' : '' ?>" id="fahrzeugMenue" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Fahrzeug: Service, Fahrten, Fahrzeugdaten" data-tipp="Fahrzeug">
+                        <i class="fas fa-car-side" aria-hidden="true"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="fahrzeugMenue">
+                        <li><h6 class="dropdown-header text-truncate"><?= htmlspecialchars($bereichFahrzeug['modell']) ?></h6></li>
+                        <?php foreach (['service' => ['fa-screwdriver-wrench', 'Service'], 'fahrten' => ['fa-route', 'Fahrten'], 'fahrzeugdaten' => ['fa-file-lines', 'Fahrzeugdaten']] as $ansicht => [$symbol, $name]): ?>
+                        <li><a class="dropdown-item<?= $skript === $ansicht . '.php' ? ' active' : '' ?>" href="<?= htmlspecialchars($baseUrl . fahrzeugSeite($ansicht, $bid)) ?>"<?= $skript === $ansicht . '.php' ? ' aria-current="page"' : '' ?>><i class="fas <?= $symbol ?> fa-fw" aria-hidden="true"></i><?= $name ?></a></li>
+                        <?php endforeach; ?>
+                    </ul>
                 </li>
                 <?php endif; ?>
                 <li>
@@ -370,9 +402,15 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
     <a href="<?= htmlspecialchars($baseUrl) ?>index.php" class="tabbar-link<?= $tabbarAktiv === 'uebersicht' ? ' active' : '' ?>">
         <i class="fas fa-house" aria-hidden="true"></i><span>Start</span>
     </a>
-    <button type="button" id="tabbarFahrzeuge" class="tabbar-link<?= $tabbarAktiv === 'fahrzeuge' ? ' active' : '' ?>" data-bs-toggle="offcanvas" data-bs-target="#blattFahrzeuge" data-aktion="details">
-        <i class="fas fa-car"></i><span>Fahrzeuge</span>
+    <?php if ($bereichFahrzeug): ?>
+    <a href="<?= htmlspecialchars($baseUrl . fahrzeugSeite('eintraege', $bereichFahrzeug['id'])) ?>" id="tabbarEintraege" class="tabbar-link<?= $tabbarAktiv === 'eintraege' ? ' active' : '' ?>"<?= $tabbarAktiv === 'eintraege' ? ' aria-current="page"' : '' ?>>
+        <i class="fas fa-list-ul" aria-hidden="true"></i><span>Einträge</span>
+    </a>
+    <?php else: ?>
+    <button type="button" id="tabbarEintraege" class="tabbar-link" data-bs-toggle="offcanvas" data-bs-target="#blattFahrzeuge" data-aktion="eintraege"<?= $userVehicles ? '' : ' disabled' ?>>
+        <i class="fas fa-list-ul" aria-hidden="true"></i><span>Einträge</span>
     </button>
+    <?php endif; ?>
     <?php if (!$userVehicles): ?>
     <a href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_hinzufuegen.php" class="tabbar-link tabbar-plus" aria-label="Fahrzeug hinzufügen">
         <span class="tabbar-kreis"><i class="fas fa-plus"></i></span>
@@ -386,9 +424,8 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
         <span class="tabbar-kreis"><i class="fas fa-plus"></i></span>
     </button>
     <?php endif; ?>
-    <?php $statistikFahrzeug = $kontextFahrzeug ?? $zielFahrzeug; // auch archivierte Fahrzeuge haben Statistiken ?>
-    <?php if ($statistikFahrzeug): ?>
-    <a href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_detail.php?id=<?= htmlspecialchars(urlencode($statistikFahrzeug['id'])) ?>#statistiken" id="tabbarStatistik" class="tabbar-link">
+    <?php if ($bereichFahrzeug): // auch archivierte Fahrzeuge haben Statistiken ?>
+    <a href="<?= htmlspecialchars($baseUrl . fahrzeugSeite('statistik', $bereichFahrzeug['id'])) ?>" id="tabbarStatistik" class="tabbar-link<?= $tabbarAktiv === 'statistik' ? ' active' : '' ?>"<?= $tabbarAktiv === 'statistik' ? ' aria-current="page"' : '' ?>>
         <i class="fas fa-chart-line"></i><span>Statistik</span>
     </a>
     <?php else: ?>
@@ -418,9 +455,10 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
             <?php foreach ($userVehicles as $vehicle):
                 $vid = urlencode($vehicle['id']); ?>
             <a class="list-group-item list-group-item-action d-flex align-items-center blatt-fahrzeug<?= $kontextFahrzeug && $kontextFahrzeug['id'] === $vehicle['id'] ? ' active' : '' ?>"
-               href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_detail.php?id=<?= htmlspecialchars($vid) ?>"
-               data-details="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_detail.php?id=<?= htmlspecialchars($vid) ?>#allgemein"
-               data-statistik="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_detail.php?id=<?= htmlspecialchars($vid) ?>#statistiken"
+               href="<?= htmlspecialchars($baseUrl . fahrzeugSeite('uebersicht', $vehicle['id'])) ?>"
+               data-details="<?= htmlspecialchars($baseUrl . fahrzeugSeite('uebersicht', $vehicle['id'])) ?>"
+               data-eintraege="<?= htmlspecialchars($baseUrl . fahrzeugSeite('eintraege', $vehicle['id'])) ?>"
+               data-statistik="<?= htmlspecialchars($baseUrl . fahrzeugSeite('statistik', $vehicle['id'])) ?>"
                data-eintrag="<?= htmlspecialchars($baseUrl) ?>pages/eintrag_hinzufuegen.php?fahrzeug_id=<?= htmlspecialchars($vid) ?>">
                 <i class="fas fa-car-side fa-fw me-3" aria-hidden="true"></i><?= htmlspecialchars($vehicle['modell']) ?>
                 <i class="fas fa-chevron-right ms-auto small opacity-50"></i>

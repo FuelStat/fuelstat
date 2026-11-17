@@ -37,7 +37,7 @@ try {
         'sold' => 'Das Fahrzeug ist als verkauft archiviert. Alle Daten bleiben lesbar.',
         'decommissioned' => 'Das Fahrzeug ist als stillgelegt archiviert. Alle Daten bleiben lesbar.',
     ][$status];
-    header('Location: fahrzeug_detail.php?id=' . rawurlencode($fahrzeug_id));
+    header('Location: ../' . fahrzeugSeite('fahrzeugdaten', (string)($fahrzeug_id)));
 } catch (Throwable $e) {
     $_SESSION['error_message'] = fahrzeugFehlerText($e);
     header('Location: fahrzeug_bearbeiten.php?id=' . rawurlencode($fahrzeug_id) . '#status');

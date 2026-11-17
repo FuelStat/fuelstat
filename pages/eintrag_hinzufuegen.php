@@ -20,7 +20,7 @@ try {
     // Verkaufte und stillgelegte Fahrzeuge (#79) sind nur lesbar
     if (($vehicle['status'] ?? 'active') !== 'active') {
         echo '<div class="container mt-4"><div class="alert alert-secondary">Dieses Fahrzeug ist verkauft oder stillgelegt und nur lesbar. '
-            . '<a href="fahrzeug_detail.php?id=' . htmlspecialchars(rawurlencode($fahrzeug_id)) . '" class="alert-link">Zum Fahrzeug</a>, dort lässt es sich wieder aktivieren.</div></div>';
+            . '<a href="../' . htmlspecialchars(fahrzeugSeite('fahrzeugdaten', (string)$fahrzeug_id)) . '" class="alert-link">Zum Fahrzeug</a>, dort lässt es sich wieder aktivieren.</div></div>';
         include '../includes/footer.php';
         exit;
     }
@@ -297,7 +297,7 @@ $heute = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->form
         <!-- Mobil unten fest über der App-Leiste -->
         <div class="formular-aktionen">
             <button type="submit" class="btn btn-primary btn-lg flex-grow-1" id="btnSpeichern"><i class="fas fa-check me-1"></i>Speichern</button>
-            <a href="fahrzeug_detail.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>#eintraege" class="btn btn-outline-secondary btn-lg">Abbrechen</a>
+            <a href="../<?= htmlspecialchars(fahrzeugSeite('eintraege', (string)($fahrzeug_id))) ?>" class="btn btn-outline-secondary btn-lg">Abbrechen</a>
         </div>
     </form>
 </div>

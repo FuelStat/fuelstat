@@ -12,7 +12,7 @@ if (!isApiAuthenticated()) {
 $api = getApiClient();
 $eintrag_id = trim((string)($_GET['id'] ?? $_POST['id'] ?? ''));
 $fahrzeug_id = trim((string)($_GET['fahrzeug_id'] ?? $_POST['fahrzeug_id'] ?? ''));
-$zurueck = 'fahrzeug_detail.php?id=' . rawurlencode($fahrzeug_id) . '#eintraege';
+$zurueck = '../' . fahrzeugSeite('eintraege', (string)($fahrzeug_id));
 if ($eintrag_id === '' || $fahrzeug_id === '') {
     header('Location: ../index.php');
     exit;

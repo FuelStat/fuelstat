@@ -99,7 +99,7 @@ function setSender(fn) {
 
 /**
  * Nachricht an alle Web-Push-Geräte eines Kontos.
- * @param message { title, body, url (relativ zur App, z. B. "pages/fahrzeug_detail.php?id=…"), tag (zugleich Topic),
+ * @param message { title, body, url (relativ zur App, z. B. "pages/service.php?id=…"), tag (zugleich Topic),
  *   badge (Zahl fürs App-Symbol, optional), ttl (Sekunden), urgency }
  * @returns {{ sent: number, failed: number, removed: number }}
  */

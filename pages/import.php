@@ -147,7 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $schritt === 'importieren' && $umge
                 $meldung .= ' ' . count($umgewandelt['fehler']) . ' fehlerhafte Zeilen wurden ausgelassen.';
             }
             $_SESSION['success_message'] = $meldung;
-            header('Location: fahrzeug_detail.php?id=' . rawurlencode($fahrzeug_id) . '#eintraege');
+            header('Location: ../' . fahrzeugSeite('eintraege', (string)($fahrzeug_id)));
             exit;
         } catch (Throwable $e) {
             $error = tarifHinweis($e) ?? 'Import fehlgeschlagen: ' . $e->getMessage() . '. Bereits übertragene Pakete bleiben gespeichert; ein erneuter Import überspringt sie.';
@@ -197,7 +197,7 @@ $f2 = fn($v) => $v === null ? '' : number_format((float)$v, 2, ',', '.');
             <input type="file" class="form-control mb-3" id="csv" name="csv" accept=".csv,text/csv,text/plain" required>
             <div>
                 <button type="submit" class="btn btn-primary">Weiter zur Zuordnung</button>
-                <a href="fahrzeug_detail.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>#eintraege" class="btn btn-outline-secondary ms-2">Abbrechen</a>
+                <a href="../<?= htmlspecialchars(fahrzeugSeite('eintraege', (string)($fahrzeug_id))) ?>" class="btn btn-outline-secondary ms-2">Abbrechen</a>
             </div>
         </form>
     <?php else: ?>
@@ -292,7 +292,7 @@ $f2 = fn($v) => $v === null ? '' : number_format((float)$v, 2, ',', '.');
             <button type="submit" name="schritt" value="importieren" class="btn btn-primary" <?= count($umgewandelt['fillups']) + count($umgewandelt['entries']) === 0 ? 'disabled' : '' ?>>
                 <i class="fas fa-file-import me-1"></i> <?= count($umgewandelt['fillups']) + count($umgewandelt['entries']) ?> Einträge importieren
             </button>
-            <a href="fahrzeug_detail.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>#eintraege" class="btn btn-outline-secondary ms-2">Abbrechen</a>
+            <a href="../<?= htmlspecialchars(fahrzeugSeite('eintraege', (string)($fahrzeug_id))) ?>" class="btn btn-outline-secondary ms-2">Abbrechen</a>
         </form>
     <?php endif; ?>
 </div>

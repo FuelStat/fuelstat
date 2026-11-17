@@ -15,7 +15,7 @@ try {
 }
 
 $formAction = 'fahrzeug_update.php';
-$abbrechenUrl = 'fahrzeug_detail.php?id=' . urlencode($fahrzeug_id);
+$abbrechenUrl = '../' . fahrzeugSeite('fahrzeugdaten', (string)($fahrzeug_id));
 ?>
 
 <div class="container mt-3 mt-lg-5" style="max-width: 820px;">

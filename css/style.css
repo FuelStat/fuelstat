@@ -846,29 +846,18 @@ body.mit-tabbar {
     color: var(--bs-secondary-color);
 }
 
-/* --- Fahrzeugseite: Reiter (PC: Tabs, mobil: wischbare Pillen unter der Kopfleiste) --- */
+/* --- Ansichten eines Fahrzeugs (#206): mobil steht der Titel in der Kopfleiste, die h1 bleibt für Screenreader --- */
 @media (max-width: 991.98px) {
-    .fahrzeug-reiter {
-        position: sticky;
-        top: var(--kopf-hoehe);
-        z-index: 1020;
-        flex-wrap: nowrap;
-        gap: .5rem;
-        overflow-x: auto;
-        scrollbar-width: none;
-        margin: 0 calc(var(--bs-gutter-x) * -.5);
-        padding: var(--fs-space-xs) calc(var(--bs-gutter-x) * .5);
-        background: rgba(var(--fs-background-rgb), .88);
-        -webkit-backdrop-filter: saturate(1.4) blur(14px);
-        backdrop-filter: saturate(1.4) blur(14px);
-    }
-
-    .fahrzeug-reiter::-webkit-scrollbar {
-        display: none;
-    }
-
-    .fahrzeug-reiter .nav-link {
-        margin: 0;
+    .seiten-titel {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        padding: 0 !important;
+        margin: -1px !important;
+        overflow: hidden !important;
+        clip: rect(0, 0, 0, 0) !important;
+        white-space: nowrap !important;
+        border: 0 !important;
     }
 }
 
@@ -1487,43 +1476,6 @@ body.mit-tabbar {
     background: rgba(var(--fs-card-tint-rgb), .5);
 }
 
-/* Fahrzeug-Reiter per Wischen (#88): neuer Inhalt kommt aus der Wischrichtung */
-#fahrzeugTabsContent {
-    overflow-x: clip;          /* Einblenden ohne waagerechten Scrollbalken */
-    overflow-clip-margin: 1rem; /* Schatten der Karten bleiben sichtbar */
-}
-
-@keyframes wisch-von-rechts {
-    from { transform: translateX(24px); opacity: .4; }
-    to { transform: none; opacity: 1; }
-}
-
-@keyframes wisch-von-links {
-    from { transform: translateX(-24px); opacity: .4; }
-    to { transform: none; opacity: 1; }
-}
-
-.tab-pane.wisch-vor {
-    animation: wisch-von-rechts .18s ease-out;
-}
-
-.tab-pane.wisch-zurueck {
-    animation: wisch-von-links .18s ease-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .tab-pane.wisch-vor,
-    .tab-pane.wisch-zurueck {
-        animation: none;
-    }
-}
-
-/* Allgemein (#48): Mini-Diagramm */
-
-.diagramm-mini {
-    position: relative;
-    height: 170px;
-}
 
 /* Einstellungen (#48): Angaben als Karten */
 .angaben-karte dt {
@@ -1708,17 +1660,6 @@ body.seite-laedt .hauptinhalt {
 @media (max-width: 991.98px) {
     .fahrzeug-hero-gross {
         aspect-ratio: 16 / 10;
-    }
-}
-
-@media (min-width: 992px) {
-    .hero-spalte {
-        position: sticky;
-        top: calc(var(--kopf-hoehe) + var(--fs-space-m));
-    }
-
-    .fahrzeug-reiter {
-        padding: var(--fs-space-xs) 0;
     }
 }
 

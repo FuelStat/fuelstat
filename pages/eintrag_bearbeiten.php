@@ -24,7 +24,7 @@ if ($type === 'entry') {
     $tachostand = $eintrag['odometer_km'] ?? null;
     $fahrt = $art === 'trip' ? fahrtAusBeschreibung($eintrag['description'] ?? '') : null;
     $katalog = kategorienKatalog();
-    $zurueck = 'fahrzeug_detail.php?id=' . urlencode($fahrzeug_id) . '#eintraege';
+    $zurueck = '../' . fahrzeugSeite('eintraege', (string)($fahrzeug_id));
     ?>
 <div class="container eintrag-formular mt-3 mt-lg-5">
     <h1 class="h3 d-none d-lg-block mb-3"><?= $artTitel ?> bearbeiten</h1>
@@ -249,7 +249,7 @@ $bearbeitbar = isset($eintrag['filled_at']) && strtotime($eintrag['filled_at']) 
 
         <div class="formular-aktionen">
             <button type="submit" class="btn btn-primary btn-lg flex-grow-1" <?= $bearbeitbar ? '' : 'disabled' ?>><i class="fas fa-check me-1"></i>Speichern</button>
-            <a href="fahrzeug_detail.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>#eintraege" class="btn btn-outline-secondary btn-lg">Abbrechen</a>
+            <a href="../<?= htmlspecialchars(fahrzeugSeite('eintraege', (string)($fahrzeug_id))) ?>" class="btn btn-outline-secondary btn-lg">Abbrechen</a>
         </div>
     </form>
     <form method="post" action="eintrag_loeschen.php" onsubmit="return confirm('Möchtest du diesen Eintrag wirklich löschen?');" class="mt-4 mb-4">

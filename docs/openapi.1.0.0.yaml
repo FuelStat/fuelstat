@@ -4240,7 +4240,7 @@ components:
         profileImageUrl:
           type: string
           nullable: true
-          description: url aus POST /api/v1/media/upload; null entfernt das Bild
+          description: "url aus POST /api/v1/media/upload (Datei dieses Kontos); null oder leer entfernt das Bild. Fremde Adressen, javascript:/data: und Dateien anderer Konten: 400 invalid_profileImageUrl (#196)"
 
 
 
@@ -4281,7 +4281,7 @@ components:
         imageUrl:
           type: string
           nullable: true
-          description: "Bildadresse, z. B. die Antwort von POST /vehicles/{vehicleId}/media/upload; eine signierte Adresse aus einer Antwort wird wieder in die interne umgewandelt"
+          description: "Bildadresse: url einer Datei, die dieses Konto hochgeladen hat (POST /vehicles/{vehicleId}/media/upload oder /media/upload) oder der bisherige Wert; eine signierte Adresse aus einer Antwort wird wieder in die interne umgewandelt. null oder leer entfernt das Bild. Fremde Adressen, javascript:/data: und Dateien anderer Konten: 400 invalid_imageUrl (#196)"
         odometerKm:
           type: integer
           minimum: 0
@@ -4440,7 +4440,7 @@ components:
         imageUrl:
           type: string
           nullable: true
-          description: "Bildadresse, z. B. die Antwort von POST /vehicles/{vehicleId}/media/upload; eine signierte Adresse aus einer Antwort wird wieder in die interne umgewandelt"
+          description: "Bildadresse: url einer Datei, die dieses Konto hochgeladen hat (POST /vehicles/{vehicleId}/media/upload oder /media/upload) oder der bisherige Wert; eine signierte Adresse aus einer Antwort wird wieder in die interne umgewandelt. null oder leer entfernt das Bild. Fremde Adressen, javascript:/data: und Dateien anderer Konten: 400 invalid_imageUrl (#196)"
         odometerKm:
           type: integer
           minimum: 0

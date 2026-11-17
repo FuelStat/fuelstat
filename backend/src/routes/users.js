@@ -173,7 +173,7 @@ router.patch('/auth/users/:userId', auth, requireSelfOrAdmin, async (req, res) =
       ? String(req.body.email).trim().toLowerCase()
       : undefined;
   const username = optionalText(req.body?.username);
-  const profileImageUrl = media.normalizeInput(optionalText(req.body?.profileImageUrl));
+  let profileImageUrl = req.body?.profileImageUrl === undefined ? undefined : optionalText(req.body.profileImageUrl);
 
   if (email === undefined && username === undefined && profileImageUrl === undefined) {
     return res.status(400).json({ error: 'nothing_to_update' });
@@ -184,6 +184,16 @@ router.patch('/auth/users/:userId', auth, requireSelfOrAdmin, async (req, res) =
   }
 
   try {
+    // Profilbild nur aus eigenen Uploads des Kontos (#196), auch wenn ein Admin es setzt
+    if (profileImageUrl !== undefined) {
+      if (!UUID_RE.test(userId)) return res.status(404).json({ error: 'user_not_found' });
+      const aktuell = await pool.query('SELECT profile_image_url FROM users WHERE id = $1', [userId]);
+      if (aktuell.rowCount === 0) return res.status(404).json({ error: 'user_not_found' });
+      const bild = await media.checkOwnUpload(pool, profileImageUrl, { accountId: userId, current: aktuell.rows[0].profile_image_url });
+      if (!bild.ok) return res.status(400).json({ error: 'invalid_profileImageUrl' });
+      profileImageUrl = bild.value;
+    }
+
     const fields = [];
     const values = [];
     let idx = 1;
@@ -255,11 +265,11 @@ router.delete('/auth/users/:userId', auth, requireSelfOrAdmin, async (req, res) 
   if (!userId) return res.status(400).json({ error: 'missing_userId' });
 
   try {
-    // Hochgeladene Bilder (Profil und Fahrzeuge) merken, damit nach dem Löschen keine Dateien liegen bleiben
+    // Hochgeladene Bilder (Profil und Fahrzeuge) merken, damit nach dem Löschen keine Dateien liegen bleiben. Nur Dateien,
+    // die das Konto selbst hochgeladen hat: profile_image_url könnte aus der Zeit vor #196 auf eine fremde Datei zeigen.
     const media = await pool.query(
       `SELECT url FROM user_media WHERE user_id = $1
-       UNION SELECT url FROM vehicle_media WHERE user_id = $1
-       UNION SELECT profile_image_url FROM users WHERE id = $1 AND profile_image_url IS NOT NULL`,
+       UNION SELECT url FROM vehicle_media WHERE user_id = $1`,
       [userId]
     );
 

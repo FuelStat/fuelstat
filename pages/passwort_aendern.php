@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = [
                 'invalid_current_password' => 'Das aktuelle Passwort ist falsch.',
                 'too_many_attempts' => 'Zu viele Fehlversuche. Bitte in 15 Minuten erneut versuchen.',
-            ][$e->getMessage()] ?? 'Passwort konnte nicht geändert werden: ' . $e->getMessage();
+            ][$e->getMessage()] ?? fehlerText($e);
         }
     }
 }

@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ? ' ' . $r['moved'] . ' Einträge gehören jetzt zu „' . getKategorieName($r['moveTo']) . '“.' : '');
         }
     } catch (Throwable $e) {
-        $_SESSION['error_message'] = tarifHinweis($e) ?? ($fehlertexte[$e->getMessage()] ?? $e->getMessage());
+        $_SESSION['error_message'] = $fehlertexte[$e->getMessage()] ?? fehlerText($e);
     }
     kategorienLeeren();
     header('Location: ' . $selbst);

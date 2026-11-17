@@ -47,7 +47,7 @@ try {
         $zurueck = '../index.php';
     }
 } catch (Throwable $e) {
-    $_SESSION['error_message'] = tarifHinweis($e) ?? ($fehlertexte[$e->getMessage()] ?? $e->getMessage());
+    $_SESSION['error_message'] = $fehlertexte[$e->getMessage()] ?? fehlerText($e);
 }
 header('Location: ' . $zurueck);
 exit;

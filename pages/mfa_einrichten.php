@@ -12,7 +12,7 @@ $mfaAktiv = false;
 try {
     $mfaAktiv = !empty($api->getWhoAmI()['mfa_enabled']);
 } catch (Throwable $e) {
-    $error = $e->getMessage();
+    $error = fehlerText($e);
 }
 
 // Secret aus dem laufenden Einrichtungsvorgang (für erneute Anzeige bei falschem Code)
@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'invalid_current_password' => 'Das Passwort ist falsch.',
             'too_many_attempts' => 'Zu viele Fehlversuche. Bitte in 15 Minuten erneut versuchen.',
         ];
-        $error = $meldungen[$e->getMessage()] ?? $e->getMessage();
+        $error = $meldungen[$e->getMessage()] ?? fehlerText($e);
     }
 }
 

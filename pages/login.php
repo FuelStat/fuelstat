@@ -86,7 +86,7 @@ try {
                     $show_mfa_form = false;
                     $error = "Ungültige E-Mail oder Passwort.";
                 } else {
-                    $error = $msg;
+                    $error = fehlerText($e);
                 }
             }
         }

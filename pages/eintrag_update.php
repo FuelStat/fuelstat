@@ -99,7 +99,7 @@ try {
 } catch (Throwable $e) {
     $_SESSION['error_message'] = $e->getMessage() === 'fillup_edit_window_expired'
         ? 'Tank- und Ladevorgänge können nur innerhalb von 14 Tagen bearbeitet werden. Ältere Einträge kannst du löschen und neu anlegen.'
-        : $e->getMessage();
+        : eintragFehlerText($e);
 }
 header('Location: ../' . fahrzeugSeite('eintraege', (string)($fahrzeug_id)));
 exit;

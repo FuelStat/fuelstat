@@ -34,7 +34,7 @@ $fehlertext = function (Throwable $e) use ($meldungen) {
         $detail = $e instanceof FuelstatApiException && $e->detail ? ' Meldung des Servers: ' . $e->detail : '';
         return 'Der Mailserver hat den Versand abgelehnt. Bitte Server, Port, Verschlüsselung und Zugangsdaten prüfen.' . $detail;
     }
-    return tarifHinweis($e) ?? $meldungen[$code] ?? $code;
+    return $meldungen[$code] ?? fehlerText($e);
 };
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -87,7 +87,7 @@ try {
     $s = $api->getMailSettings();
 } catch (Throwable $e) {
     $s = [];
-    $error = $error ?: $e->getMessage();
+    $error = $error ?: fehlerText($e);
 }
 // Bei Fehlern die eingegebenen Werte behalten
 if ($error && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['aktion'] ?? '') === 'speichern') {

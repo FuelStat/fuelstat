@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['success_message'] = 'Tachostand nachgetragen.';
         header('Location: ' . $zurueck);
     } catch (Throwable $e) {
-        $_SESSION['error_message'] = $e->getMessage();
+        $_SESSION['error_message'] = fehlerText($e);
         header('Location: tachostand_nachtragen.php?id=' . rawurlencode($eintrag_id) . '&fahrzeug_id=' . rawurlencode($fahrzeug_id));
     }
     exit;

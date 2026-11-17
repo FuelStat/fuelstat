@@ -572,13 +572,15 @@ function speichereFahrzeugBild($api, string $vehicleId, array $files, array $pos
             $api->patchVehicle($vehicleId, ['imageUrl' => $media['url']]);
             $neueMediaId = $media['id'] ?? null;
         } catch (Throwable $e) {
-            return tarifHinweis($e) ?? 'Bild-Upload fehlgeschlagen: ' . $e->getMessage();
+            return $e instanceof FuelstatApiException && $e->getMessage() === 'invalid_image'
+                ? 'Die Datei ist kein lesbares Bild. Bitte ein JPEG, PNG, GIF oder WebP wählen.'
+                : 'Das Bild wurde nicht gespeichert. ' . fehlerText($e);
         }
     } else {
         try {
             $api->patchVehicle($vehicleId, ['imageUrl' => null]);
         } catch (Throwable $e) {
-            return 'Bild konnte nicht entfernt werden: ' . $e->getMessage();
+            return 'Das Bild wurde nicht entfernt. ' . fehlerText($e);
         }
     }
 
@@ -781,6 +783,43 @@ function fahrtAusBeschreibung(?string $text): array
     return $ergebnis;
 }
 
+/**
+ * Verständlicher Text für einen Fehler (#211, docs/design.md 8.1): sagt, was passiert ist und was man tun kann; nie
+ * Statuscodes, Fehlercodes der API oder technische Meldungen. Seiten übersetzen ihre bekannten Codes vorher selbst und
+ * nehmen diesen Helfer als Rückfall. Eigene Meldungen der Seiten (RuntimeException mit ganzem deutschem Satz, z. B.
+ * „Nur JPEG, PNG, GIF und WebP sind als Bild erlaubt.“) bleiben, wie sie sind.
+ */
+function fehlerText(Throwable $e): string
+{
+    $hinweis = tarifHinweis($e);
+    if ($hinweis !== null) {
+        return $hinweis;
+    }
+    $spaeter = 'Das hat gerade nicht geklappt. Versuche es gleich noch einmal.';
+    if ($e instanceof FuelstatVerbindungsException) {
+        return $spaeter;
+    }
+    if ($e instanceof FuelstatApiException) {
+        $code = (int)$e->getCode();
+        $abgemeldet = ['missing_token', 'invalid_token', 'token_revoked', 'session_revoked', 'session_expired', 'account_not_found'];
+        return match (true) {
+            $code === 401 && in_array($e->getMessage(), $abgemeldet, true) => 'Du bist abgemeldet. Melde dich bitte neu an.',
+            $code === 403, $code === 404 => 'Das gibt es nicht oder du hast keinen Zugriff darauf.',
+            $code === 426 => 'Bitte aktualisiere die App, um weiterzumachen.',
+            $code === 429 => 'Zu viele Versuche. Warte kurz und versuche es dann noch einmal.',
+            $code >= 500 || $code === 0 => $spaeter,
+            // Lesbarer Hinweis der API (Deutsch), sonst ein allgemeiner Satz statt des Codes
+            is_string($e->data['message'] ?? null) && trim($e->data['message']) !== '' => trim($e->data['message']),
+            default => 'Das hat nicht geklappt. Prüfe deine Angaben und versuche es noch einmal.',
+        };
+    }
+    $text = trim($e->getMessage());
+    if ($e instanceof RuntimeException && preg_match('/^\p{Lu}.*\s.*[.!?)]$/su', $text)) {
+        return $text;
+    }
+    return $spaeter;
+}
+
 /** Verständliche Meldung für Fehler der Ausgaben-API (Kategorie, Tarif) */
 function eintragFehlerText(Throwable $e): string
 {
@@ -799,7 +838,7 @@ function eintragFehlerText(Throwable $e): string
         'invalid_socAfterPct' => 'Der Ladestand nachher muss eine ganze Zahl von 0 bis 100 sein.',
         'invalid_soc' => 'Der Ladestand nachher darf nicht unter dem Ladestand vorher liegen.',
         'invalid_chargeMinutes' => 'Die Ladedauer muss eine ganze Zahl von Minuten sein (höchstens 4320).',
-    ][$e->getMessage()] ?? $e->getMessage();
+    ][$e->getMessage()] ?? fehlerText($e);
 }
 
 /**

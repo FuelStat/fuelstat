@@ -36,7 +36,7 @@ try {
         }
     }
 } catch (Throwable $e) {
-    $_SESSION['error_message'] = 'Reihenfolge konnte nicht gespeichert werden: ' . $e->getMessage();
+    $_SESSION['error_message'] = 'Die Reihenfolge wurde nicht gespeichert. ' . fehlerText($e);
 }
 header('Location: ' . $zurueck);
 exit;

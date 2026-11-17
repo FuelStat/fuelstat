@@ -23,7 +23,7 @@ try {
     $api->deleteVehicle($fahrzeug_id);
     $_SESSION['success_message'] = 'Fahrzeug erfolgreich gelöscht.';
 } catch (Throwable $e) {
-    $_SESSION['error_message'] = $e->getMessage();
+    $_SESSION['error_message'] = fehlerText($e);
 }
 header('Location: ../index.php');
 exit;

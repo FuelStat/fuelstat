@@ -17,6 +17,11 @@ class FuelstatApiException extends RuntimeException
     }
 }
 
+/** Die API war nicht erreichbar (keine Antwort, Zeitüberschreitung). Für die Oberfläche: fehlerText() (#211). */
+class FuelstatVerbindungsException extends RuntimeException
+{
+}
+
 class FuelstatApi
 {
     private string $baseUrl;
@@ -77,7 +82,7 @@ class FuelstatApi
         $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         curl_close($ch);
         if ($body === false) {
-            throw new RuntimeException('API request failed');
+            throw new FuelstatVerbindungsException('API request failed');
         }
         if ($code >= 400) {
             $daten = json_decode((string)$body, true) ?: [];
@@ -107,7 +112,7 @@ class FuelstatApi
         $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         curl_close($ch);
         if ($body === false) {
-            throw new RuntimeException('API request failed');
+            throw new FuelstatVerbindungsException('API request failed');
         }
         if ($code >= 400) {
             $daten = json_decode((string)$body, true) ?: [];
@@ -396,7 +401,7 @@ class FuelstatApi
             // Verbindung verwerfen, die nächste Anfrage baut eine neue auf
             curl_close($ch);
             self::$curl = null;
-            throw new RuntimeException('API request failed: ' . $err);
+            throw new FuelstatVerbindungsException('API request failed: ' . $err);
         }
 
         $httpCode = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);

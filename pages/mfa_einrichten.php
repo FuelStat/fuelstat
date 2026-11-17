@@ -60,8 +60,8 @@ include '../includes/header.php';
                     <?php endif; ?>
 
                     <?php if ($mfaAktiv): ?>
-                        <div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>2FA ist aktiv. Beim Anmelden wird ein Code aus deiner Authenticator-App abgefragt.</div>
-                        <h5 class="mt-4">2FA deaktivieren</h5>
+                        <div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>Der Zwei-Faktor-Schutz ist aktiv. Beim Anmelden wird ein Code aus deiner Authenticator-App abgefragt.</div>
+                        <h5 class="mt-4">Zwei-Faktor-Schutz ausschalten</h5>
                         <form method="post">
                             <input type="hidden" name="aktion" value="deaktivieren">
                             <div class="mb-3">
@@ -72,7 +72,7 @@ include '../includes/header.php';
                                 <label for="code" class="form-label">Aktueller Code</label>
                                 <input type="text" class="form-control" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" required>
                             </div>
-                            <button type="submit" class="btn btn-outline-danger">2FA deaktivieren</button>
+                            <button type="submit" class="btn btn-outline-danger">Zwei-Faktor-Schutz ausschalten</button>
                         </form>
                     <?php elseif ($setup): ?>
                         <ol class="ps-3">
@@ -87,7 +87,7 @@ include '../includes/header.php';
                                 <label for="code" class="form-label">Code aus der App</label>
                                 <input type="text" class="form-control" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456" required autofocus>
                             </div>
-                            <button type="submit" class="btn btn-primary">2FA aktivieren</button>
+                            <button type="submit" class="btn btn-primary">Zwei-Faktor-Schutz einschalten</button>
                             <a href="einstellungen.php" class="btn btn-outline-secondary ms-2">Abbrechen</a>
                         </form>
                         <script src="<?= htmlspecialchars(assetUrl('../', 'vendor/qrcodejs/qrcode.min.js')) ?>"></script>
@@ -99,10 +99,10 @@ include '../includes/header.php';
                           }
                         </script>
                     <?php else: ?>
-                        <p>Mit 2FA brauchst du beim Anmelden zusätzlich zum Passwort einen Code aus einer Authenticator-App auf deinem Handy.</p>
+                        <p>Mit dem Zwei-Faktor-Schutz brauchst du beim Anmelden zusätzlich zum Passwort einen Code aus einer Authenticator-App auf deinem Handy.</p>
                         <form method="post">
                             <input type="hidden" name="aktion" value="starten">
-                            <button type="submit" class="btn btn-primary">2FA einrichten</button>
+                            <button type="submit" class="btn btn-primary">Zwei-Faktor-Schutz einrichten</button>
                             <a href="einstellungen.php" class="btn btn-outline-secondary ms-2">Zurück</a>
                         </form>
                     <?php endif; ?>

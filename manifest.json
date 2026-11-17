@@ -49,8 +49,8 @@
       ]
     },
     {
-      "name": "Kilometerstand notieren",
-      "short_name": "km notieren",
+      "name": "Kilometerstand eintragen",
+      "short_name": "Kilometerstand",
       "description": "Nur den Tachostand festhalten",
       "url": "pages/schnell.php?art=km",
       "icons": [

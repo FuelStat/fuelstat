@@ -169,7 +169,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h2 class="mb-0">Nächste Termine</h2>
                     <?php if ($darfErfassen): ?>
-                    <a href="<?= htmlspecialchars($eintragUrl) ?>&kategorie=Wartung" class="btn btn-secondary btn-sm">Termin erfassen</a>
+                    <a href="<?= htmlspecialchars($eintragUrl) ?>&kategorie=Wartung" class="btn btn-secondary btn-sm">Wartung eintragen</a>
                     <?php endif; ?>
                 </div>
                 <ul class="list-group list-group-flush">
@@ -205,7 +205,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                                         <br>laut Fahrzeugangaben
                                     <?php endif; ?>
                                 <?php else: ?>
-                                    <a class="tipp-link" href="<?= htmlspecialchars($eintragUrl) ?>&kategorie=<?= urlencode($f['kategorie']) ?>">Letzten Termin erfassen</a>, um erinnert zu werden
+                                    <a class="tipp-link" href="<?= htmlspecialchars($eintragUrl) ?>&kategorie=<?= urlencode($f['kategorie']) ?>"><?= htmlspecialchars($f['titel']) ?> eintragen</a>, um erinnert zu werden
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -226,7 +226,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
             <?php endif; ?>
 
             <?php if ($istBesitzer): ?>
-            <!-- Löschen steht abgesetzt im Reiter „Einstellungen“ (#158) -->
+            <!-- Löschen steht abgesetzt im Reiter „Fahrzeugdaten“ (#158) -->
             <div class="d-flex flex-wrap gap-2 mt-3">
                 <a href="../pages/fahrzeug_bearbeiten.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>" class="btn btn-secondary">
                     <i class="fas fa-pen" aria-hidden="true"></i>Fahrzeug bearbeiten

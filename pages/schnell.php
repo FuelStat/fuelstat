@@ -36,7 +36,7 @@ include '../includes/functions.php';
 include '../includes/header.php';
 ?>
 <div class="container mt-3 mt-lg-5" style="max-width: 560px;">
-    <h1 class="h4 mb-3"><?= $art === 'km' ? 'Kilometerstand notieren' : 'Tanken oder Laden' ?>: Fahrzeug wählen</h1>
+    <h1 class="h4 mb-3"><?= $art === 'km' ? 'Kilometerstand eintragen' : 'Tanken oder Laden' ?>: Fahrzeug wählen</h1>
     <div class="list-group">
         <?php foreach ($fahrzeuge as $i => $f): ?>
             <a class="list-group-item list-group-item-action d-flex align-items-center gap-3 py-3" href="<?= htmlspecialchars($zielUrl($f)) ?>">

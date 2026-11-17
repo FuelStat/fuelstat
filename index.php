@@ -111,7 +111,7 @@ endif;
                 <li><a class="dropdown-item<?= $aktiv ? ' active' : '' ?>" href="index.php?fahrzeug=<?= htmlspecialchars(urlencode((string)$v['id'])) ?>"<?= $aktiv ? ' aria-current="true"' : '' ?>><i class="fas fa-car-side fa-fw" aria-hidden="true"></i><?= htmlspecialchars($v['name'] ?? 'Fahrzeug') ?></a></li>
                 <?php endforeach; ?>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="pages/fahrzeuge.php"><i class="fas fa-table-cells-large fa-fw" aria-hidden="true"></i>Alle Fahrzeuge</a></li>
+                <li><a class="dropdown-item" href="pages/fahrzeuge.php"><i class="fas fa-table-cells-large fa-fw" aria-hidden="true"></i>Fahrzeuge verwalten</a></li>
             </ul>
         </div>
         <?php endif; ?>

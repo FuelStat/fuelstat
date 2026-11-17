@@ -102,7 +102,7 @@ foreach ($einheitenDesFahrzeugs as $u) {
 $arten += [
     'ausgabe' => ['Ausgabe', 'fa-receipt', 'Andere Ausgabe', null],
     'fahrt' => ['Fahrt', 'fa-route', 'Fahrt', null],
-    'km' => ['km notieren', 'fa-gauge-high', 'Kilometerstand', null],
+    'km' => ['Kilometerstand', 'fa-gauge-high', 'Kilometerstand', null],
 ];
 // Start-Art: ?art=… (App-Kürzel), ?kategorie=… (Ausgabe vorgeben), ?einheit=kwh (Plug-in-Hybrid laden)
 $startArt = $_GET['art'] ?? '';

@@ -165,28 +165,6 @@
   })();
 </script>
 
-<!-- Mobil: Fahrzeug-Blatt öffnet je nach Knopf Details, neuen Eintrag oder Statistik -->
-<script>
-  (function () {
-    var blatt = document.getElementById('blattFahrzeuge');
-    if (!blatt) return;
-    var titel = {details: 'Fahrzeuge', eintrag: 'Eintrag für welches Fahrzeug?', eintraege: 'Einträge für welches Fahrzeug?', statistik: 'Statistik für welches Fahrzeug?'};
-    blatt.addEventListener('show.bs.offcanvas', function (event) {
-      var aktion = (event.relatedTarget && event.relatedTarget.dataset.aktion) || 'details';
-      document.getElementById('blattFahrzeugeTitel').textContent = titel[aktion] || titel.details;
-      blatt.querySelectorAll('.blatt-fahrzeug').forEach(function (link) {
-        link.href = link.dataset[aktion] || link.dataset.details;
-      });
-      var neu = blatt.querySelector('.blatt-neu');
-      if (neu) neu.classList.toggle('d-none', aktion !== 'details');
-    });
-    // Link auf dieselbe Seite mit anderem #Reiter: Blatt trotzdem schließen
-    blatt.addEventListener('click', function (event) {
-      if (event.target.closest('a')) bootstrap.Offcanvas.getOrCreateInstance(blatt).hide();
-    });
-  })();
-</script>
-
 <!-- Offline (#1): Der Service Worker zeigt ohne Verbindung den zuletzt geladenen Stand der Übersicht bzw. Fahrzeugseite
      und setzt data-offline-stand am <html>. Hier der Hinweis dazu; Formulare sind offline gesperrt. -->
 <script>

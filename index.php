@@ -1,7 +1,7 @@
 <?php
 // Start (#158, docs/design.md 7.8): ein Fahrzeug im Blick – Wechsler, Hero, drei Kennzahlen, nächste Termine,
-// letzte Einträge. Welches Fahrzeug, entscheidet includes/header.php ($startFahrzeug: gewählt, zuletzt genutzt oder
-// das erste). Alle Fahrzeuge als Karten: pages/fahrzeuge.php. Alle Zahlen kommen aus der API.
+// letzte Einträge. Welches Fahrzeug, entscheidet includes/header.php ($startFahrzeug: Wahl der Sitzung, sonst das
+// Standardfahrzeug, #206). Alle Fahrzeuge als Karten: pages/fahrzeuge.php. Alle Zahlen kommen aus der API.
 include 'includes/session.php';
 include 'includes/functions.php';
 include 'includes/header.php';

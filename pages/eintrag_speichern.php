@@ -103,8 +103,8 @@ try {
     $_SESSION['success_message'] = $eintragstyp === 'Tankfuellung' && ($tachostand === null || $tachoGeschaetzt)
         ? 'Eintrag gespeichert. Den Tachostand kannst du in der Eintragsliste nachtragen.'
         : ($eintragstyp === 'Kilometerstand' ? 'Kilometerstand notiert.' : 'Eintrag gespeichert.');
-    // Schnellerfassung (#42): zuletzt genutztes Fahrzeug merken
-    setcookie('fuelstat_fahrzeug', $fahrzeug_id, ['expires' => time() + 365 * 86400, 'path' => '/', 'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off', 'httponly' => true, 'samesite' => 'Lax']);
+    // Fahrzeug der Sitzung (#206, docs/design.md 7.2): Start und Schnellerfassung zeigen danach dieses Fahrzeug
+    $_SESSION['fahrzeug_wahl'] = (string)$fahrzeug_id;
     header('Location: ../' . fahrzeugSeite('eintraege', (string)($fahrzeug_id)));
     exit;
 } catch (Throwable $e) {

@@ -88,7 +88,7 @@ if (isApiAuthenticated()) {
 // Nutzungsbedingungen (#135): Wer der gültigen Fassung noch nicht zugestimmt hat, stimmt zuerst zu. Erreichbar bleiben
 // die Rechtstexte, das Profil (Konto löschen) und das Abmelden.
 if (is_array($currentUser) && !empty($currentUser['terms']['required'])
-    && !in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['nutzungsbedingungen.php', 'datenschutz.php', 'impressum.php', 'einstellungen.php', 'logout.php', 'email_bestaetigen.php'], true)) {
+    && !in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''), ['nutzungsbedingungen.php', 'datenschutz.php', 'impressum.php', 'einstellungen.php', 'logout.php', 'email_bestaetigen.php', 'fehler.php'], true)) {
     header('Location: ' . $baseUrl . 'pages/nutzungsbedingungen.php');
     exit;
 }
@@ -181,8 +181,17 @@ $seitenInfo = [
     'passwort_vergessen.php'   => ['Passwort vergessen', null],
     'passwort_zuruecksetzen.php' => ['Neues Passwort', null],
     'fahrt.php'                => ['Fahrt', fahrzeugSeite('fahrten', (string)($_GET['fahrzeug_id'] ?? ''))],
+    // Auch ohne Anmeldung erreichbar
+    'login.php'                => ['Anmelden', null],
+    'register.php'             => ['Registrieren', null],
+    'datenschutz.php'          => ['Datenschutz', null],
+    'impressum.php'            => ['Impressum', null],
+    'fehler.php'               => ['Seite nicht gefunden', null],
 ];
+// Titel in der mobilen Kopfleiste (angemeldet); der Titel des Dokuments gilt immer (docs/design.md §11: „Seite – App“,
+// Start nur „App“). tests/SeitentitelTest.php prüft, dass jede Seite hier steht.
 [$seitenTitel, $zurueckUrl] = $angemeldet && isset($seitenInfo[$skript]) ? $seitenInfo[$skript] : [null, null];
+$dokumentTitel = $seitenInfo[$skript][0] ?? null;
 
 // Aktiver Eintrag der unteren Leiste (Statistik wird auf der Fahrzeugseite per JS umgeschaltet)
 $tabbarAktiv = [
@@ -219,7 +228,7 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
 <html lang="de" class="light-style layout-menu-fixed layout-compact" dir="ltr">
 <head>
     <meta charset="utf-8" />
-    <title><?= $seitenTitel !== null ? htmlspecialchars($seitenTitel) . ' – ' : '' ?>Fuelstat</title>
+    <title><?= $dokumentTitel !== null ? htmlspecialchars($dokumentTitel) . ' – ' : '' ?>Fuelstat</title>
 
     <meta name="description" content="" />
 

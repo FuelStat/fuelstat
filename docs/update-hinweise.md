@@ -8,6 +8,21 @@ Was beim Ausrollen einer Version zu tun ist, soweit es über `sudo infra/ausroll
 
 ## [Unreleased]
 
+- **Eigene Fehlerseiten (#211), nginx anpassen:** Damit statt „404 Not Found – nginx“ die Seite im Aussehen der App
+  erscheint, im `server`-Block für 443 (vor `location / {`) diese Zeilen ergänzen, wie in
+  `infra/nginx/fuelstat.conf.example`:
+
+  ```nginx
+  error_page 403 /pages/fehler.php?code=403;
+  error_page 404 /pages/fehler.php?code=404;
+  error_page 500 502 503 504 /fehler.html;
+  location = /fehler.html { internal; }
+  ```
+
+  Danach prüfen und neu laden: `sudo nginx -t && sudo systemctl reload nginx`. Test: `https://<domain>/gibtsnicht.php`
+  zeigt „Seite nicht gefunden“ mit Status 404 (`curl -sI https://<domain>/gibtsnicht.php | head -1`). Fehler der API
+  unter `/api/v1/` bleiben JSON.
+
 - Migration `030_image_urls` (spielt `infra/ausrollen.sh` vor dem Neustart der API ein) leert Fahrzeug- und Profilbilder, die auf fremde Server oder `javascript:`/`data:` zeigen (#196). Wer vorher sehen will, ob es solche Einträge gibt (erwartet: 0):
 
   ```bash

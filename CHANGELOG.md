@@ -6,6 +6,9 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+### Technik
+- Releases in einem Zug: `infra/veroeffentlichen.sh X.Y.Z` prüft den gemergten Release-PR und die CI, setzt das Tag, wartet auf GitHub-Release und API-Image, sichert und rollt aus. `infra/ausrollen.sh` bricht früh mit einer klaren Meldung ab, wenn ein Tag auf dem falschen Commit steht.
+
 ## [0.13.1] - 2026-11-17
 
 ### Neu

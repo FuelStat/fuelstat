@@ -65,6 +65,25 @@ else
   echo "Abbruch: Tag v$version gibt es nicht. Ist das Release veröffentlicht?" >&2
   exit 1
 fi
+if [ "$zwischenstand" = 0 ]; then
+  # Lokales Tag gegen GitHub prüfen: fetch --tags überschreibt ein geändertes Tag nicht, dann rollte das Skript den
+  # alten Stand aus (oder scheiterte erst beim Laden des Images mit „manifest unknown“)
+  entfernt="$(git_ ls-remote --tags origin "refs/tags/v$version^{}" | cut -f1)"
+  lokal="$(git_ rev-parse "v$version^{}")"
+  if [ -n "$entfernt" ] && [ "$entfernt" != "$lokal" ]; then
+    echo "Abbruch: Das lokale Tag v$version (${lokal:0:7}) weicht von GitHub ab (${entfernt:0:7})." >&2
+    echo "Lokales Tag löschen und erneut starten:  sudo -u $besitzer -H git -C $projekt tag -d v$version" >&2
+    exit 1
+  fi
+  # Das Tag muss auf dem Release-Commit stehen (VERSION = Version), sonst gibt es kein Image dazu
+  tag_version="$(git_ show "v$version:VERSION" | tr -d '[:space:]')"
+  if [ "$tag_version" != "$version" ]; then
+    echo "Abbruch: Tag v$version steht auf einem Commit mit VERSION $tag_version. Wurde es vor dem Merge des" >&2
+    echo "Release-PRs gesetzt? Dann gibt es weder Release noch Image. Neu setzen mit infra/veroeffentlichen.sh $version" >&2
+    echo "(vorher das falsche Tag löschen, siehe docs/betrieb.md, Abschnitt Versionen und Releases)." >&2
+    exit 1
+  fi
+fi
 
 alt="$(tr -d '[:space:]' < "$projekt/VERSION")"
 # Zuletzt mit diesem Skript ausgerollter Commit (FUELSTAT_COMMIT in infra/.env). Nicht HEAD: Wer zwischendurch

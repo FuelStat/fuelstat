@@ -13,9 +13,10 @@ if (isApiAuthenticated()) {
     // Ansichten eines Fahrzeugs (#206) tragen die ID in ?id=
     $ansichtSkripte = ['eintraege.php', 'statistik.php', 'service.php', 'fahrten.php', 'fahrzeugdaten.php'];
     $vorabId = (string)($_GET['fahrzeug_id'] ?? (in_array($vorabSkript, $ansichtSkripte, true) ? ($_GET['id'] ?? '') : ''));
-    // Start (#158): Fahrzeug der Sitzung (#206) mit Kennzahlen, Terminen und letzten Einträgen; ohne Wahl kennt erst die
-    // Fahrzeugliste das Standardfahrzeug, dann lädt index.php selbst
-    $startId = $vorabSkript === 'index.php' ? (string)($_GET['fahrzeug'] ?? ($_SESSION['fahrzeug_wahl'] ?? '')) : '';
+    // Start (#158): Fahrzeug der Sitzung (#206) mit Kennzahlen, Terminen und letzten Einträgen; ohne Wahl das zuletzt
+    // ermittelte Standardfahrzeug (nur zum Vorladen gemerkt, siehe unten)
+    $startId = $vorabSkript === 'index.php'
+        ? (string)($_GET['fahrzeug'] ?? ($_SESSION['fahrzeug_wahl'] ?? ($_SESSION['fahrzeug_vorladen'] ?? ''))) : '';
     if ($startId !== '' && preg_match('/^[0-9a-f-]{36}$/', $startId)) {
         $p = '/vehicles/' . rawurlencode($startId);
         array_push($vorab, $p . '/stats', $p . '/reminders', $p . '/costs', $p . '/timeline?per_page=5');
@@ -43,6 +44,7 @@ function getUserVehicles($user_id) {
                 'marke' => '', // API liefert nur name
                 'modell' => $v['name'] ?? '',
                 'status' => $v['status'] ?? 'active', // active | sold | decommissioned (#79)
+                'role' => $v['role'] ?? 'owner', // owner | editor | viewer (#53)
             ];
         }
     } catch (Throwable $e) {
@@ -125,9 +127,15 @@ foreach ($userVehicles as $vehicle) {
 }
 if ($sitzungsFahrzeug) {
     $_SESSION['fahrzeug_wahl'] = (string)$sitzungsFahrzeug['id'];
-} else {
+} elseif ($userVehicles) {
+    // Die Wahl gibt es nicht (mehr) unter den aktiven Fahrzeugen: Standardfahrzeug. Ist die Liste leer (auch wenn die
+    // API gerade nicht antwortet), bleibt die Wahl für den nächsten Aufruf stehen.
     unset($_SESSION['fahrzeug_wahl']);
-    $sitzungsFahrzeug = $userVehicles[0] ?? null;
+    $sitzungsFahrzeug = $userVehicles[0];
+}
+// Nur fürs Vorladen von Start (oben): das Fahrzeug, das Start zuletzt gezeigt hat. Keine Wahl, ändert nichts an ihr.
+if ($sitzungsFahrzeug) {
+    $_SESSION['fahrzeug_vorladen'] = (string)$sitzungsFahrzeug['id'];
 }
 // Das frühere Fahrzeug-Cookie (bis 0.13) entfernen: Die Wahl gilt nur noch für die Sitzung
 if (isset($_COOKIE['fuelstat_fahrzeug']) && !headers_sent()) {
@@ -191,11 +199,15 @@ $tabbarAktiv = [
     'kategorien.php' => 'profil', 'neuigkeiten.php' => 'profil', 'email_bestaetigen.php' => 'profil', 'einladungen.php' => 'profil',
 ][$skript] ?? null;
 
-// Ziel von „＋“: das aktive Fahrzeug der Seite, sonst das Fahrzeug der Sitzung (#206)
-$zielFahrzeug = ($kontextFahrzeug && $kontextFahrzeug['status'] === 'active') ? $kontextFahrzeug : $sitzungsFahrzeug;
-// Ziel von „Einträge“ und „Statistik“ (#206): das Fahrzeug der Seite (auch archiviert), sonst das der Sitzung; nur mit
-// archivierten Fahrzeugen das erste davon
-$bereichFahrzeug = $kontextFahrzeug ?? $zielFahrzeug ?? ($alleFahrzeuge[0] ?? null);
+// Ziel von „＋“: das aktive Fahrzeug der Seite, sonst das Fahrzeug der Sitzung (#206). Nur zum Ansehen geteilte Fahrzeuge
+// (#53) nehmen keine Einträge an; dann das erste Fahrzeug, bei dem man erfassen darf.
+$darfErfassenIn = fn($v) => $v && $v['status'] === 'active' && $v['role'] !== 'viewer';
+$zielFahrzeug = $darfErfassenIn($kontextFahrzeug) ? $kontextFahrzeug
+    : ($darfErfassenIn($sitzungsFahrzeug) ? $sitzungsFahrzeug
+        : (array_values(array_filter($userVehicles, $darfErfassenIn))[0] ?? null));
+// Ziel von „Einträge“ und „Statistik“ (#206): das Fahrzeug der Seite (auch archiviert oder nur zum Ansehen), sonst das
+// der Sitzung; nur mit archivierten Fahrzeugen das erste davon
+$bereichFahrzeug = $kontextFahrzeug ?? $sitzungsFahrzeug ?? ($alleFahrzeuge[0] ?? null);
 // Beta-Phase (Kennzeichen neben dem Logo) und Feedback-Link mit der aktuellen Seite als Kontext
 $betaPhase = istBetaPhase();
 $feedbackUrl = $baseUrl . 'pages/feedback.php' . ($skript !== 'feedback.php' ? '?von=' . rawurlencode($_SERVER['REQUEST_URI'] ?? '') : '');

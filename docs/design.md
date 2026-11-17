@@ -532,8 +532,8 @@ Reihenfolgen und Heimaten (7.1 bis 7.6) sind gleich.
 **Stand der Umsetzung (Web):** Leiste, Bereiche und Ansichten folgen diesem Aufbau (#206, Etappe 2): Einträge,
 Statistik (Teile „Verbrauch“ und „Kosten“), Service, Fahrten und Fahrzeugdaten sind eigene Seiten
 (`pages/eintraege.php` usw., Adressen über `fahrzeugSeite()`), Start hat „Mehr zum Fahrzeug“, die Fahrzeuge stehen im
-Profil. Alte Links auf `pages/fahrzeug_detail.php` (auch mit `#Reiter`) leiten weiter. **Noch offen:** Wahl nur für
-die Sitzung (7.2), Flotten-Start, gruppiertes Profil (7.4), ein Menü „Berichte und Export“, Löschen und Status nur in
+Profil. Alte Links auf `pages/fahrzeug_detail.php` (auch mit `#Reiter`) leiten weiter. Die Fahrzeugwahl gilt nur für die Sitzung
+(7.2): Sie liegt in der PHP-Sitzung, ohne Wahl zeigt Start das Standardfahrzeug. **Noch offen:** Flotten-Start, gruppiertes Profil (7.4), ein Menü „Berichte und Export“, Löschen und Status nur in
 Fahrzeugdaten. iOS (#84) und Android (#62) folgen.
 
 ### 7.8 Start – Beispielinhalt
@@ -702,10 +702,10 @@ Plattform-Besonderheiten der Web-App (PHP mit Bootstrap 5.3):
 - **Diagramme (Chart.js):** Farben aus den CSS-Variablen lesen (`getComputedStyle`), nicht im Skript festlegen.
   Beim Wechsel der Darstellung lädt eine Seite mit Diagrammen neu, damit die Reihen die Farben des neuen Modus bekommen.
 - **Bereiche:** Aufbau, Namen und Heimaten wie in 7.1 bis 7.6, Abbildung in 7.7. Die Fahrzeugwahl der Sitzung liegt
-  im Web künftig in der PHP-Sitzung (statt im Cookie `fuelstat_fahrzeug`); „Start“ zeigt ohne Wahl das
-  Standardfahrzeug. Ohne „In der Nähe“: Die Web-App fragt den Standort nur im Erfassen-Formular ab.
-  **Abweichung bis zur Umsetzung (#206):** Das Fahrzeug wird noch per Cookie gemerkt statt nur für die Sitzung; offen
-  sind außerdem die Punkte aus 7.7 („Stand der Umsetzung“). Ansichten des Fahrzeugs bauen auf
+  in der PHP-Sitzung (`$_SESSION['fahrzeug_wahl']`, gesetzt vom Wechsler auf Start, von Einträge und Statistik und
+  beim Speichern eines Eintrags); ohne Wahl zeigt „Start“ das Standardfahrzeug. Weil immer ein Fahrzeug gewählt ist,
+  führen „Einträge“, „Statistik“ und „＋“ direkt zu diesem Fahrzeug, ohne Rückfrage. Ohne „In der Nähe“: Die Web-App
+  fragt den Standort nur im Erfassen-Formular ab. Offen sind die Punkte aus 7.7 („Stand der Umsetzung“). Ansichten des Fahrzeugs bauen auf
   `includes/fahrzeug_seite.php` auf (Überschrift, Hinweis bei archivierten und geteilten Fahrzeugen); „Weitere anzeigen“
   holt Zeilen über `pages/reiter.php`.
 - **Seitentitel und Symbol:** Jede Seite hat einen eigenen `<title>` der Form „Seite – {App}“ (Start nur „{App}“),

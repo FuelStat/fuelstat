@@ -23,8 +23,8 @@ if (!$fahrzeuge) {
     header('Location: fahrzeug_hinzufuegen.php');
     exit;
 }
-// Zuletzt genutztes Fahrzeug (Cookie aus eintrag_speichern.php) nach vorn
-$letztes = (string)($_COOKIE['fuelstat_fahrzeug'] ?? '');
+// Fahrzeug der Sitzung (#206) nach vorn, sonst bleibt das Standardfahrzeug vorn
+$letztes = (string)($_SESSION['fahrzeug_wahl'] ?? '');
 usort($fahrzeuge, fn($a, $b) => (($b['id'] ?? '') === $letztes) <=> (($a['id'] ?? '') === $letztes));
 $zielUrl = fn(array $f) => 'eintrag_hinzufuegen.php?fahrzeug_id=' . rawurlencode($f['id']) . '&art=' . $art;
 if (count($fahrzeuge) === 1) {

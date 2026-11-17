@@ -122,6 +122,10 @@ Vor dem PR prüfen und am Ende einer Aufgabe daran erinnern, was davon fehlt:
   einordnen: jeder Inhalt hat genau eine Heimat (7.6), Begriffe aus dem Glossar (7.5), höchstens ein „+“ je
   Bildschirm. Fehlt der Inhalt in der Tabelle, bekommt sie eine Zeile; der PR nennt sie. Ändert sich der Aufbau, zuerst
   dort, dann in fuelstat-ios und fuelstat-android (verlinkte PRs).
+- **Oberfläche im PR zeigen:** jede sichtbare UI-Änderung mit Vorher/Nachher-Screenshots im PR (Playwright:
+  360, 390, 430 px und Desktop, hell und dunkel, große Schrift). Neue Listen, Karten und Seiten haben alle
+  Zustände nach [`docs/design.md`](docs/design.md) 8.1 (laden, leer, Fehler, offline); Texte im Ton aus 7.5. Kein
+  Muster aus 1.1 („KI-Look“).
 
 ## Regeln
 

@@ -6,6 +6,9 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+### Behoben
+- CSV-Import: Die Spalte „Voll getankt/geladen“ aus dem eigenen Export wird wieder erkannt. Bisher galt beim erneuten Import jede Tankfüllung als Teilfüllung (#191).
+
 ### Technik
 - Hinweise für Betreiber (einmalige Befehle, Einstellungen) stehen nicht mehr im CHANGELOG, sondern in `docs/update-hinweise.md`; `infra/ausrollen.sh` zeigt sie von dort an, `node backend/scripts/neue-version.js` schließt beide Dateien ab.
 

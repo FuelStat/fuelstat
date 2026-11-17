@@ -52,7 +52,7 @@ function importErkenneZuordnung(array $kopfzeile): array
         'einheit' => ['einheit', 'unit', 'mengeneinheit', 'energieart'],
         'sorte' => ['sorte', 'kraftstoffsorte', 'kraftstoff', 'fuel', 'fueltype', 'spritsorte'],
         'preis' => ['preisproeinheit', 'preisproliter', 'literpreis', 'preisl', 'priceperliter', 'priceperunit', 'einzelpreis', 'preisprokwh', 'kwhpreis', 'strompreis', 'preiskwh'],
-        'vollgetankt' => ['vollgetankt', 'vollgeladen', 'voll', 'full', 'volltank', 'isfull', 'vollgetanktbzwgeladen'],
+        'vollgetankt' => ['vollgetankt', 'vollgeladen', 'voll', 'full', 'volltank', 'isfull', 'vollgetanktbzwgeladen', 'vollgetanktgeladen'],
         'luecke' => ['lueckedavor', 'luecke', 'skipprevious', 'vorherigeignorieren', 'vorherigetankfuellungignorieren'],
         'ladeart' => ['ladeart', 'chargetype', 'ladetyp', 'ladeort'],
         'soc_vorher' => ['ladestandvorher', 'socvorher', 'socbefore', 'akkuvorher', 'batterievorher'],

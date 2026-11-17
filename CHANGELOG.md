@@ -6,6 +6,8 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-17
+
 ### Neu
 - Eigener CO₂-Wert für Strom: Bei Elektroautos und Plug-in-Hybriden lässt sich in den Fahrzeugdaten ein eigener Wert in kg CO₂ je kWh eintragen, z. B. für Ökostrom oder Strom aus der eigenen PV-Anlage. Ohne Angabe rechnet Fuelstat weiter mit dem deutschen Strommix (#25).
 
@@ -15,6 +17,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ### Technik
 - API: Die Eintragsliste (`/vehicles/:id/timeline`) filtert mit `missing_odometer=1` Tank- und Ladevorgänge ohne echten Tachostand und nennt deren Anzahl (`missingOdometer`), damit die Apps fehlende Kilometerstände vollständig auflisten können (#187).
+- Release-Skript `neue-version.js`: setzt die neue Versionsüberschrift nur noch unter die Überschrift `## [Unreleased]`, nicht mehr in den Einleitungstext von `docs/update-hinweise.md`.
 - Hinweise für Betreiber (einmalige Befehle, Einstellungen) stehen nicht mehr im CHANGELOG, sondern in `docs/update-hinweise.md`; `infra/ausrollen.sh` zeigt sie von dort an, `node backend/scripts/neue-version.js` schließt beide Dateien ab.
 
 ## [0.13.0] - 2026-11-15
@@ -209,7 +212,8 @@ Erste Version mit Versionsnummer: alles, was Fuelstat bis zu diesem Stand kann.
 - Automatische Tests (PHP und API) und Prüfung der YAML-Dateien bei jedem Pull Request
 - Datensicherung mit Verschlüsselung und Wiederherstellungsprobe
 
-[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/FuelStat/fuelstat/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/FuelStat/fuelstat/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/FuelStat/fuelstat/compare/v0.12.1...v0.12.2
 [0.12.1]: https://github.com/FuelStat/fuelstat/compare/v0.12.0...v0.12.1

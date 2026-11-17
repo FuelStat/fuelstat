@@ -26,10 +26,12 @@ if (alt === version) fehler(`VERSION ist bereits ${version}`);
 // CHANGELOG: Inhalt von [Unreleased] wird zur neuen Version, darüber ein leerer [Unreleased]-Abschnitt
 const clPfad = path.join(ROOT, 'CHANGELOG.md');
 let cl = fs.readFileSync(clPfad, 'utf8');
-if (!cl.includes('## [Unreleased]')) fehler('CHANGELOG.md: Abschnitt "## [Unreleased]" fehlt');
-const nachUnreleased = cl.split('## [Unreleased]')[1].split(/\n## \[/)[0];
+// Nur die Überschrift am Zeilenanfang zählt, nicht ein Vorkommen im Fließtext (z. B. in Backticks in der Einleitung)
+const UNRELEASED = /^## \[Unreleased\][ \t]*$/m;
+if (!UNRELEASED.test(cl)) fehler('CHANGELOG.md: Abschnitt "## [Unreleased]" fehlt');
+const nachUnreleased = cl.slice(cl.search(UNRELEASED) + '## [Unreleased]'.length).split(/\n## \[/)[0];
 if (!/^\s*- /m.test(nachUnreleased)) fehler('CHANGELOG.md: unter [Unreleased] steht noch nichts – erst die Änderungen eintragen');
-cl = cl.replace('## [Unreleased]', `## [Unreleased]\n\n## [${version}] - ${datum}`);
+cl = cl.replace(UNRELEASED, `## [Unreleased]\n\n## [${version}] - ${datum}`);
 cl = cl.replace(/^\[Unreleased\]: .*$/m, `[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v${version}...HEAD\n[${version}]: https://github.com/FuelStat/fuelstat/compare/v${alt}...v${version}`);
 fs.writeFileSync(clPfad, cl);
 
@@ -42,8 +44,8 @@ try {
   if (e.code !== 'ENOENT') throw e;
 }
 if (uh !== null) {
-  if (!uh.includes('## [Unreleased]')) fehler('docs/update-hinweise.md: Abschnitt "## [Unreleased]" fehlt');
-  fs.writeFileSync(uhPfad, uh.replace('## [Unreleased]', `## [Unreleased]\n\n## [${version}] - ${datum}`));
+  if (!UNRELEASED.test(uh)) fehler('docs/update-hinweise.md: Abschnitt "## [Unreleased]" fehlt');
+  fs.writeFileSync(uhPfad, uh.replace(UNRELEASED, `## [Unreleased]\n\n## [${version}] - ${datum}`));
 }
 
 fs.writeFileSync(path.join(ROOT, 'VERSION'), version + '\n');

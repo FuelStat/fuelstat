@@ -302,6 +302,9 @@ Auf iOS mit kontinuierlichen Ecken (`.continuous`), auf den anderen Plattformen 
 ### 5.4 Ebenen und Schatten
 
 - Karten auf `Background` brauchen **keinen Schatten**; der Farbunterschied trennt sie.
+- **Weniger Karten, mehr Luft:** Eine Karte fasst eine abgeschlossene Einheit zusammen (Kennzahl, Eintrag,
+  Fahrzeug), nicht jeden Abschnitt. **Keine Karte in einer Karte.** Zusammengehörige Zeilen trennt Abstand
+  (`m`/`l`) oder eine `Separator`-Linie; Abschnitte tragen eine Überschrift (`SectionHeader`) statt eines Rahmens.
 - Höchstens ein weicher Schatten auf schwebenden Elementen: „+“-Knopf, Blätter über Fotos.
 - Fotos: abgerundet, unten ein leichter Verlauf für die Lesbarkeit von Text darauf. Verlauf und Text darauf sind in
   beiden Modi gleich: `BrandDeep` des hellen Modus (`#0A1C33`, bis 82 % deckend) und Weiß (Web: `--fs-scrim-rgb`,
@@ -484,6 +487,11 @@ Texte der Web-App. Der Produktname steht als `{App}`, er wird mit der Umbenennun
 | Einladungen | Eingeladene Mitfahrer, in Profil → Daten | |
 | Zwei-Faktor, Passkey | Sicherheit | „2FA“ in der Oberfläche |
 
+**Ton der Texte.** Du-Form, kurze Sätze, aktive Verben, die Zahl vor der Erklärung. Knöpfe nennen die Handlung
+(„Speichern“, „Wartung eintragen“), nicht „OK“ oder „Weiter“. Keine Ausrufezeichen, kein „Hoppla“ und keine
+Schuldzuweisung („Das hat nicht geklappt“ statt „Sie haben falsche Daten eingegeben“). Floskeln und Marketingsprache
+siehe 1.1. Fachwörter nur aus dem Glossar.
+
 ### 7.6 Heimat jedes Inhalts
 
 | Inhalt | Heimat | Kurzwege erlaubt von |
@@ -581,6 +589,30 @@ Jede Plattform hat diese Bausteine genau einmal und verwendet sie überall. Name
 
 Fahrzeug ohne Foto: getönter Platzhalter mit Auto-Symbol in der Energiefarbe des Fahrzeugs.
 
+### 8.1 Zustände: Laden, leer, Fehler
+
+Jede Liste, Karte und Seite, die Daten von der API holt, hat alle vier Zustände. Sie werden **mit dem Bildschirm
+entworfen**, nicht nachträglich.
+
+| Zustand | Regel |
+|---|---|
+| **Laden** | Platzhalter in der Größe des späteren Inhalts (`CardTint`, ruhig, ohne Dauerbewegung), damit nichts springt; erst nach etwa 300 ms anzeigen, damit schnelle Antworten nicht flackern. Kein Vollbild-Spinner für Listen. Aktionen zeigen den Ladezustand am Knopf (`PrimaryButton`), der Knopf bleibt belegt. Bei „Bewegung reduzieren“ ohne Schimmer. |
+| **Leer** | `EmptyState`: Symbol, **ein** Satz, **eine** Aktion („Noch keine Einträge. Erfasse deinen ersten Tankstopp.“ mit Knopf „Eintrag erfassen“). Ein leerer Filter sagt das und bietet „Zurücksetzen“. |
+| **Fehler** | Klartext: was passiert ist und was man tun kann. Nie Statuscodes, Fehlerklassen oder Stacktraces. Immer eine Aktion („Erneut versuchen“, „Anmelden“). Meldungen der API (Tarifgrenzen, `409 vehicle_archived` …) werden angezeigt, wenn sie verständlich sind; sonst setzt die Plattform den Text nach der Tabelle unten. Fehler an einem Feld stehen am Feld (Abschnitt 10). |
+| **Offline** | Zuletzt geladener Stand mit Hinweis „Stand von …“, Erfassen wird vorgemerkt („wartet auf Übertragung“), kein Fehlerdialog. |
+
+| Fall | Text (Beispiel) |
+|---|---|
+| Keine Verbindung | „Keine Verbindung. Prüfe dein Netz und versuche es erneut.“ |
+| Server nicht erreichbar oder 5xx | „Das hat gerade nicht geklappt. Versuche es gleich noch einmal.“ |
+| Abgemeldet (401) | „Du bist abgemeldet. Melde dich bitte neu an.“ |
+| Fahrzeug archiviert (`409 vehicle_archived`) | „Dieses Fahrzeug ist archiviert und nur lesbar.“ |
+| Kein Zugriff oder nicht vorhanden (404) | „Das gibt es nicht oder du hast keinen Zugriff darauf.“ (ein Text für beides, damit nichts über fremde Daten verraten wird) |
+| App zu alt (426) | „Bitte aktualisiere die App, um weiterzumachen.“ |
+
+**Web: Seite nicht gefunden.** Eine eigene Seite im Aussehen der App (Kopfleiste, `EmptyState`, Titel „Seite nicht
+gefunden“, ein Satz, Knopf „Zur Startseite“), auch für Fehler 403 und 5xx der Seiten. Keine Server-Standardseite.
+
 ## 9. Plattform-Leitplanken
 
 **Fest auf allen Plattformen (Marke):** Farb-Tokens, Abstände, Radien, Schriftrollen, Begriffe und
@@ -656,6 +688,11 @@ Plattform-Besonderheiten der Web-App (PHP mit Bootstrap 5.3):
   Standardfahrzeug. Ohne „In der Nähe“: Die Web-App fragt den Standort nur im Erfassen-Formular ab.
   **Abweichung bis zur Umsetzung (#206):** Die Fahrzeugseite hat noch Reiter, „Fahrzeuge“ steht noch in der Leiste
   und das Fahrzeug wird noch per Cookie gemerkt; neue Seiten folgen schon dem neuen Aufbau.
+- **Seitentitel und Symbol:** Jede Seite hat einen eigenen `<title>` der Form „Seite – {App}“ (Start nur „{App}“),
+  gleich dem sichtbaren Seitentitel; Favicon und Touch-Icons stammen aus [`images/marke/`](../images/marke/README.md).
+  Der Wert von `<meta name="theme-color">` bleibt wie oben.
+- **Stand der Zustände:** Ladezustände mit Platzhaltern, die eigene Seite „nicht gefunden“ und die Fehlertexte aus 8.1
+  fehlen noch (nginx liefert die Standard-404); Umsetzung in #211.
 - **Seitenbreite:** Inhalt in `container-xl` (max. 1200 px); Formulare in einer Spalte bis 640 px.
 
 ## 12. Bestandsaufnahme und Entscheidungen

@@ -17,6 +17,7 @@ if (!str_contains((string)($_SERVER['HTTP_ACCEPT'] ?? ''), 'text/html')) {
 }
 
 include __DIR__ . '/../includes/session.php';
+header('Cache-Control: no-store'); // session.php setzt eigene Cache-Header
 include __DIR__ . '/../includes/functions.php';
 include __DIR__ . '/../includes/header.php';
 ?>

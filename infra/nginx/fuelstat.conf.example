@@ -49,8 +49,9 @@ server {
 
     # --- Anwendung -----------------------------------------------------------
     # Eigene Fehlerseiten (#211, docs/design.md 8.1) statt der Standardseite von nginx: 403 und 404 im Aussehen der App,
-    # 500–504 als statische Seite (dann kann PHP selbst ausgefallen sein). Fehler der API (/api/v1/) und Fehler, die
-    # PHP-Seiten selbst melden, bleiben unberührt (proxy_/fastcgi_intercept_errors sind aus).
+    # 500–504 als statische Seite (dann kann PHP selbst ausgefallen sein). Fehler, die die API (JSON) oder PHP-Seiten
+    # selbst melden, bleiben unberührt (proxy_/fastcgi_intercept_errors sind aus); nur wenn die API gar nicht antwortet,
+    # kommt auch unter /api/v1/ diese Seite mit Status 502, wie vorher die Standardseite von nginx.
     error_page 403 /pages/fehler.php?code=403;
     error_page 404 /pages/fehler.php?code=404;
     error_page 500 502 503 504 /fehler.html;

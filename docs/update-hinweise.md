@@ -20,8 +20,8 @@ Was beim Ausrollen einer Version zu tun ist, soweit es über `sudo infra/ausroll
   ```
 
   Danach prüfen und neu laden: `sudo nginx -t && sudo systemctl reload nginx`. Test: `https://<domain>/gibtsnicht.php`
-  zeigt „Seite nicht gefunden“ mit Status 404 (`curl -sI https://<domain>/gibtsnicht.php | head -1`). Fehler der API
-  unter `/api/v1/` bleiben JSON.
+  zeigt „Seite nicht gefunden“ mit Status 404 (`curl -sI https://<domain>/gibtsnicht.php | head -1`). Fehler, die die API
+  unter `/api/v1/` meldet, bleiben JSON.
 
 - Migration `030_image_urls` (spielt `infra/ausrollen.sh` vor dem Neustart der API ein) leert Fahrzeug- und Profilbilder, die auf fremde Server oder `javascript:`/`data:` zeigen (#196). Wer vorher sehen will, ob es solche Einträge gibt (erwartet: 0):
 

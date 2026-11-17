@@ -131,8 +131,17 @@ async function getVehicleReminders(pool, userId, vehicleId, warnDays = 30, today
     else row.status = 'ok';
     return row;
   });
-  // Bauteile mit Intervall oder Ø-Lebensdauer (#78) hinter den festen Terminen
-  return [...regeln, ...(await getPartReminders(pool, vehicleId, { warnDays, today }))];
+  // Gruppen (#206, docs/design.md 7.5 „Termine“): erst die Fristen (TÜV, Wartung, Versicherung, Steuer), dann Bauteile
+  // mit eigenem Intervall, dann Schätzungen aus der Ø-Lebensdauer, zuletzt die reine Info (letzter Reifenwechsel)
+  const teile = (await getPartReminders(pool, vehicleId, { warnDays, today }))
+    .map((r) => ({ ...r, group: r.source === 'lebensdauer' ? 'estimate' : 'part' }));
+  const fristen = regeln.filter((r) => r.kind !== 'info').map((r) => ({ ...r, group: 'deadline' }));
+  // Die Info-Zeile „Reifen“ entfällt, sobald Sommer- oder Winterreifen als Bauteil einen Termin haben: sie zeigte
+  // denselben letzten Wechsel noch einmal
+  const reifenAlsBauteil = teile.some((r) => r.part_key === 'tires_summer' || r.part_key === 'tires_winter');
+  const infos = regeln.filter((r) => r.kind === 'info' && !(r.category === 'Reifen' && reifenAlsBauteil))
+    .map((r) => ({ ...r, group: 'info' }));
+  return [...fristen, ...teile.filter((r) => r.group === 'part'), ...teile.filter((r) => r.group === 'estimate'), ...infos];
 }
 
 module.exports = { getVehicleReminders, RULES };

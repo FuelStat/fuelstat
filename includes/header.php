@@ -129,7 +129,8 @@ $eintraegeUrl = $detailUrl ? $detailUrl . '#eintraege' : null;
 $seitenInfo = [
     'fahrzeug_detail.php'      => [$kontextFahrzeug['modell'] ?? 'Fahrzeug', 'index.php'],
     'fahrzeug_hinzufuegen.php' => ['Neues Fahrzeug', 'index.php'],
-    'fahrzeuge.php'            => ['Meine Fahrzeuge', 'index.php'],
+    'fahrzeuge.php'            => ['Fahrzeuge', 'index.php'],
+    'passkeys.php'             => ['Passkeys', null],
     'fahrzeug_bearbeiten.php'  => ['Fahrzeug bearbeiten', $detailUrl],
     'eintrag_hinzufuegen.php'  => ['Eintrag erfassen', $eintraegeUrl],
     'eintrag_bearbeiten.php'   => ['Eintrag bearbeiten', $eintraegeUrl],
@@ -264,7 +265,7 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
         <div class="dropdown d-none d-lg-block">
             <button type="button" class="kopf-wechsler dropdown-toggle" id="fahrzeugeDropdown" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Fahrzeug wählen">
                 <i class="fas fa-car-side" aria-hidden="true"></i>
-                <span class="text-truncate"><?= htmlspecialchars($kontextFahrzeug ? trim($kontextFahrzeug['marke'] . ' ' . $kontextFahrzeug['modell']) : 'Meine Fahrzeuge') ?></span>
+                <span class="text-truncate"><?= htmlspecialchars($kontextFahrzeug ? trim($kontextFahrzeug['marke'] . ' ' . $kontextFahrzeug['modell']) : 'Fahrzeuge') ?></span>
             </button>
             <ul class="dropdown-menu" aria-labelledby="fahrzeugeDropdown">
                 <?php foreach ($userVehicles as $vehicle): ?>
@@ -275,7 +276,7 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
                     </li>
                 <?php endforeach; ?>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeuge.php"><i class="fas fa-table-cells-large fa-fw" aria-hidden="true"></i>Alle Fahrzeuge</a></li>
+                <li><a class="dropdown-item" href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeuge.php"><i class="fas fa-table-cells-large fa-fw" aria-hidden="true"></i>Fahrzeuge verwalten</a></li>
                 <li><a class="dropdown-item" href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_hinzufuegen.php"><i class="fas fa-plus fa-fw" aria-hidden="true"></i>Fahrzeug hinzufügen</a></li>
             </ul>
         </div>
@@ -347,7 +348,7 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userSettingsDropdown">
                         <li class="px-3 py-2">
-                            <div class="fs-headline text-truncate"><?= htmlspecialchars(($currentUser['username'] ?? '') ?: 'Mein Konto') ?></div>
+                            <div class="fs-headline text-truncate"><?= htmlspecialchars(($currentUser['username'] ?? '') ?: 'Profil') ?></div>
                             <?php if (!empty($currentUser['email'])): ?><div class="fs-footnote text-truncate"><?= htmlspecialchars($currentUser['email']) ?></div><?php endif; ?>
                         </li>
                         <li><hr class="dropdown-divider"></li>
@@ -409,7 +410,7 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
 <div class="offcanvas offcanvas-bottom blatt d-lg-none" tabindex="-1" id="blattFahrzeuge" aria-labelledby="blattFahrzeugeTitel">
     <div class="blatt-griff"></div>
     <div class="offcanvas-header pb-2">
-        <h2 class="offcanvas-title h5" id="blattFahrzeugeTitel">Meine Fahrzeuge</h2>
+        <h2 class="offcanvas-title h5" id="blattFahrzeugeTitel">Fahrzeuge</h2>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Schließen"></button>
     </div>
     <div class="offcanvas-body pt-0">
@@ -426,7 +427,7 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
             </a>
             <?php endforeach; ?>
             <a class="list-group-item list-group-item-action d-flex align-items-center blatt-alle" href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeuge.php">
-                <i class="fas fa-table-cells-large fa-fw me-3" aria-hidden="true"></i>Alle Fahrzeuge
+                <i class="fas fa-table-cells-large fa-fw me-3" aria-hidden="true"></i>Fahrzeuge verwalten
                 <i class="fas fa-chevron-right ms-auto small opacity-50" aria-hidden="true"></i>
             </a>
             <a class="list-group-item list-group-item-action d-flex align-items-center text-primary blatt-neu" href="<?= htmlspecialchars($baseUrl) ?>pages/fahrzeug_hinzufuegen.php">
@@ -447,7 +448,7 @@ $profilBildUrl = !empty($currentUser['profile_image_url'])
                 <i class="fas fa-circle-user fa-2x text-body-secondary"></i>
             <?php endif; ?>
             <div class="min-w-0">
-                <h2 class="offcanvas-title h5 mb-0 text-truncate" id="blattProfilTitel"><?= htmlspecialchars(($currentUser['username'] ?? '') ?: 'Mein Konto') ?></h2>
+                <h2 class="offcanvas-title h5 mb-0 text-truncate" id="blattProfilTitel"><?= htmlspecialchars(($currentUser['username'] ?? '') ?: 'Profil') ?></h2>
                 <?php if (!empty($currentUser['email'])): ?>
                 <div class="small text-body-secondary text-truncate"><?= htmlspecialchars($currentUser['email']) ?></div>
                 <?php endif; ?>

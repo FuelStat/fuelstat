@@ -38,13 +38,13 @@ include '../includes/fahrzeug_kontext.php';
 
     <!-- Reiter: am PC Tabs, mobil wischbare Leiste, die unter der Kopfleiste stehen bleibt -->
     <ul class="nav nav-tabs fahrzeug-reiter no-swipe" id="fahrzeugTabs" role="tablist">
-        <li class="nav-item" role="presentation"><a class="nav-link" id="allgemein-tab" data-bs-toggle="tab" data-bs-target="#reiter-allgemein" href="#allgemein" role="tab">Allgemein</a></li>
+        <li class="nav-item" role="presentation"><a class="nav-link" id="allgemein-tab" data-bs-toggle="tab" data-bs-target="#reiter-allgemein" href="#allgemein" role="tab">Übersicht</a></li>
         <li class="nav-item" role="presentation"><a class="nav-link" id="eintraege-tab" data-bs-toggle="tab" data-bs-target="#reiter-eintraege" href="#eintraege" role="tab">Einträge</a></li>
-        <li class="nav-item" role="presentation"><a class="nav-link" id="statistiken-tab" data-bs-toggle="tab" data-bs-target="#reiter-statistiken" href="#statistiken" role="tab">Statistiken</a></li>
+        <li class="nav-item" role="presentation"><a class="nav-link" id="statistiken-tab" data-bs-toggle="tab" data-bs-target="#reiter-statistiken" href="#statistiken" role="tab">Statistik</a></li>
         <li class="nav-item" role="presentation"><a class="nav-link" id="ausgaben-tab" data-bs-toggle="tab" data-bs-target="#reiter-ausgaben" href="#ausgaben" role="tab">Ausgaben</a></li>
         <li class="nav-item" role="presentation"><a class="nav-link" id="service-tab" data-bs-toggle="tab" data-bs-target="#reiter-service" href="#service" role="tab">Service</a></li>
         <li class="nav-item" role="presentation"><a class="nav-link" id="fahrten-tab" data-bs-toggle="tab" data-bs-target="#reiter-fahrten" href="#fahrten" role="tab">Fahrten</a></li>
-        <li class="nav-item" role="presentation"><a class="nav-link" id="einstellungen-tab" data-bs-toggle="tab" data-bs-target="#reiter-einstellungen" href="#einstellungen" role="tab">Einstellungen</a></li>
+        <li class="nav-item" role="presentation"><a class="nav-link" id="einstellungen-tab" data-bs-toggle="tab" data-bs-target="#reiter-einstellungen" href="#einstellungen" role="tab">Fahrzeugdaten</a></li>
     </ul>
 
     <!-- Tab Inhalte. IDs mit "reiter-", damit #eintraege usw. in der Adresse keinen Sprung des Browsers auslösen:

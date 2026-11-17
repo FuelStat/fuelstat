@@ -52,7 +52,7 @@ include '../includes/header.php';
             <div class="card shadow">
                 <div class="card-body p-4">
                     <h1 class="h4 mb-3"><i class="fas fa-fingerprint me-2 text-primary" aria-hidden="true"></i>Passkeys</h1>
-                    <p>Mit einem Passkey meldest du dich per Face ID, Fingerabdruck, Windows Hello oder Sicherheitsschlüssel an – ohne Passwort und ohne 2FA-Code. Dein Passwort bleibt als Rückfallweg.</p>
+                    <p>Mit einem Passkey meldest du dich per Face ID, Fingerabdruck, Windows Hello oder Sicherheitsschlüssel an – ohne Passwort und ohne Zwei-Faktor-Code. Dein Passwort bleibt als Rückfallweg.</p>
                     <p class="fs-label">Fuelstat speichert nur den öffentlichen Schlüssel. Der private Schlüssel bleibt auf deinem Gerät bzw. in deinem Passwort-Manager (z. B. iCloud-Schlüsselbund, Google, 1Password).</p>
 
                     <?php if (isset($_SESSION['success_message'])): ?>
@@ -117,7 +117,7 @@ include '../includes/header.php';
                             <div class="mb-3">
                                 <label for="passkeyPasswort" class="form-label">Aktuelles Passwort</label>
                                 <input type="password" class="form-control" id="passkeyPasswort" name="passwort" autocomplete="current-password" required>
-                                <div class="form-text">Zur Sicherheit, weil ein Passkey Passwort und 2FA ersetzt.</div>
+                                <div class="form-text">Zur Sicherheit, weil ein Passkey Passwort und Zwei-Faktor-Code ersetzt.</div>
                             </div>
                             <div id="passkeyAnlegenMeldung" class="alert alert-danger d-none" role="alert"></div>
                             <button type="submit" class="btn btn-primary"><i class="fas fa-plus me-2" aria-hidden="true"></i>Passkey hinzufügen</button>

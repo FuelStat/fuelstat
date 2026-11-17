@@ -1,6 +1,8 @@
 <?php
 // Gesamtkosten (TCO, #79): Kennzahlen und Anteile aus GET /vehicles/:id/tco. Die Zahlen rechnet die API, hier wird nur dargestellt.
 // Erwartet: $tco (Antwort der API), $fahrzeug_id, $darfAendern (bool, Link zum Ergänzen der Angaben)
+// Optional: $tcoMitAnteilen (bool, Standard true): Anteile als Balken. Im Reiter „Ausgaben“ ohne gewähltes Jahr zeigt die
+// Kostenstruktur darunter dieselbe Aufteilung, dann entfällt sie hier (#206: jede Zahl nur einmal).
 $tcoZahl = fn($wert, int $stellen = 2) => number_format((float)$wert, $stellen, ',', '.');
 $tcoGruppen = kategorieGruppen();
 $tcoName = fn(string $k) => $k === 'wertverlust' ? 'Wertverlust' : ($tcoGruppen[$k]['name'] ?? $k);
@@ -22,17 +24,17 @@ $tcoVerkauft = ($tco['valueBasis'] ?? null) === 'sale' || ($tco['sale'] ?? null)
             </div></div>
             <div><div class="kennzahl">
                 <div class="fs-label">Pro Monat</div>
-                <div class="kennzahl-wert"><?= $tco['perMonth'] !== null ? $tcoZahl($tco['perMonth']) . ' <small class="fw-normal">€</small>' : '—' ?></div>
+                <div class="kennzahl-wert"><?= $tco['perMonth'] !== null ? $tcoZahl($tco['perMonth']) . ' <small class="fw-normal">€</small>' : leerWert() ?></div>
                 <div class="small text-body-secondary"><?= $tco['ownershipMonths'] !== null ? $tcoZahl($tco['ownershipMonths'], 1) . ' Monate Besitzzeit' : 'noch keine Besitzzeit' ?></div>
             </div></div>
             <div><div class="kennzahl">
                 <div class="fs-label">Pro Kilometer</div>
-                <div class="kennzahl-wert"><?= $tco['perKm'] !== null ? $tcoZahl($tco['perKm']) . ' <small class="fw-normal">€/km</small>' : '—' ?></div>
+                <div class="kennzahl-wert"><?= $tco['perKm'] !== null ? $tcoZahl($tco['perKm']) . ' <small class="fw-normal">€/km</small>' : leerWert() ?></div>
                 <div class="small text-body-secondary"><?= $tco['distanceKm'] ? $tcoZahl($tco['distanceKm'], 0) . ' km gefahren' : 'Tachostände fehlen' ?></div>
             </div></div>
             <div><div class="kennzahl">
                 <div class="fs-label">Wertverlust</div>
-                <div class="kennzahl-wert"><?= $tco['valueLoss'] !== null ? $tcoZahl($tco['valueLoss']) . ' <small class="fw-normal">€</small>' : '—' ?></div>
+                <div class="kennzahl-wert"><?= $tco['valueLoss'] !== null ? $tcoZahl($tco['valueLoss']) . ' <small class="fw-normal">€</small>' : leerWert() ?></div>
                 <div class="small text-body-secondary"><?= $tco['valueLossPerYear'] !== null ? $tcoZahl($tco['valueLossPerYear'], 0) . ' € pro Jahr' : 'nicht berechenbar' ?></div>
             </div></div>
         </div>
@@ -45,7 +47,7 @@ $tcoVerkauft = ($tco['valueBasis'] ?? null) === 'sale' || ($tco['sale'] ?? null)
         </p>
         <?php endif; ?>
 
-        <?php if ($tco['shares']): ?>
+        <?php if ($tco['shares'] && ($tcoMitAnteilen ?? true)): ?>
         <div class="progress mb-3" style="height: 0.75rem" role="img" aria-label="Anteile an den Gesamtkosten">
             <?php foreach ($tco['shares'] as $s): ?>
                 <div class="progress-bar" style="width: <?= round((float)$s['share'], 2) ?>%; background-color: <?= $tcoFarbe($s['key']) ?>" title="<?= htmlspecialchars($tcoName($s['key'])) ?>"></div>

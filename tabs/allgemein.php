@@ -29,9 +29,12 @@ $fahrzeugDetails = array_filter([
 $verbrauchJeEinheit = count($stats['units'] ?? []) > 1 ? $stats['units'] : [];
 uksort($verbrauchJeEinheit, fn($a, $b) => array_search($a, ['l', 'kwh', 'kg']) <=> array_search($b, ['l', 'kwh', 'kg']));
 
-// Termine: dringendste zuerst, Reifen (nur Info, ohne Fälligkeit) zuletzt; alles aus /reminders (API-first)
+// Termine: erst die Fristen, dann die Bauteile (Gruppe aus /reminders, #206); innerhalb einer Gruppe die dringendsten
+// zuerst, die reine Info (letzter Reifenwechsel) zuletzt. Alles aus der API.
 $statusReihenfolge = ['ueberfaellig' => 0, 'bald' => 1, 'ok' => 2, 'unbekannt' => 3];
-usort($faelligkeiten, fn($a, $b) => [$a['art'] === 'info', $statusReihenfolge[$a['status']] ?? 9, $a['tage'] ?? PHP_INT_MAX] <=> [$b['art'] === 'info', $statusReihenfolge[$b['status']] ?? 9, $b['tage'] ?? PHP_INT_MAX]);
+$gruppeRang = fn(array $f) => ($f['gruppe'] ?? 'deadline') === 'deadline' ? 0 : 1;
+usort($faelligkeiten, fn($a, $b) => [$gruppeRang($a), $a['art'] === 'info', $statusReihenfolge[$a['status']] ?? 9, $a['tage'] ?? PHP_INT_MAX]
+    <=> [$gruppeRang($b), $b['art'] === 'info', $statusReihenfolge[$b['status']] ?? 9, $b['tage'] ?? PHP_INT_MAX]);
 // Tachostand und Beschreibung des letzten Eintrags, z. B. „zuletzt 12.03.2026 bei 61.200 km · Ölwechsel“
 $zuletzt = function (array $f, string $wort = 'zuletzt'): string {
     $teile = [$wort . ' ' . date('d.m.Y', strtotime($f['letzte'])) . (!empty($f['letzte_km']) ? ' bei ' . number_format((int)$f['letzte_km'], 0, ',', '.') . ' km' : '')];
@@ -102,13 +105,13 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                 <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Tachostand</div>
-                        <div class="kennzahl-wert"><?= $currentOdo !== null ? number_format($currentOdo, 0, ',', '.') . ' km' : '—' ?></div>
+                        <div class="kennzahl-wert"><?= $currentOdo !== null ? number_format($currentOdo, 0, ',', '.') . ' km' : leerWert() ?></div>
                     </div>
                 </div>
                 <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Fahrleistung</div>
-                        <div class="kennzahl-wert"><?= $fahrleistung !== null ? number_format($fahrleistung['km'], 0, ',', '.') . ' km' : '—' ?></div>
+                        <div class="kennzahl-wert"><?= $fahrleistung !== null ? number_format($fahrleistung['km'], 0, ',', '.') . ' km' : leerWert() ?></div>
                         <?php if ($fahrleistung !== null): ?><div class="small text-body-secondary"><?= htmlspecialchars($fahrleistung['basis']) ?></div><?php endif; ?>
                     </div>
                 </div>
@@ -139,7 +142,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                 <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Ø Verbrauch <?= begriffeFuerEinheit($fuel_type, $u)['energie'] ?></div>
-                        <div class="kennzahl-wert"><?= $wSchnitt !== null ? number_format($wSchnitt, 2, ',', '.') . ' <small class="fw-normal">' . einheitKurz($u) . '/100 km</small>' : '—' ?></div>
+                        <div class="kennzahl-wert"><?= $wSchnitt !== null ? number_format($wSchnitt, 2, ',', '.') . ' <small class="fw-normal">' . einheitKurz($u) . '/100 km</small>' : leerWert() ?></div>
                         <?php if ($wZusatz): ?><div class="small text-body-secondary"><?= implode(' · ', $wZusatz) ?></div><?php endif; ?>
                     </div>
                 </div>
@@ -148,7 +151,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                 <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Ø Verbrauch</div>
-                        <div class="kennzahl-wert"><?= $schnitt !== null ? number_format($schnitt, 2, ',', '.') . ' <small class="fw-normal">' . $einheitKurz . '/100 km</small>' : '—' ?></div>
+                        <div class="kennzahl-wert"><?= $schnitt !== null ? number_format($schnitt, 2, ',', '.') . ' <small class="fw-normal">' . $einheitKurz . '/100 km</small>' : leerWert() ?></div>
                         <?php if ($aktuell !== null): ?>
                             <div class="small text-body-secondary">zuletzt <?= number_format($aktuell, 2, ',', '.') ?><?php if ($diff !== null && abs($diff) >= 0.01): ?>
                                 <span class="text-<?= $diff > 0 ? 'danger' : 'success' ?>">(<?= ($diff > 0 ? '+' : '') . number_format($diff, 2, ',', '.') ?>)</span><?php endif; ?></div>
@@ -158,7 +161,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                 <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Ø Preis/<?= $einheitKurz ?></div>
-                        <div class="kennzahl-wert"><?= $avgPrice !== null ? number_format($avgPrice, 3, ',', '.') . ' €' : '—' ?></div>
+                        <div class="kennzahl-wert"><?= $avgPrice !== null ? number_format($avgPrice, 3, ',', '.') . ' €' : leerWert() ?></div>
                     </div>
                 </div>
                 <?php endif; ?>
@@ -169,11 +172,22 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h2 class="mb-0">Nächste Termine</h2>
                     <?php if ($darfErfassen): ?>
-                    <a href="<?= htmlspecialchars($eintragUrl) ?>&kategorie=Wartung" class="btn btn-secondary btn-sm">Termin erfassen</a>
+                    <a href="<?= htmlspecialchars($eintragUrl) ?>&kategorie=Wartung" class="btn btn-secondary btn-sm">Wartung eintragen</a>
                     <?php endif; ?>
                 </div>
                 <ul class="list-group list-group-flush">
+                    <?php
+                    // Zwischenüberschriften (#206): Fristen, dann Bauteile (mit Intervall, Schätzung, letzter Reifenwechsel);
+                    // nur wenn beide Gruppen vorkommen. Reihenfolge und Gruppe liefert die API.
+                    $gruppeName = fn(array $f) => ($f['gruppe'] ?? 'deadline') === 'deadline' ? 'Fristen' : 'Bauteile';
+                    $mitUeberschriften = count(array_unique(array_map($gruppeName, $faelligkeiten))) > 1;
+                    $letzteGruppe = null;
+                    ?>
                     <?php foreach ($faelligkeiten as $f):
+                        if ($mitUeberschriften && $gruppeName($f) !== $letzteGruppe):
+                            $letzteGruppe = $gruppeName($f); ?>
+                    <li class="list-group-item termin-gruppe"><h3 class="fs-label fw-semibold mb-0"><?= $letzteGruppe ?></h3></li>
+                    <?php endif;
                         // Status kommt aus der API; hier nur der Abstand in Worten („in 12 Tagen“, „seit 5 Tagen überfällig“)
                         $text = isset($f['tage']) && !empty($f['faellig_datum'])
                             ? (($f['quelle'] ?? '') === 'lebensdauer' ? 'ca. ' : '') . terminAbstand((int)$f['tage'])
@@ -205,7 +219,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                                         <br>laut Fahrzeugangaben
                                     <?php endif; ?>
                                 <?php else: ?>
-                                    <a class="tipp-link" href="<?= htmlspecialchars($eintragUrl) ?>&kategorie=<?= urlencode($f['kategorie']) ?>">Letzten Termin erfassen</a>, um erinnert zu werden
+                                    <a class="tipp-link" href="<?= htmlspecialchars($eintragUrl) ?>&kategorie=<?= urlencode($f['kategorie']) ?>"><?= htmlspecialchars($f['titel']) ?> eintragen</a>, um erinnert zu werden
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -226,7 +240,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
             <?php endif; ?>
 
             <?php if ($istBesitzer): ?>
-            <!-- Löschen steht abgesetzt im Reiter „Einstellungen“ (#158) -->
+            <!-- Löschen steht abgesetzt im Reiter „Fahrzeugdaten“ (#158) -->
             <div class="d-flex flex-wrap gap-2 mt-3">
                 <a href="../pages/fahrzeug_bearbeiten.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>" class="btn btn-secondary">
                     <i class="fas fa-pen" aria-hidden="true"></i>Fahrzeug bearbeiten

@@ -95,7 +95,7 @@ $kostenTile = function () use ($kostenHaupt, $energieKosten, $stromAnteil, $zahl
         <div>
             <div class="kennzahl">
                 <div class="small text-body-secondary">Energiekosten</div>
-                <div class="kennzahl-wert"><?= $kostenHaupt ?? '—' ?></div>
+                <div class="kennzahl-wert"><?= $kostenHaupt ?? leerWert() ?></div>
                 <div class="small text-body-secondary"><?= $zahl($energieKosten) ?> €<?php if ($stromAnteil !== null): ?>, davon Strom <?= $zahl($stromAnteil, 0) ?> %<?php endif; ?></div>
             </div>
         </div>
@@ -183,10 +183,10 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
             <div class="kennzahl">
                 <div class="small text-body-secondary">Ø <?= htmlspecialchars($p['name']) ?></div>
                 <?php if ($p['nebenbei']): ?>
-                <div class="kennzahl-wert">—</div>
+                <div class="kennzahl-wert"><?= leerWert() ?></div>
                 <div class="small text-body-secondary">nur gelegentlich · <?= $zahl($p['gekauft'], 0) ?> <?= $p['kurz'] ?></div>
                 <?php else: ?>
-                <div class="kennzahl-wert"><?= $p['schnitt'] !== null ? $zahl($p['schnitt']) . ' <small class="fw-normal">' . $p['kurz'] . '/100 km</small>' : '—' ?></div>
+                <div class="kennzahl-wert"><?= $p['schnitt'] !== null ? $zahl($p['schnitt']) . ' <small class="fw-normal">' . $p['kurz'] . '/100 km</small>' : leerWert() ?></div>
                 <div class="small text-body-secondary"><?= $zahl($p['gekauft'], 0) ?> <?= $p['kurz'] ?><?php if ($p['preis'] !== null): ?> · Ø <?= $zahl($p['preis'], 3) ?> €/<?= $p['kurz'] ?><?php endif; ?></div>
                 <?php if ($p['summe']): ?><div class="small text-body-secondary">aus der Summe, ohne vollen Abschnitt</div><?php endif; ?>
                 <?php endif; ?>
@@ -197,7 +197,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
         <div>
             <div class="kennzahl">
                 <div class="small text-body-secondary"><?= $begriffe['kosten'] ?></div>
-                <div class="kennzahl-wert"><?= $kraftstoffKostenProKm !== null ? $zahl($kraftstoffKostenProKm * 100) . ' <small class="fw-normal">€/100 km</small>' : '—' ?></div>
+                <div class="kennzahl-wert"><?= $kraftstoffKostenProKm !== null ? $zahl($kraftstoffKostenProKm * 100) . ' <small class="fw-normal">€/100 km</small>' : leerWert() ?></div>
                 <div class="small text-body-secondary"><?= $zahl($energieKosten) ?> €<?php if ($stromAnteil !== null): ?>, davon Strom <?= $zahl($stromAnteil, 0) ?> %<?php endif; ?></div>
             </div>
         </div>
@@ -206,7 +206,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
         <div>
             <div class="kennzahl">
                 <div class="small text-body-secondary">Ø Verbrauch</div>
-                <div class="kennzahl-wert"><?= $durchschnittVerbrauch !== null ? $zahl($durchschnittVerbrauch) . ' <small class="fw-normal">' . $haupt['kurz'] . '/100 km</small>' : '—' ?></div>
+                <div class="kennzahl-wert"><?= $durchschnittVerbrauch !== null ? $zahl($durchschnittVerbrauch) . ' <small class="fw-normal">' . $haupt['kurz'] . '/100 km</small>' : leerWert() ?></div>
                 <?php if ($minVerbrauch !== null): ?><div class="small text-body-secondary"><?= $zahl($minVerbrauch, 1) ?> bis <?= $zahl($maxVerbrauch, 1) ?></div><?php endif; ?>
                 <?php if ($haupt['summe']): ?><div class="small text-body-secondary">aus der Summe aller <?= $begriffe['vorgaenge'] ?>, ohne vollen Abschnitt</div><?php endif; ?>
             </div>
@@ -214,7 +214,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
         <div>
             <div class="kennzahl">
                 <div class="small text-body-secondary"><?= $begriffe['kosten'] ?></div>
-                <div class="kennzahl-wert"><?= $kraftstoffKostenProKm !== null ? $zahl($kraftstoffKostenProKm * 100) . ' <small class="fw-normal">€/100 km</small>' : '—' ?></div>
+                <div class="kennzahl-wert"><?= $kraftstoffKostenProKm !== null ? $zahl($kraftstoffKostenProKm * 100) . ' <small class="fw-normal">€/100 km</small>' : leerWert() ?></div>
                 <?php if ($durchschnittPreis !== null): ?><div class="small text-body-secondary">Ø <?= $zahl($durchschnittPreis, 3) ?> €/<?= $haupt['kurz'] ?></div><?php endif; ?>
             </div>
         </div>
@@ -229,7 +229,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
         <div>
             <div class="kennzahl" title="<?= htmlspecialchars($co2Hinweis) ?>">
                 <div class="small text-body-secondary">CO₂ gesamt</div>
-                <div class="kennzahl-wert"><?= $co2Gesamt !== null ? $zahl($co2Gesamt / 1000) . ' <small class="fw-normal">t</small>' : '—' ?></div>
+                <div class="kennzahl-wert"><?= $co2Gesamt !== null ? $zahl($co2Gesamt / 1000) . ' <small class="fw-normal">t</small>' : leerWert() ?></div>
                 <?php if ($co2ProKm !== null): ?><div class="small text-body-secondary">Ø <?= $zahl($co2ProKm, 0) ?> g/km</div><?php endif; ?>
             </div>
         </div>
@@ -252,9 +252,9 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                                 <?= htmlspecialchars(ladearten()[$t['type'] ?? ''] ?? 'Ohne Angabe') ?>
                                 <span class="d-block fs-label"><?= (int)$t['count'] ?>× · <?= $zahl($t['amount'], 0) ?> kWh</span>
                             </th>
-                            <td class="text-end text-nowrap"><?= $t['share'] !== null ? $zahl($t['share'], 0) . ' %' : '—' ?></td>
-                            <td class="text-end text-nowrap"><?= $t['avgPrice'] !== null ? $zahl($t['avgPrice'], 3) : '—' ?></td>
-                            <?php if ($ladeLeistung): ?><td class="text-end text-nowrap"><?= $t['avgPowerKw'] !== null ? $zahl($t['avgPowerKw'], 1) : '—' ?></td><?php endif; ?>
+                            <td class="text-end text-nowrap"><?= $t['share'] !== null ? $zahl($t['share'], 0) . ' %' : leerWert() ?></td>
+                            <td class="text-end text-nowrap"><?= $t['avgPrice'] !== null ? $zahl($t['avgPrice'], 3) : leerWert() ?></td>
+                            <?php if ($ladeLeistung): ?><td class="text-end text-nowrap"><?= $t['avgPowerKw'] !== null ? $zahl($t['avgPowerKw'], 1) : leerWert() ?></td><?php endif; ?>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
@@ -280,9 +280,9 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                     <?php foreach ($sortenPreise as $s): $kurzS = einheitKurz($s['unit'] ?? 'l'); ?>
                         <tr>
                             <th scope="row" class="fw-normal"><?= htmlspecialchars($s['name']) ?> <span class="text-body-secondary small">· <?= (int)$s['fillCount'] ?>×</span></th>
-                            <td class="text-end text-nowrap"><?= $s['shareOfEnergy'] !== null ? $zahl($s['shareOfEnergy'], 0) . ' %' : '—' ?></td>
-                            <td class="text-end text-nowrap"><?= $s['avgPrice'] !== null ? $zahl($s['avgPrice'], 3) . ' €/' . $kurzS : '—' ?></td>
-                            <td class="text-end text-nowrap"><?php if (!empty($s['markup'])): ?>+<?= $zahl($s['markup']['perUnit'], 3) ?> €/<?= $kurzS ?><?php if ($s['markup']['percent'] !== null): ?> <span class="text-body-secondary small">(<?= $zahl($s['markup']['percent'], 1) ?> %)</span><?php endif; ?><?php else: ?>—<?php endif; ?></td>
+                            <td class="text-end text-nowrap"><?= $s['shareOfEnergy'] !== null ? $zahl($s['shareOfEnergy'], 0) . ' %' : leerWert() ?></td>
+                            <td class="text-end text-nowrap"><?= $s['avgPrice'] !== null ? $zahl($s['avgPrice'], 3) . ' €/' . $kurzS : leerWert() ?></td>
+                            <td class="text-end text-nowrap"><?php if (!empty($s['markup'])): ?>+<?= $zahl($s['markup']['perUnit'], 3) ?> €/<?= $kurzS ?><?php if ($s['markup']['percent'] !== null): ?> <span class="text-body-secondary small">(<?= $zahl($s['markup']['percent'], 1) ?> %)</span><?php endif; ?><?php else: ?><?= leerWert() ?><?php endif; ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
@@ -405,15 +405,15 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                         <?php endif; ?>
                         <?php endforeach; ?>
                         <td class="text-end"><?= $zahl($summe['kosten']) ?> €</td>
-                        <?php if ($kostenHaupt !== null): ?><td class="text-end fw-semibold text-nowrap"><?= isset($rateJahre[(string)$jahr]) && $rateJahre[(string)$jahr]['costPer100km'] !== null ? $zahl($rateJahre[(string)$jahr]['costPer100km']) . ' €' : '—' ?></td><?php endif; ?>
+                        <?php if ($kostenHaupt !== null): ?><td class="text-end fw-semibold text-nowrap"><?= isset($rateJahre[(string)$jahr]) && $rateJahre[(string)$jahr]['costPer100km'] !== null ? $zahl($rateJahre[(string)$jahr]['costPer100km']) . ' €' : leerWert() ?></td><?php endif; ?>
                         <?php if (!$mehrereEinheiten): ?>
-                        <td class="text-end"><?= $preis !== null ? $zahl($preis, 3) . ' €/' . $haupt['kurz'] : '—' ?></td>
-                        <td class="text-end"><?= $daten['verbrauch_km'] > 0 ? $zahl($daten['verbrauch_km'], 0) . ' km' : '—' ?></td>
+                        <td class="text-end"><?= $preis !== null ? $zahl($preis, 3) . ' €/' . $haupt['kurz'] : leerWert() ?></td>
+                        <td class="text-end"><?= $daten['verbrauch_km'] > 0 ? $zahl($daten['verbrauch_km'], 0) . ' km' : leerWert() ?></td>
                         <?php endif; ?>
                         <?php foreach ($proEinheit as $p): $j = $p['jahre'][$jahr]; ?>
-                        <td class="text-end fw-semibold text-nowrap"><?= $j['verbrauch_l100km'] > 0 && !$p['nebenbei'] ? $zahl($j['verbrauch_l100km']) . ' ' . $p['kurz'] . '/100 km' : '—' ?></td>
+                        <td class="text-end fw-semibold text-nowrap"><?= $j['verbrauch_l100km'] > 0 && !$p['nebenbei'] ? $zahl($j['verbrauch_l100km']) . ' ' . $p['kurz'] . '/100 km' : leerWert() ?></td>
                         <?php endforeach; ?>
-                        <?php if ($co2Gesamt !== null): ?><td class="text-end"><?= $summe['co2'] !== null ? $zahl($summe['co2'], 0) . ' kg' : '—' ?></td><?php endif; ?>
+                        <?php if ($co2Gesamt !== null): ?><td class="text-end"><?= $summe['co2'] !== null ? $zahl($summe['co2'], 0) . ' kg' : leerWert() ?></td><?php endif; ?>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -430,7 +430,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
             <div class="list-group-item py-3">
                 <div class="d-flex justify-content-between align-items-baseline mb-2">
                     <span class="fw-semibold fs-5"><?= $jahr ?></span>
-                    <span class="fw-semibold text-end"><?= implode(' · ', array_map(fn($p) => $p['jahre'][$jahr]['verbrauch_l100km'] > 0 ? $zahl($p['jahre'][$jahr]['verbrauch_l100km']) . ' ' . $p['kurz'] . '/100 km' : '—', $proEinheitDiagramm ?: $proEinheit)) ?></span>
+                    <span class="fw-semibold text-end"><?= implode(' · ', array_map(fn($p) => $p['jahre'][$jahr]['verbrauch_l100km'] > 0 ? $zahl($p['jahre'][$jahr]['verbrauch_l100km']) . ' ' . $p['kurz'] . '/100 km' : leerWert(), $proEinheitDiagramm ?: $proEinheit)) ?></span>
                 </div>
                 <div class="row row-cols-3 g-2 small">
                     <?php foreach ($proEinheit as $p): $j = $p['jahre'][$jahr]; ?>
@@ -438,10 +438,10 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
                     <div><div class="text-body-secondary"><?= $p['begriffe']['menge'] ?></div><?= $zahl($j['gekauft_menge'], 1) ?> <?= $p['kurz'] ?></div>
                     <?php endforeach; ?>
                     <div><div class="text-body-secondary">Kosten</div><?= $zahl($summe['kosten']) ?> €</div>
-                    <?php if ($kostenHaupt !== null): ?><div><div class="text-body-secondary">€/100 km</div><?= isset($rateJahre[(string)$jahr]) && $rateJahre[(string)$jahr]['costPer100km'] !== null ? $zahl($rateJahre[(string)$jahr]['costPer100km']) . ' €' : '—' ?></div><?php endif; ?>
+                    <?php if ($kostenHaupt !== null): ?><div><div class="text-body-secondary">€/100 km</div><?= isset($rateJahre[(string)$jahr]) && $rateJahre[(string)$jahr]['costPer100km'] !== null ? $zahl($rateJahre[(string)$jahr]['costPer100km']) . ' €' : leerWert() ?></div><?php endif; ?>
                     <?php if (!$mehrereEinheiten): ?>
-                    <div><div class="text-body-secondary">Strecke</div><?= $daten['verbrauch_km'] > 0 ? $zahl($daten['verbrauch_km'], 0) . ' km' : '—' ?></div>
-                    <div><div class="text-body-secondary">Ø Preis</div><?= $preis !== null ? $zahl($preis, 3) . ' €' : '—' ?></div>
+                    <div><div class="text-body-secondary">Strecke</div><?= $daten['verbrauch_km'] > 0 ? $zahl($daten['verbrauch_km'], 0) . ' km' : leerWert() ?></div>
+                    <div><div class="text-body-secondary">Ø Preis</div><?= $preis !== null ? $zahl($preis, 3) . ' €' : leerWert() ?></div>
                     <?php endif; ?>
                     <?php if ($summe['co2'] !== null): ?><div><div class="text-body-secondary">CO₂</div><?= $zahl($summe['co2'], 0) ?> kg</div><?php endif; ?>
                 </div>
@@ -550,7 +550,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
             };
         }
         if (mehrere) {
-            extra.plugins = { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: function (c) { return c.dataset.label + ': ' + (c.parsed.y === null ? '—' : zahl(c.parsed.y, 2) + c.dataset.einheit); } } } };
+            extra.plugins = { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: function (c) { return c.dataset.label + ': ' + (c.parsed.y === null ? '–' : zahl(c.parsed.y, 2) + c.dataset.einheit); } } } };
         }
         new Chart(el, { type: 'bar', data: { labels: <?= json_encode($monatsLabels, JSON_UNESCAPED_UNICODE) ?>, datasets: datasets }, options: optionen(einheiten[Object.keys(einheiten)[0]].einheit, 2, extra) });
     }

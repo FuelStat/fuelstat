@@ -144,7 +144,7 @@ include '../includes/header.php';
                     <th title="Zuletzt die App benutzt (wird höchstens stündlich aktualisiert)">Zuletzt aktiv</th>
                     <th>Letzter Login</th>
                     <th title="Wann zuletzt eine Tankfüllung, Ladung oder Ausgabe erfasst wurde (auch per Import)">Letzter Eintrag</th>
-                    <th>2FA</th><th>Beta-Tester</th>
+                    <th>Zwei-Faktor</th><th>Beta-Tester</th>
                     <th title="Tarif und optionales Ablaufdatum<?= empty($ich['limitsEnabled']) ? '. Grenzen sind noch nicht aktiv (PLAN_LIMITS_ENABLED), alle haben den vollen Umfang.' : '' ?>">Tarif</th>
                     <th>Registriert</th><th></th>
                 </tr>

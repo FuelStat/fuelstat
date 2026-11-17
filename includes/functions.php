@@ -233,6 +233,15 @@ function fahrtFarbe(?string $zweck): string
 }
 
 /**
+ * Leerer Wert in Kacheln und Tabellen (#209, docs/design.md 1.1): Halbgeviertstrich statt Geviertstrich, für
+ * Screenreader „keine Angabe“. Liefert HTML, also nur in HTML ausgeben (nicht in title-Attributen, CSV oder Mails).
+ */
+function leerWert(): string
+{
+    return '<span aria-hidden="true">–</span><span class="visually-hidden">keine Angabe</span>';
+}
+
+/**
  * Symbol im getönten Kreis (EntryRow, Kostengruppen). $farbe ist ein Token (var(--fs-…)) oder die Farbe einer
  * Kategorie aus der API. Bei Tokens trägt das Symbol die Farbe; Kategoriefarben sind nicht für beide Modi geprüft,
  * dort bleibt das Symbol in der Textfarbe (docs/design.md 3.5).

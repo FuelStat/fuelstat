@@ -23,7 +23,7 @@ $archiv = array_values(array_filter($vehicles, fn($v) => ($v['status'] ?? 'activ
 $sortiermodus = !empty($_GET['sortieren']) && count($aktive) > 1; ?>
 <div class="container mt-3 mt-lg-4">
     <div class="d-flex justify-content-between align-items-center gap-2 mb-3 mb-lg-4">
-        <h1 class="mb-0">Meine Fahrzeuge</h1>
+        <h1 class="mb-0">Fahrzeuge</h1>
         <?php if ($sortiermodus): ?>
             <a href="fahrzeuge.php" class="btn btn-primary btn-sm"><i class="fas fa-check me-1"></i> Fertig</a>
         <?php elseif (count($aktive) > 1): ?>

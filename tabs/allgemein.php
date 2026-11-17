@@ -102,13 +102,13 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                 <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Tachostand</div>
-                        <div class="kennzahl-wert"><?= $currentOdo !== null ? number_format($currentOdo, 0, ',', '.') . ' km' : '—' ?></div>
+                        <div class="kennzahl-wert"><?= $currentOdo !== null ? number_format($currentOdo, 0, ',', '.') . ' km' : leerWert() ?></div>
                     </div>
                 </div>
                 <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Fahrleistung</div>
-                        <div class="kennzahl-wert"><?= $fahrleistung !== null ? number_format($fahrleistung['km'], 0, ',', '.') . ' km' : '—' ?></div>
+                        <div class="kennzahl-wert"><?= $fahrleistung !== null ? number_format($fahrleistung['km'], 0, ',', '.') . ' km' : leerWert() ?></div>
                         <?php if ($fahrleistung !== null): ?><div class="small text-body-secondary"><?= htmlspecialchars($fahrleistung['basis']) ?></div><?php endif; ?>
                     </div>
                 </div>
@@ -139,7 +139,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                 <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Ø Verbrauch <?= begriffeFuerEinheit($fuel_type, $u)['energie'] ?></div>
-                        <div class="kennzahl-wert"><?= $wSchnitt !== null ? number_format($wSchnitt, 2, ',', '.') . ' <small class="fw-normal">' . einheitKurz($u) . '/100 km</small>' : '—' ?></div>
+                        <div class="kennzahl-wert"><?= $wSchnitt !== null ? number_format($wSchnitt, 2, ',', '.') . ' <small class="fw-normal">' . einheitKurz($u) . '/100 km</small>' : leerWert() ?></div>
                         <?php if ($wZusatz): ?><div class="small text-body-secondary"><?= implode(' · ', $wZusatz) ?></div><?php endif; ?>
                     </div>
                 </div>
@@ -148,7 +148,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                 <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Ø Verbrauch</div>
-                        <div class="kennzahl-wert"><?= $schnitt !== null ? number_format($schnitt, 2, ',', '.') . ' <small class="fw-normal">' . $einheitKurz . '/100 km</small>' : '—' ?></div>
+                        <div class="kennzahl-wert"><?= $schnitt !== null ? number_format($schnitt, 2, ',', '.') . ' <small class="fw-normal">' . $einheitKurz . '/100 km</small>' : leerWert() ?></div>
                         <?php if ($aktuell !== null): ?>
                             <div class="small text-body-secondary">zuletzt <?= number_format($aktuell, 2, ',', '.') ?><?php if ($diff !== null && abs($diff) >= 0.01): ?>
                                 <span class="text-<?= $diff > 0 ? 'danger' : 'success' ?>">(<?= ($diff > 0 ? '+' : '') . number_format($diff, 2, ',', '.') ?>)</span><?php endif; ?></div>
@@ -158,7 +158,7 @@ $hatVerlauf = array_sum(array_column($verlauf, 'kosten')) > 0;
                 <div>
                     <div class="kennzahl">
                         <div class="small text-body-secondary">Ø Preis/<?= $einheitKurz ?></div>
-                        <div class="kennzahl-wert"><?= $avgPrice !== null ? number_format($avgPrice, 3, ',', '.') . ' €' : '—' ?></div>
+                        <div class="kennzahl-wert"><?= $avgPrice !== null ? number_format($avgPrice, 3, ',', '.') . ' €' : leerWert() ?></div>
                     </div>
                 </div>
                 <?php endif; ?>

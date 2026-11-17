@@ -22,17 +22,17 @@ $tcoVerkauft = ($tco['valueBasis'] ?? null) === 'sale' || ($tco['sale'] ?? null)
             </div></div>
             <div><div class="kennzahl">
                 <div class="fs-label">Pro Monat</div>
-                <div class="kennzahl-wert"><?= $tco['perMonth'] !== null ? $tcoZahl($tco['perMonth']) . ' <small class="fw-normal">€</small>' : '—' ?></div>
+                <div class="kennzahl-wert"><?= $tco['perMonth'] !== null ? $tcoZahl($tco['perMonth']) . ' <small class="fw-normal">€</small>' : leerWert() ?></div>
                 <div class="small text-body-secondary"><?= $tco['ownershipMonths'] !== null ? $tcoZahl($tco['ownershipMonths'], 1) . ' Monate Besitzzeit' : 'noch keine Besitzzeit' ?></div>
             </div></div>
             <div><div class="kennzahl">
                 <div class="fs-label">Pro Kilometer</div>
-                <div class="kennzahl-wert"><?= $tco['perKm'] !== null ? $tcoZahl($tco['perKm']) . ' <small class="fw-normal">€/km</small>' : '—' ?></div>
+                <div class="kennzahl-wert"><?= $tco['perKm'] !== null ? $tcoZahl($tco['perKm']) . ' <small class="fw-normal">€/km</small>' : leerWert() ?></div>
                 <div class="small text-body-secondary"><?= $tco['distanceKm'] ? $tcoZahl($tco['distanceKm'], 0) . ' km gefahren' : 'Tachostände fehlen' ?></div>
             </div></div>
             <div><div class="kennzahl">
                 <div class="fs-label">Wertverlust</div>
-                <div class="kennzahl-wert"><?= $tco['valueLoss'] !== null ? $tcoZahl($tco['valueLoss']) . ' <small class="fw-normal">€</small>' : '—' ?></div>
+                <div class="kennzahl-wert"><?= $tco['valueLoss'] !== null ? $tcoZahl($tco['valueLoss']) . ' <small class="fw-normal">€</small>' : leerWert() ?></div>
                 <div class="small text-body-secondary"><?= $tco['valueLossPerYear'] !== null ? $tcoZahl($tco['valueLossPerYear'], 0) . ' € pro Jahr' : 'nicht berechenbar' ?></div>
             </div></div>
         </div>

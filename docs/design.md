@@ -77,9 +77,10 @@ wirken: ruhig, sachlich, Zahlen zuerst. Die Liste gilt auf **allen Plattformen**
 **Prüffragen vor jedem Entwurf und jedem Review:** Hat jedes Element eine Aufgabe (Information, Aktion oder
 Rückmeldung)? Würde die Stelle unverändert auch in einer anderen App stehen? Dann streichen.
 
-**Stand im Web (zum Nachziehen, kein Blocker):** Der „+“-Knopf hat einen farbigen Schatten
-(`rgba(var(--fs-brand-rgb), .4)`), er wird neutral (Abschnitt 5.4). Leere Werte in Kacheln zeigen „—“ an
-rund 40 Stellen, sie werden zu „–“. Kennzeichen in Monospace und die Hintergrundunschärfe der Leisten sind
+**Stand im Web (zum Nachziehen, kein Blocker):** Der „+“-Knopf hat noch einen farbigen Schatten
+(`rgba(var(--fs-brand-rgb), .4)`), er wird neutral (Abschnitt 5.4, #209). Leere Werte zeigen „–“ mit
+Screenreader-Text „keine Angabe“ (`leerWert()` in `includes/functions.php`); `tests/GeviertstrichTest.php` hält
+„—“ aus Code, API-Texten und Mails fern. Kennzeichen in Monospace und die Hintergrundunschärfe der Leisten sind
 bewusste Ausnahmen.
 
 ## 2. Marke

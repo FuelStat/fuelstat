@@ -81,7 +81,7 @@
             <div class="row g-2">
                 <div class="col-6">
                     <div class="kennzahl">
-                        <div class="kennzahl-wert"><?= $currentOdo !== null ? htmlspecialchars(number_format($currentOdo, 0, ',', '.')) . ' <small>km</small>' : '—' ?></div>
+                        <div class="kennzahl-wert"><?= $currentOdo !== null ? htmlspecialchars(number_format($currentOdo, 0, ',', '.')) . ' <small>km</small>' : leerWert() ?></div>
                         Tachostand
                     </div>
                 </div>
@@ -91,7 +91,7 @@
                         <div class="kennzahl-wert"><?= $kostenHtml ?></div>
                         Energiekosten
                         <?php else: ?>
-                        <div class="kennzahl-wert"><?= $verbrauchHtml !== '' ? $verbrauchHtml : '—' ?></div>
+                        <div class="kennzahl-wert"><?= $verbrauchHtml !== '' ? $verbrauchHtml : leerWert() ?></div>
                         Ø Verbrauch
                         <?php endif; ?>
                     </div>

@@ -184,14 +184,14 @@ $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'gesamt';
         <div>
             <div class="kennzahl">
                 <div class="small text-body-secondary">Ø pro Monat</div>
-                <div class="kennzahl-wert"><?= $proMonat !== null ? $zahl($proMonat) . ' <small class="fw-normal">€</small>' : '—' ?></div>
+                <div class="kennzahl-wert"><?= $proMonat !== null ? $zahl($proMonat) . ' <small class="fw-normal">€</small>' : leerWert() ?></div>
                 <div class="small text-body-secondary"><?= $monate ?> <?= $monate === 1 ? 'Monat' : 'Monate' ?></div>
             </div>
         </div>
         <div>
             <div class="kennzahl" title="Alle Ausgaben geteilt durch die gefahrenen Kilometer im Zeitraum">
                 <div class="small text-body-secondary">Kosten pro km</div>
-                <div class="kennzahl-wert"><?= $proKm !== null ? $zahl($proKm) . ' <small class="fw-normal">€/km</small>' : '—' ?></div>
+                <div class="kennzahl-wert"><?= $proKm !== null ? $zahl($proKm) . ' <small class="fw-normal">€/km</small>' : leerWert() ?></div>
                 <div class="small text-body-secondary"><?= $km ? $zahl($km, 0) . ' km gefahren' : 'Tachostände fehlen' ?></div>
             </div>
         </div>
@@ -307,10 +307,10 @@ $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'gesamt';
                     <?php foreach ($jahresVergleich as $j => $z): ?>
                     <tr>
                         <th scope="row"><?= $j ?></th>
-                        <?php foreach (array_keys($vergleichsGruppen) as $g): ?><td class="text-end"><?= $z['gruppen'][$g] > 0 ? $zahl($z['gruppen'][$g]) . ' €' : '—' ?></td><?php endforeach; ?>
+                        <?php foreach (array_keys($vergleichsGruppen) as $g): ?><td class="text-end"><?= $z['gruppen'][$g] > 0 ? $zahl($z['gruppen'][$g]) . ' €' : leerWert() ?></td><?php endforeach; ?>
                         <td class="text-end fw-semibold"><?= $zahl($z['summe']) ?> €</td>
-                        <td class="text-end"><?= $z['km'] ? $zahl($z['km'], 0) . ' km' : '—' ?></td>
-                        <td class="text-end"><?= $z['pro_km'] !== null ? $zahl($z['pro_km']) . ' €' : '—' ?></td>
+                        <td class="text-end"><?= $z['km'] ? $zahl($z['km'], 0) . ' km' : leerWert() ?></td>
+                        <td class="text-end"><?= $z['pro_km'] !== null ? $zahl($z['pro_km']) . ' €' : leerWert() ?></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -327,8 +327,8 @@ $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'gesamt';
                     <?php foreach ($vergleichsGruppen as $g => [$name]): ?>
                     <div><div class="text-body-secondary"><?= htmlspecialchars($name) ?></div><?= $zahl($z['gruppen'][$g]) ?> €</div>
                     <?php endforeach; ?>
-                    <div><div class="text-body-secondary">Strecke</div><?= $z['km'] ? $zahl($z['km'], 0) . ' km' : '—' ?></div>
-                    <div><div class="text-body-secondary">Kosten pro km</div><?= $z['pro_km'] !== null ? $zahl($z['pro_km']) . ' €' : '—' ?></div>
+                    <div><div class="text-body-secondary">Strecke</div><?= $z['km'] ? $zahl($z['km'], 0) . ' km' : leerWert() ?></div>
+                    <div><div class="text-body-secondary">Kosten pro km</div><?= $z['pro_km'] !== null ? $zahl($z['pro_km']) . ' €' : leerWert() ?></div>
                 </div>
             </div>
             <?php endforeach; ?>

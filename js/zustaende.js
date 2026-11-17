@@ -41,7 +41,9 @@
   }
 
   // Platzhalter in Listenhöhe, erst nach 300 ms (schnelle Antworten flackern nicht). Rückgabe: Funktion zum Beenden.
+  // Ein neues Laden auf demselben Ziel beendet das vorige (sonst überschreibt dessen Uhr die neue Liste).
   function laden(ziel, zeilen) {
+    if (ziel.fsLadenEnde) ziel.fsLadenEnde();
     ziel.setAttribute('aria-busy', 'true');
     var hoehe = ziel.offsetHeight;
     var uhr = setTimeout(function () {
@@ -50,11 +52,14 @@
       ziel.style.minHeight = Math.min(hoehe, window.innerHeight) + 'px';
       ziel.innerHTML = html + '</div><span class="visually-hidden">Wird geladen …</span>';
     }, 300);
-    return function () {
+    var ende = function () {
       clearTimeout(uhr);
       ziel.style.minHeight = '';
       ziel.setAttribute('aria-busy', 'false');
+      if (ziel.fsLadenEnde === ende) ziel.fsLadenEnde = null;
     };
+    ziel.fsLadenEnde = ende;
+    return ende;
   }
 
   // Ladezustand am Knopf: belegt, mit kleinem Kreis, Text bleibt

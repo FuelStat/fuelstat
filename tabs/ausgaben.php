@@ -170,10 +170,15 @@ $zeitraumText = $selectedYear !== null ? 'im Jahr ' . $selectedYear : 'aller Jah
     </form>
 
     <?php if (!$eintraege): ?>
-        <div class="card border-0 shadow-sm text-center">
-            <div class="card-body p-5">
-                <i class="fas fa-euro-sign fa-2x mb-3"></i>
-                <p class="mb-0 text-body-secondary"><?= $selectedYear !== null ? 'Im Jahr ' . $selectedYear . ' gibt es keine Ausgaben.' : 'Noch keine Ausgaben erfasst. ' . $begriffe['vorgaenge'] . ', Versicherung, Werkstatt und Co. tauchen hier automatisch auf.' ?></p>
+        <!-- EmptyState: Symbol, ein Satz, eine Aktion (docs/design.md 8.1) -->
+        <div class="card leer-zustand mx-auto">
+            <div class="card-body">
+                <span class="symbol-kreis symbol-kreis-token symbol-kreis-gross" style="--farbe: var(--fs-brand)" aria-hidden="true"><i class="fas fa-euro-sign"></i></span>
+                <h2><?= $selectedYear !== null ? 'Keine Kosten in ' . $selectedYear : 'Noch keine Kosten' ?></h2>
+                <p class="text-body-secondary mb-3"><?= htmlspecialchars($begriffe['vorgaenge']) ?>, Versicherung und Werkstatt erscheinen hier, sobald du sie erfasst.</p>
+                <?php if (!empty($darfErfassen)): ?>
+                <a href="../pages/eintrag_hinzufuegen.php?fahrzeug_id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>" class="btn btn-primary">Eintrag erfassen</a>
+                <?php endif; ?>
             </div>
         </div>
     <?php else: ?>

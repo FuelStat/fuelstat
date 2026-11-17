@@ -91,7 +91,8 @@ if ($nurZeilen) {
 ?>
 <div class="mt-3 mt-lg-4 fahrten-liste" data-fahrzeug="<?= htmlspecialchars($fahrzeug_id) ?>" data-jahr="<?= $fahrtJahr ?? '' ?>" data-zweck="<?= htmlspecialchars((string)$fahrtZweck) ?>">
   <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-    <?php if ($darfErfassen): ?>
+    <?php $keineFahrten = !$ladeFehler && (!$fahrtSumme || $fahrtSumme['count'] === 0); // dann steht der Knopf im leeren Zustand ?>
+    <?php if ($darfErfassen && !$keineFahrten): ?>
     <a href="../pages/fahrt.php?fahrzeug_id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>" class="btn btn-primary"><i class="fas fa-route" aria-hidden="true"></i>Fahrt erfassen</a>
     <?php endif; ?>
     <form method="get" action="fahrten.php" class="d-flex gap-2">
@@ -130,8 +131,10 @@ if ($nurZeilen) {
       <div class="card-body">
         <span class="symbol-kreis symbol-kreis-token symbol-kreis-gross" style="--farbe: var(--fs-brand)" aria-hidden="true"><i class="fas fa-route"></i></span>
         <h2>Noch keine Fahrten<?= $fahrtJahr ? ' in ' . $fahrtJahr : '' ?></h2>
-        <p class="text-body-secondary mb-0">Das Fahrtenbuch hilft beim Überblick über private und dienstliche Strecken.</p>
-        <p class="fs-footnote mb-0">Ein Fahrtenbuch zur eigenen Übersicht, kein vom Finanzamt anerkanntes Fahrtenbuch.</p>
+        <p class="text-body-secondary mb-3">Erfasse Strecken privat oder dienstlich und behalte die Kilometer im Blick.</p>
+        <?php if ($darfErfassen): ?>
+        <a href="../pages/fahrt.php?fahrzeug_id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>" class="btn btn-primary"><i class="fas fa-route" aria-hidden="true"></i>Fahrt erfassen</a>
+        <?php endif; ?>
       </div>
     </div>
   <?php else: ?>

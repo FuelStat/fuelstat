@@ -159,6 +159,7 @@ $zeigeListe = function () use ($zeigeMonate, $eintraege, $weitere, $jahr, $filte
         <div class="card-body">
           <span class="symbol-kreis symbol-kreis-token symbol-kreis-gross" style="--farbe: var(--fs-brand)" aria-hidden="true"><i class="fas fa-list"></i></span>
           <h2>Noch keine Einträge<?= $jahr !== null ? ' in ' . $jahr : '' ?></h2>
+          <p class="text-body-secondary mb-2">Erfasse deinen ersten Tankstopp, Ladevorgang oder eine Ausgabe.</p>
           <?php if ($darfErfassen): ?>
           <a href="../pages/eintrag_hinzufuegen.php?fahrzeug_id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>" class="btn btn-primary mt-2">Ersten Eintrag erfassen</a>
           <?php endif; ?>

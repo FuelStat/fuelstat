@@ -1,6 +1,7 @@
 <?php
-// Eine Fahrzeugkarte für pages/fahrzeuge.php (aktiv und Archiv, #79).
-// Erwartet: $row (Fahrzeug aus der API), $index, $archiviert, $sortiermodus, $aktive, $api, $baseUrl, $kraftstoffNamen
+// Eine Fahrzeugkarte für pages/fahrzeuge.php (aktiv und Archiv, #79) und den Start der Flotte (#206).
+// Erwartet: $row (Fahrzeug aus der API), $index, $archiviert, $sortiermodus, $aktive, $api, $baseUrl, $kraftstoffNamen;
+// optional $ohneAktion (Start der Flotte: kein „Eintrag erfassen“ je Karte, höchstens ein „＋“ je Bildschirm, 7.3)
 
     $vehicleId = $row['id'];
     $displayName = $row['name'] ?? 'Fahrzeug';
@@ -56,7 +57,7 @@
         $hinweis = count($faellig) . ' Termine ' . ($ueberfaellig ? 'fällig' : 'bald fällig');
     }
     // Aktive Fahrzeuge öffnen Start mit diesem Fahrzeug, archivierte ihre Fahrzeugdaten (#206)
-    $detailLink = '../' . fahrzeugSeite($archiviert ? 'fahrzeugdaten' : 'uebersicht', (string)$vehicleId);
+    $detailLink = $baseUrl . fahrzeugSeite($archiviert ? 'fahrzeugdaten' : 'uebersicht', (string)$vehicleId);
 ?>
 <div class="col">
     <article class="card fahrzeug-karte h-100">
@@ -111,9 +112,10 @@
                 <?php endif; ?>
             </div>
             <?php endif; ?>
+            <?php if (empty($ohneAktion)): ?>
             <div class="fahrzeug-aktionen mt-auto">
                 <?php if ($sortiermodus): ?>
-                    <form method="post" action="../includes/fahrzeug_sortieren.php" class="btn-group w-100" aria-label="Reihenfolge ändern">
+                    <form method="post" action="<?= htmlspecialchars($baseUrl) ?>includes/fahrzeug_sortieren.php" class="btn-group w-100" aria-label="Reihenfolge ändern">
                         <input type="hidden" name="id" value="<?= htmlspecialchars($vehicleId) ?>">
                         <input type="hidden" name="sortieren" value="1">
                         <button type="submit" name="richtung" value="hoch" class="btn btn-secondary" aria-label="Nach vorne" <?= $index === 0 ? 'disabled' : '' ?>><i class="fas fa-arrow-up d-sm-none" aria-hidden="true"></i><i class="fas fa-arrow-left d-none d-sm-inline" aria-hidden="true"></i></button>
@@ -122,11 +124,12 @@
                 <?php elseif ($archiviert): ?>
                     <span class="fs-label"><i class="fas fa-lock me-1" aria-hidden="true"></i>Nur lesbar</span>
                 <?php else: ?>
-                    <a href="eintrag_hinzufuegen.php?fahrzeug_id=<?= htmlspecialchars(urlencode($vehicleId)) ?>" class="btn btn-secondary w-100" aria-label="Eintrag erfassen für <?= htmlspecialchars($displayName) ?>">
+                    <a href="<?= htmlspecialchars($baseUrl) ?>pages/eintrag_hinzufuegen.php?fahrzeug_id=<?= htmlspecialchars(urlencode($vehicleId)) ?>" class="btn btn-secondary w-100" aria-label="Eintrag erfassen für <?= htmlspecialchars($displayName) ?>">
                         <i class="fas <?= verbrauchsBegriffe($row['fuel_type'] ?? null)['icon'] ?>" aria-hidden="true"></i>Eintrag erfassen
                     </a>
                 <?php endif; ?>
             </div>
+            <?php endif; ?>
         </div>
     </article>
 </div>

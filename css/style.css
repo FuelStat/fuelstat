@@ -1995,3 +1995,25 @@ details > summary {
     margin: var(--fs-space-l) 0;
     text-align: center;
 }
+
+/* Profil-Blatt in Gruppen (#206, docs/design.md 7.4) */
+.profil-gruppe {
+    padding: var(--fs-space-m) var(--fs-space-m) var(--fs-space-xs);
+    font: var(--fs-font-footnote);
+    font-weight: 600;
+    color: var(--fs-text-secondary);
+    border: 0;
+}
+
+.profil-gruppe:empty {
+    padding: var(--fs-space-xs) 0 0;
+}
+
+/* Menü „Berichte und Export“: lange Einträge umbrechen statt über den Rand zu laufen (große Schrift, 360 px) */
+#berichte .dropdown-menu {
+    max-width: calc(100vw - 2 * var(--fs-space-m));
+}
+
+#berichte .dropdown-item {
+    white-space: normal;
+}

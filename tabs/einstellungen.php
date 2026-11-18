@@ -166,6 +166,9 @@ $bearbeitenUrl = '../pages/fahrzeug_bearbeiten.php?id=' . urlencode($fahrzeug_id
     <?php endif; ?>
 
     <?php if ($istBesitzer): ?>
+    <?php // Status (aktiv, verkauft, stillgelegt) hat seine einzige Heimat hier (#206, docs/design.md 7.6)
+    include __DIR__ . '/../includes/form_fahrzeug_status.php'; ?>
+
     <!-- Gefahrenzone: klar abgesetzt -->
     <div class="card border-danger-subtle mt-4 mb-4">
         <div class="card-body d-flex flex-wrap align-items-center gap-3">

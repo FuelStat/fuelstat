@@ -144,7 +144,6 @@ include '../includes/header.php';
                         <a href="passwort_aendern.php" class="btn btn-outline-primary"><i class="fas fa-key me-2"></i>Passwort ändern</a>
                         <a href="mfa_einrichten.php" class="btn btn-outline-primary"><i class="fas fa-shield-alt me-2"></i>Zwei-Faktor-Schutz <?= !empty($user['mfa_enabled']) ? 'verwalten' : 'einrichten' ?></a>
                         <a href="passkeys.php" class="btn btn-outline-primary"><i class="fas fa-fingerprint me-2" aria-hidden="true"></i>Passkeys</a>
-                        <a href="benachrichtigungen.php" class="btn btn-outline-primary"><i class="fas fa-bell me-2"></i>Benachrichtigungen</a>
                     </div>
                     <p class="mb-2">Der Zwei-Faktor-Schutz ist <strong><?= !empty($user['mfa_enabled']) ? 'aktiv' : 'nicht aktiv' ?></strong>.</p>
                     <h4 class="h6 mt-4 mb-2">Angemeldete Apps</h4>

@@ -527,12 +527,14 @@ function fahrzeugFehlerText(Throwable $e): string
     $code = $e->getMessage();
     if (str_starts_with($code, 'invalid_')) {
         $feld = substr($code, 8);
-        $namen = array_map(fn($f) => $f[1], fahrzeugZusatzFelder()) + ['saleDate' => 'Verkaufsdatum', 'salePrice' => 'Verkaufspreis', 'saleOdometerKm' => 'Tachostand beim Verkauf', 'decommissionedFrom' => 'Stilllegung ab', 'decommissionedUntil' => 'Stilllegung bis', 'status' => 'Status', 'year' => 'Baujahr', 'odometerKm' => 'Tachostand', 'tankCapacity' => 'Tank-/Akkugröße', 'batteryCapacity' => 'Akkugröße', 'name' => 'Name'];
+        $namen = array_map(fn($f) => $f[1], fahrzeugZusatzFelder()) + ['saleDate' => 'Verkaufsdatum', 'salePrice' => 'Verkaufspreis', 'saleOdometerKm' => 'Tachostand beim Verkauf', 'decommissionedFrom' => 'Stilllegung ab', 'decommissionedUntil' => 'Stilllegung bis', 'status' => 'Status', 'year' => 'Baujahr', 'odometerKm' => 'Tachostand', 'tankCapacity' => 'Tank-/Akkugröße', 'batteryCapacity' => 'Akkugröße', 'name' => 'Name', 'brand' => 'Marke', 'model' => 'Modell'];
+        // Zu langer Text (#197): die API nennt die Grenze in max
+        $max = $e instanceof FuelstatApiException && is_int($e->data['max'] ?? null) ? $e->data['max'] : null;
         if (isset($namen[$feld])) {
-            return 'Bitte prüfen: ' . $namen[$feld] . '.';
+            return 'Bitte prüfen: ' . $namen[$feld] . ($max !== null ? ' (höchstens ' . number_format($max, 0, ',', '.') . ' Zeichen)' : '') . '.';
         }
     }
-    return tarifHinweis($e) ?? $code;
+    return fehlerText($e);
 }
 
 /**

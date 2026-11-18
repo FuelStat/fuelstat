@@ -34,4 +34,9 @@ foreach ($faelle as [$e, $erwartet]) {
     assert(!preg_match('/HTTP \d{3}|\b(status|code) ?\d{3}\b|[a-z]+_[a-z_]+/i', $text), 'Code im Text: ' . $text);
 }
 
+// Fahrzeugformular: Feldname mit Grenze, unbekannte Codes nie roh (#197)
+assert(fahrzeugFehlerText($api('invalid_brand', 400, ['max' => 100])) === 'Bitte prüfen: Marke (höchstens 100 Zeichen).');
+assert(str_starts_with(fahrzeugFehlerText($api('invalid_taxDueMonth', 400)), 'Bitte prüfen: '));
+assert(!str_contains(fahrzeugFehlerText($api('irgendein_code', 400)), '_'), 'kein roher Code');
+
 echo "All tests passed\n";

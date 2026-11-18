@@ -455,7 +455,11 @@ function importKategorienZuordnen(array $umgewandelt, array $katalog, bool $eige
             $anzeige = $original . ' (neue eigene Kategorie)';
         } else {
             $e['category'] = 'Sonstiges';
-            $e['description'] = trim($original . (($e['description'] ?? '') !== '' ? ' – ' . $e['description'] : ''));
+            // Den ursprünglichen Namen voranstellen, solange die Beschreibung damit in die Grenze der API passt (#197)
+            $mitName = trim($original . (($e['description'] ?? '') !== '' ? ' – ' . $e['description'] : ''));
+            if (mb_strlen($mitName) <= 2000) {
+                $e['description'] = $mitName;
+            }
             $sonstiges[$original] = ($sonstiges[$original] ?? 0) + 1;
             $anzeige = 'Sonstiges (' . $original . ')';
         }

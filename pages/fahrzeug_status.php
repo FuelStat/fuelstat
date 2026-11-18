@@ -13,7 +13,7 @@ $fahrzeug_id = trim($_POST['fahrzeug_id']);
 $status = (string)($_POST['status'] ?? '');
 if (!in_array($status, ['active', 'sold', 'decommissioned'], true)) {
     $_SESSION['error_message'] = 'Bitte einen Status wählen.';
-    header('Location: fahrzeug_bearbeiten.php?id=' . rawurlencode($fahrzeug_id) . '#status');
+    header('Location: ../' . fahrzeugSeite('fahrzeugdaten', (string)$fahrzeug_id) . '#status');
     exit;
 }
 
@@ -40,6 +40,6 @@ try {
     header('Location: ../' . fahrzeugSeite('fahrzeugdaten', (string)($fahrzeug_id)));
 } catch (Throwable $e) {
     $_SESSION['error_message'] = fahrzeugFehlerText($e);
-    header('Location: fahrzeug_bearbeiten.php?id=' . rawurlencode($fahrzeug_id) . '#status');
+    header('Location: ../' . fahrzeugSeite('fahrzeugdaten', (string)$fahrzeug_id) . '#status');
 }
 exit;

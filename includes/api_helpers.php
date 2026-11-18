@@ -807,6 +807,9 @@ function fehlerText(Throwable $e): string
             $code === 403, $code === 404 => 'Das gibt es nicht oder du hast keinen Zugriff darauf.',
             $code === 426 => 'Bitte aktualisiere die App, um weiterzumachen.',
             $code === 429 => 'Zu viele Versuche. Warte kurz und versuche es dann noch einmal.',
+            // Zu langer Freitext (#197): Grenze aus der Antwort
+            $code === 400 && is_int($e->data['max'] ?? null) && str_starts_with($e->getMessage(), 'invalid_')
+                => 'Ein Text ist zu lang. Erlaubt sind höchstens ' . number_format($e->data['max'], 0, ',', '.') . ' Zeichen.',
             $code >= 500 || $code === 0 => $spaeter,
             // Lesbarer Hinweis der API (Deutsch), sonst ein allgemeiner Satz statt des Codes
             is_string($e->data['message'] ?? null) && trim($e->data['message']) !== '' => trim($e->data['message']),

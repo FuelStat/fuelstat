@@ -3869,7 +3869,7 @@ components:
         startPlace: { type: string, nullable: true, maxLength: 200 }
         endPlace: { type: string, nullable: true, maxLength: 200 }
         purpose: { type: string, enum: [private, business, commute], default: private }
-        note: { type: string, nullable: true, maxLength: 200 }
+        note: { type: string, nullable: true, maxLength: 2000 }
 
     Trip:
       type: object
@@ -3938,7 +3938,7 @@ components:
 
     ErrorResponse:
       type: object
-      description: "Fehler: `error` ist ein fester Schlüssel für Clients. Je nach Fehler kommen weitere Felder dazu (z. B. message, oder feature/limit/plan bei plan_required)."
+      description: "Fehler: `error` ist ein fester Schlüssel für Clients. Je nach Fehler kommen weitere Felder dazu (z. B. message, oder feature/limit/plan bei plan_required, max bei zu langen Freitexten)."
       additionalProperties: true
       properties:
         error:
@@ -4237,6 +4237,7 @@ components:
         username:
           type: string
           nullable: true
+          maxLength: 100
         profileImageUrl:
           type: string
           nullable: true
@@ -4268,12 +4269,15 @@ components:
         name:
           type: string
           minLength: 1
+          maxLength: 100
         brand:
           type: string
           nullable: true
+          maxLength: 100
         model:
           type: string
           nullable: true
+          maxLength: 100
         year:
           type: integer
           nullable: true
@@ -4402,6 +4406,7 @@ components:
         name:
           type: string
           minLength: 1
+          maxLength: 100
         status:
           type: string
           enum: [active, sold, decommissioned]
@@ -4430,9 +4435,11 @@ components:
         brand:
           type: string
           nullable: true
+          maxLength: 100
         model:
           type: string
           nullable: true
+          maxLength: 100
         year:
           type: integer
           nullable: true
@@ -4866,6 +4873,7 @@ components:
         station:
           type: string
           nullable: true
+          maxLength: 200
         filledAt:
           type: string
           format: date-time
@@ -4929,6 +4937,7 @@ components:
         station:
           type: string
           nullable: true
+          maxLength: 200
         filledAt:
           type: string
           format: date-time
@@ -5207,9 +5216,11 @@ components:
         vendor:
           type: string
           nullable: true
+          maxLength: 200
         description:
           type: string
           nullable: true
+          maxLength: 2000
         parts:
           type: array
           maxItems: 12
@@ -5384,9 +5395,11 @@ components:
         vendor:
           type: string
           nullable: true
+          maxLength: 200
         description:
           type: string
           nullable: true
+          maxLength: 2000
         parts:
           type: array
           maxItems: 12

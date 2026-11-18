@@ -121,7 +121,7 @@ include '../includes/header.php';
                         </div>
                         <div class="mb-3">
                             <label for="username" class="form-label">Benutzername</label>
-                            <input type="text" class="form-control" id="username" name="username" value="<?= htmlspecialchars($user['username'] ?? '') ?>" placeholder="optional">
+                            <input type="text" class="form-control" maxlength="100" id="username" name="username" value="<?= htmlspecialchars($user['username'] ?? '') ?>" placeholder="optional">
                         </div>
                         <div class="mb-4">
                             <label for="email" class="form-label">E-Mail-Adresse</label>

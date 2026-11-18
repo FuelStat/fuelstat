@@ -340,6 +340,11 @@ function importWandleUm(array $zeilen, array $zuordnung, string $standardKategor
             $fehler = 'Tank-/Ladevorgang ohne gültige Menge';
         } elseif ($kosten === null || $kosten < 0) {
             $fehler = 'Kosten fehlen oder sind ungültig';
+        } elseif (mb_strlen($ort) > 200) {
+            // Grenzen wie in der API (#197, backend/src/lib/textLimits.js)
+            $fehler = 'Ort zu lang (höchstens 200 Zeichen)';
+        } elseif (mb_strlen($beschreibung) > 2000) {
+            $fehler = 'Beschreibung zu lang (höchstens 2.000 Zeichen)';
         }
 
         $vorschau = [

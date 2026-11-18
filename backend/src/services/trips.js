@@ -10,7 +10,7 @@ const { queryPage } = require('../lib/pagination');
 
 const PURPOSES = ['private', 'business', 'commute'];
 const PURPOSE_NAMES = { private: 'Privat', business: 'Dienstlich', commute: 'Arbeitsweg' };
-const TEXT_MAX = 200;
+const { tooLongText } = require('../lib/textLimits');
 
 const COLUMNS = `
   id, vehicle_id, user_id AS created_by,
@@ -24,7 +24,7 @@ function allowedPurposes(user) {
   return limit === null ? PURPOSES : PURPOSES.slice(0, limit);
 }
 
-const text = (v) => (v === undefined ? undefined : v === null ? null : String(v).trim().slice(0, TEXT_MAX) || null);
+const text = (v) => (v === undefined ? undefined : v === null ? null : String(v).trim() || null);
 const zahl = (v) => (v === undefined ? undefined : v === null || v === '' ? null : Number(v));
 const datum = (v) => (v === undefined ? undefined : v === null || v === '' ? null : new Date(v));
 
@@ -35,6 +35,9 @@ const datum = (v) => (v === undefined ? undefined : v === null || v === '' ? nul
  */
 function parseTrip(body, existing = null) {
   const b = body || {};
+  // Freitexte begrenzt (#197): zu lang ist ein Fehler, nicht stumm gekürzt
+  const zuLang = tooLongText(b, ['startPlace', 'endPlace', 'note']);
+  if (zuLang) return zuLang;
   const v = {
     started_at: datum(b.startedAt) ?? (existing ? existing.started_at : undefined),
     ended_at: b.endedAt !== undefined ? datum(b.endedAt) : (existing ? existing.ended_at : null),

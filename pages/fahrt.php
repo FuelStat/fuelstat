@@ -97,8 +97,8 @@ include '../includes/header.php';
         <div class="row g-2 mb-3">
           <div class="col-7"><label for="datum" class="form-label">Datum</label><input type="date" id="datum" name="datum" class="form-control" value="<?= date('Y-m-d', $zeit) ?>" required></div>
           <div class="col-5"><label for="uhrzeit" class="form-label">Uhrzeit</label><input type="time" id="uhrzeit" name="uhrzeit" class="form-control" value="<?= date('H:i', $zeit) ?>"></div>
-          <div class="col-6"><label for="startort" class="form-label">Von</label><input type="text" id="startort" name="startort" class="form-control" value="<?= $wert('start_place') ?>"></div>
-          <div class="col-6"><label for="zielort" class="form-label">Nach</label><input type="text" id="zielort" name="zielort" class="form-control" value="<?= $wert('end_place') ?>"></div>
+          <div class="col-6"><label for="startort" class="form-label">Von</label><input type="text" id="startort" name="startort" class="form-control" maxlength="200" value="<?= $wert('start_place') ?>"></div>
+          <div class="col-6"><label for="zielort" class="form-label">Nach</label><input type="text" id="zielort" name="zielort" class="form-control" maxlength="200" value="<?= $wert('end_place') ?>"></div>
           <div class="col-6"><label for="tachostand_start" class="form-label">Tachostand Start</label><input type="number" inputmode="numeric" id="tachostand_start" name="tachostand_start" class="form-control" min="0" value="<?= $fahrtId ? $wert('odometer_start') : htmlspecialchars($vorschlagStart) ?>"></div>
           <div class="col-6"><label for="tachostand_ende" class="form-label">Tachostand Ende</label><input type="number" inputmode="numeric" id="tachostand_ende" name="tachostand_ende" class="form-control" min="0" value="<?= $wert('odometer_end') ?>" required></div>
           <div class="col-12 form-text">Ohne Startstand: gefahrene km angeben.</div>

@@ -18,9 +18,11 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - Leere Werte in Kacheln und Tabellen zeigen einen kurzen Strich „–“, den Screenreader als „keine Angabe“ vorlesen (#209).
 
 ### Sicherheit
+- Texte haben eine Obergrenze: Fahrzeugname, Marke, Modell und Benutzername 100 Zeichen, Tankstelle, Ort und Anbieter 200, Beschreibungen und Notizen 2.000. Bisher ließen sich beliebig lange Texte speichern, die Listen, Export, Berichte und Mails sprengen konnten. Die Formulare zeigen die Grenze schon beim Tippen, der CSV-Import markiert zu lange Zeilen in der Vorschau (#197).
 - Fahrzeug- und Profilbilder lassen sich nur noch aus eigenen Uploads setzen. Bisher nahm die API jede Adresse an; über ein geteiltes Fahrzeug hätte so ein Bild von einem fremden Server die IP-Adresse der anderen verraten können. Solche Adressen werden beim Update entfernt, das Bild fällt dann auf den Platzhalter zurück. Beim Löschen eines Kontos werden nur noch dessen eigene Dateien entfernt (#196).
 
 ### Technik
+- API: Zu lange Freitexte ergeben 400 `invalid_<feld>` mit der Grenze in `max` (z. B. `invalid_station`, `max: 200`); Fahrten kürzen Orte und Notiz nicht mehr stumm auf 200 Zeichen, die Notiz darf jetzt 2.000 haben. Der Import meldet zu lange Texte je Zeile (#197).
 - API: `imageUrl` (Fahrzeuge) und `profileImageUrl` (Konto) antworten bei fremden Adressen und Dateien anderer Konten mit 400 `invalid_imageUrl` bzw. `invalid_profileImageUrl` (#196).
 - API: Termine (`/vehicles/:id/reminders`) haben das Feld `group` (`deadline`, `part`, `estimate`, `info`) und kommen in dieser Reihenfolge (#206).
 - Releases in einem Zug: `infra/veroeffentlichen.sh X.Y.Z` prüft den gemergten Release-PR und die CI, setzt das Tag, wartet auf GitHub-Release und API-Image, sichert und rollt aus. `infra/ausrollen.sh` bricht früh mit einer klaren Meldung ab, wenn ein Tag auf dem falschen Commit steht.

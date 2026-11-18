@@ -971,6 +971,7 @@ Jede Fehlerantwort (Status 400–599) ist JSON mit einem festen Code in `error`,
 * `error`: fester Schlüssel für Clients (englisch, `snake_case`); er ändert sich nicht.
 * `message`: lesbarer Hinweis auf Deutsch, wo vorhanden – zum Anzeigen, nicht zum Auswerten.
 * `detail`: technischer Zusatz, wo vorhanden.
+* **Freitexte (#197):** Ist ein Text nach dem Trimmen länger als erlaubt, antwortet die API mit 400 `invalid_<feld>` und der Grenze in `max`, z. B. `{ "error": "invalid_station", "max": 200 }`. Es wird nichts gekürzt und nichts gespeichert. Grenzen: Fahrzeug `name`, `brand`, `model` und Konto `username` je 100 Zeichen; Tank-/Ladevorgang `station`, Ausgabe `vendor`, Fahrt `startPlace` und `endPlace` je 200; Ausgabe `description` und Fahrt `note` je 2000; `mediaType` beim Upload 50. Geprüft wird nur, was gesendet wird: Vorhandene längere Werte bleiben lesbar, ein PATCH ohne das Feld ändert sie nicht. Der Import meldet zu lange Texte je Zeile (`rows[].error` mit `max`). Eigene Grenzen haben Kennzeichen (15), VIN (17), Versicherung (100), Reifengrößen (30), Kategorie- und Bauteilnamen, Feedback und Einladungen.
 * Allgemein: 400 `invalid_json` (Anfragekörper kein JSON), 413 `payload_too_large`, 401 `missing_token` / `invalid_token` / `token_revoked` / `session_revoked`, 404 `not_found` (auch unbekannte Pfade), 426 `app_update_required`, 429 `too_many_requests` bzw. `too_many_attempts`, 500 `server_error` (ohne Details, die stehen nur im Log der API).
 
 ### Mindest-App-Version

@@ -75,11 +75,11 @@ $abschnittEnde = fn() => $istNeu ? '</section>' : '</div></div></div>';
             </div>
             <div class="col-md-4">
                 <label for="brand" class="form-label">Marke</label>
-                <input type="text" id="brand" name="brand" class="form-control" placeholder="z. B. Kia" value="<?= $wert('brand') ?>">
+                <input type="text" id="brand" name="brand" class="form-control" maxlength="100" placeholder="z. B. Kia" value="<?= $wert('brand') ?>">
             </div>
             <div class="col-md-4">
                 <label for="model" class="form-label">Modell</label>
-                <input type="text" id="model" name="model" class="form-control" placeholder="z. B. Ceed SW" value="<?= $wert('model') ?>">
+                <input type="text" id="model" name="model" class="form-control" maxlength="100" placeholder="z. B. Ceed SW" value="<?= $wert('model') ?>">
             </div>
             <div class="col-md-4">
                 <label for="year" class="form-label">Baujahr</label>

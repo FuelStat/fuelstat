@@ -183,7 +183,7 @@ $heute = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->form
             <div class="mb-3">
                 <label for="standort" class="form-label" id="standortLabel"><?= htmlspecialchars($t['station']) ?></label>
                 <div class="input-group">
-                    <input type="text" list="stationen" placeholder="<?= htmlspecialchars($t['beispiel']) ?>" autocomplete="off" autocapitalize="words" enterkeyhint="done" id="standort" name="standort" class="form-control">
+                    <input type="text" list="stationen" placeholder="<?= htmlspecialchars($t['beispiel']) ?>" autocomplete="off" autocapitalize="words" enterkeyhint="done" id="standort" name="standort" class="form-control" maxlength="200">
                     <button type="button" class="btn btn-outline-primary" id="btnTankstellenSuche" title="<?= htmlspecialchars($t['stationen']) ?>" aria-label="<?= htmlspecialchars($t['stationen']) ?>">
                         <i class="fas fa-map-marker-alt"></i>
                     </button>
@@ -256,7 +256,7 @@ $heute = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->form
             </div>
             <div class="mb-3">
                 <label for="beschreibung" class="form-label">Beschreibung</label>
-                <textarea id="beschreibung" name="beschreibung" class="form-control" rows="2"></textarea>
+                <textarea id="beschreibung" name="beschreibung" class="form-control" maxlength="2000" rows="2"></textarea>
             </div>
             <?php
             // Bauteile (#78): nur bei Werkstatt, Wartung, Reparatur, Inspektion und Reifen
@@ -268,8 +268,8 @@ $heute = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->form
         <!-- Fahrt -->
         <div id="fields_trip" class="eintrag-abschnitt" hidden>
             <div class="row g-2 mb-3">
-                <div class="col-6"><label for="startort" class="form-label">Von</label><input type="text" id="startort" name="startort" class="form-control"></div>
-                <div class="col-6"><label for="zielort" class="form-label">Nach</label><input type="text" id="zielort" name="zielort" class="form-control"></div>
+                <div class="col-6"><label for="startort" class="form-label">Von</label><input type="text" id="startort" name="startort" class="form-control" maxlength="200"></div>
+                <div class="col-6"><label for="zielort" class="form-label">Nach</label><input type="text" id="zielort" name="zielort" class="form-control" maxlength="200"></div>
                 <div class="col-7">
                     <label for="fahrt_zweck" class="form-label">Zweck</label>
                     <select id="fahrt_zweck" name="fahrt_zweck" class="form-select">
@@ -290,7 +290,7 @@ $heute = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->form
             </p>
             <div class="mb-3">
                 <label for="km_notiz" class="form-label">Notiz (optional)</label>
-                <input type="text" id="km_notiz" name="beschreibung" class="form-control" placeholder="z. B. Parkhaus Bahnhof">
+                <input type="text" id="km_notiz" name="beschreibung" class="form-control" maxlength="2000" placeholder="z. B. Parkhaus Bahnhof">
             </div>
         </div>
 

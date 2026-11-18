@@ -70,11 +70,11 @@ if ($type === 'entry') {
         </div>
         <div class="mb-3">
             <label class="form-label" for="standort">Anbieter / Ort</label>
-            <input type="text" class="form-control" id="standort" name="standort" value="<?= htmlspecialchars($eintrag['vendor'] ?? '') ?>" placeholder="optional">
+            <input type="text" class="form-control" maxlength="200" id="standort" name="standort" value="<?= htmlspecialchars($eintrag['vendor'] ?? '') ?>" placeholder="optional">
         </div>
         <div class="mb-3">
             <label class="form-label" for="beschreibung">Beschreibung</label>
-            <textarea class="form-control" id="beschreibung" name="beschreibung" rows="2" placeholder="optional"><?= htmlspecialchars($eintrag['description'] ?? '') ?></textarea>
+            <textarea class="form-control" maxlength="2000" id="beschreibung" name="beschreibung" rows="2" placeholder="optional"><?= htmlspecialchars($eintrag['description'] ?? '') ?></textarea>
         </div>
         <?php
         // Bauteile (#78): nur bei Werkstatt, Wartung, Reparatur, Inspektion und Reifen
@@ -84,15 +84,15 @@ if ($type === 'entry') {
         if ($bauteilKatalog['parts']) { include __DIR__ . '/../includes/bauteile_felder.php'; } ?>
         <?php elseif ($art === 'trip'): ?>
         <div class="row g-2 mb-3">
-            <div class="col-6"><label for="startort" class="form-label">Von</label><input type="text" id="startort" name="startort" class="form-control" value="<?= htmlspecialchars($fahrt['startort']) ?>"></div>
-            <div class="col-6"><label for="zielort" class="form-label">Nach</label><input type="text" id="zielort" name="zielort" class="form-control" value="<?= htmlspecialchars($fahrt['zielort']) ?>"></div>
+            <div class="col-6"><label for="startort" class="form-label">Von</label><input type="text" id="startort" name="startort" class="form-control" maxlength="200" value="<?= htmlspecialchars($fahrt['startort']) ?>"></div>
+            <div class="col-6"><label for="zielort" class="form-label">Nach</label><input type="text" id="zielort" name="zielort" class="form-control" maxlength="200" value="<?= htmlspecialchars($fahrt['zielort']) ?>"></div>
             <div class="col-7"><label for="zweck" class="form-label">Zweck</label><input type="text" id="zweck" name="zweck" class="form-control" value="<?= htmlspecialchars($fahrt['zweck']) ?>"></div>
             <div class="col-5"><label for="gefahrene_km" class="form-label">km</label><input type="number" inputmode="decimal" id="gefahrene_km" name="gefahrene_km" class="form-control" min="0" step="0.1" value="<?= htmlspecialchars($fahrt['gefahrene_km']) ?>"></div>
         </div>
         <?php else: ?>
         <div class="mb-3">
             <label for="beschreibung" class="form-label">Notiz (optional)</label>
-            <input type="text" id="beschreibung" name="beschreibung" class="form-control" value="<?= htmlspecialchars($eintrag['description'] ?? '') ?>" placeholder="z. B. Parkhaus Bahnhof">
+            <input type="text" id="beschreibung" name="beschreibung" class="form-control" maxlength="2000" value="<?= htmlspecialchars($eintrag['description'] ?? '') ?>" placeholder="z. B. Parkhaus Bahnhof">
         </div>
         <?php endif; ?>
 
@@ -234,7 +234,7 @@ $bearbeitbar = isset($eintrag['filled_at']) && strtotime($eintrag['filled_at']) 
 
         <div class="mb-3">
             <label class="form-label" for="standort" id="standortLabel"><?= $begriffe['station'] ?></label>
-            <input type="text" class="form-control" id="standort" name="standort" value="<?= htmlspecialchars($standort) ?>">
+            <input type="text" class="form-control" maxlength="200" id="standort" name="standort" value="<?= htmlspecialchars($standort) ?>">
         </div>
         <div class="form-check form-switch mb-2">
             <input type="checkbox" class="form-check-input" role="switch" id="vollgetankt" name="vollgetankt" value="1" <?= $vollgetankt ? 'checked' : '' ?>>

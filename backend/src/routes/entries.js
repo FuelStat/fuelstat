@@ -5,6 +5,7 @@ const { pageOrReply, queryPage, pageOfArray } = require('../lib/pagination');
 const categories = require('../services/categories');
 const { pool } = require('../db');
 const { optionalNumber, serverError } = require('../lib/http');
+const { tooLongText } = require('../lib/textLimits');
 const { loadPlanUser } = require('../lib/planUser');
 const { auth } = require('../middleware/auth');
 const { checkOdometer } = require('../services/odometer');
@@ -40,6 +41,8 @@ router.post('/entries', auth, async (req, res) => {
 
   const vendor = req.body?.vendor ? String(req.body.vendor).trim() : null;
   const description = req.body?.description ? String(req.body.description).trim() : null;
+  const zuLang = tooLongText(req.body, ['vendor', 'description']); // #197
+  if (zuLang) return res.status(400).json(zuLang);
 
   if (!vehicleId) return res.status(400).json({ error: 'missing_vehicleId' });
   if (!category) return res.status(400).json({ error: 'missing_category' });
@@ -184,6 +187,8 @@ router.patch('/entries/:entryId', auth, async (req, res) => {
     fields.push(`occurred_at = $${idx++}`);
     values.push(occurredAt);
   }
+  const zuLang = tooLongText(body, ['vendor', 'description']); // #197
+  if (zuLang) return res.status(400).json(zuLang);
   if (body.vendor !== undefined) {
     fields.push(`vendor = $${idx++}`);
     values.push(body.vendor === null ? null : String(body.vendor).trim() || null);

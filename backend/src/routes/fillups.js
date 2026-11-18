@@ -4,6 +4,7 @@ const express = require('express');
 const { pageOrReply, queryPage, pageOfArray } = require('../lib/pagination');
 const { pool } = require('../db');
 const { optionalNumber, serverError } = require('../lib/http');
+const { tooLongText } = require('../lib/textLimits');
 const { auth } = require('../middleware/auth');
 const { checkOdometer } = require('../services/odometer');
 const { unitsForFuelType } = require('../services/stats');
@@ -31,6 +32,8 @@ router.post('/fillups', auth, async (req, res) => {
   const totalCostEur = Number(req.body?.totalCostEur);
 
   const station = req.body?.station ? String(req.body.station).trim() : null;
+  const zuLang = tooLongText(req.body, ['station']); // #197
+  if (zuLang) return res.status(400).json(zuLang);
   const filledAt = req.body?.filledAt ? new Date(req.body.filledAt) : null;
   const isFull = req.body?.isFull !== undefined ? Boolean(req.body.isFull) : true;
   const skipPrevious = req.body?.skipPrevious !== undefined ? Boolean(req.body.skipPrevious) : false;
@@ -249,6 +252,8 @@ router.patch('/fillups/:fillupId', auth, async (req, res) => {
     const patchFuel =
       body.fuel !== undefined && body.fuel !== null && body.fuel !== '' ? String(body.fuel).trim().toLowerCase() : undefined;
 
+    const zuLang = tooLongText(body, ['station']); // #197
+    if (zuLang) return res.status(400).json(zuLang);
     // null bzw. leer entfernt den Ort (nicht der Text "null")
     const patchStation =
       body.station === undefined ? undefined : body.station === null || String(body.station).trim() === '' ? null : String(body.station).trim();

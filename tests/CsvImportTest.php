@@ -52,6 +52,15 @@ assert($r['fillups'][0] === ['filledAt' => '2026-01-05T12:00:00.000Z', 'odometer
 assert($r['fillups'][1]['isFull'] === false);
 assert($r['entries'][0]['category'] === 'Versicherung' && $r['entries'][0]['odometerKm'] === null && $r['entries'][0]['vendor'] === 'HUK');
 
+// Zu lange Texte (#197): Zeile wird in der Vorschau als fehlerhaft markiert, nichts wird gekürzt
+$daten = importLeseCsv("Datum;Tachostand;Liter;Kosten;Ort;Beschreibung\n"
+    . "01.02.2026;1000;40;70;" . str_repeat('o', 200) . ";\n"
+    . "02.02.2026;1100;40;70;" . str_repeat('o', 201) . ";\n"
+    . "03.02.2026;1200;40;70;;" . str_repeat('b', 2001) . "\n");
+$r = importWandleUm($daten['zeilen'], importErkenneZuordnung($daten['kopf']), 'Werkstatt');
+assert(count($r['fillups']) === 1 && mb_strlen($r['fillups'][0]['station']) === 200, 'Ort mit 200 Zeichen bleibt');
+assert($r['fehler'] === [3 => 'Ort zu lang (höchstens 200 Zeichen)', 4 => 'Beschreibung zu lang (höchstens 2.000 Zeichen)']);
+
 // Kosten aus Menge x Preis, Komma-getrennt mit englischen Überschriften
 $daten = importLeseCsv("date,odometer,liters,price per liter\n2025-03-01,1000,40,1.75\n");
 $r = importWandleUm($daten['zeilen'], importErkenneZuordnung($daten['kopf']), 'Werkstatt');

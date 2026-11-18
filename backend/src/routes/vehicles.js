@@ -6,6 +6,7 @@ const media = require('../services/media');
 const plans = require('../services/plans');
 const { pool } = require('../db');
 const { optionalNumber, optionalText, serverError } = require('../lib/http');
+const { tooLongText } = require('../lib/textLimits');
 const { auth } = require('../middleware/auth');
 const { FUEL_TYPES } = require('../services/stats');
 const { parseFuelList, defaultFuelsFor, fuelTypeFor, catalog } = require('../services/fuels');
@@ -48,6 +49,8 @@ router.post('/vehicles', auth, async (req, res) => {
   let fuelType = String(req.body?.fuelType || '').trim().toLowerCase();
 
   if (!name) return res.status(400).json({ error: 'missing_name' });
+  const zuLang = tooLongText(req.body, ['name', 'brand', 'model']); // #197
+  if (zuLang) return res.status(400).json(zuLang);
 
   // Kraftstoffsorten (#140): fuels optional; ohne fuels aus der Antriebsart, ohne fuelType aus den Sorten
   let fuels = null;
@@ -194,6 +197,9 @@ router.patch('/vehicles/:vehicleId', auth, async (req, res) => {
   const vehicleId = String(req.params.vehicleId || '').trim();
   if (!vehicleId) return res.status(400).json({ error: 'missing_vehicleId' });
 
+  // Freitexte begrenzt (#197)
+  const zuLang = tooLongText(req.body, ['name', 'brand', 'model']);
+  if (zuLang) return res.status(400).json(zuLang);
   let name =
     req.body?.name !== undefined ? String(req.body.name).trim() : undefined;
   let fuelType =

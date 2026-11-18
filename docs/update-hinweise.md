@@ -8,6 +8,13 @@ Was beim Ausrollen einer Version zu tun ist, soweit es über `sudo infra/ausroll
 
 ## [Unreleased]
 
+- **Textgrenzen (#197):** Die API nimmt Freitexte nur noch bis zu einer Länge an (Fahrzeugname, Marke, Modell, Benutzername 100; Tankstelle/Ort/Anbieter 200; Beschreibung 2000). Vorhandene längere Werte bleiben lesbar, lassen sich aber erst nach dem Kürzen wieder speichern. Ob es solche Werte gibt (erwartet: überall 0):
+
+  ```bash
+  cd infra
+  sudo docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT (SELECT count(*) FROM vehicles WHERE length(name) > 100 OR length(brand) > 100 OR length(model) > 100) AS fahrzeuge, (SELECT count(*) FROM users WHERE length(username) > 100) AS konten, (SELECT count(*) FROM fillups WHERE length(station) > 200) AS tanken, (SELECT count(*) FROM expenses WHERE length(vendor) > 200 OR length(description) > 2000) AS ausgaben"'
+  ```
+
 - **Eigene Fehlerseiten (#211), nginx anpassen:** Damit statt „404 Not Found – nginx“ die Seite im Aussehen der App
   erscheint, im `server`-Block für 443 (vor `location / {`) diese Zeilen ergänzen, wie in
   `infra/nginx/fuelstat.conf.example`:

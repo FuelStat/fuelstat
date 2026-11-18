@@ -18,6 +18,9 @@ $faelle = [
     [$api('invalid_taxDueMonth', 400), 'Das hat nicht geklappt. Prüfe deine Angaben und versuche es noch einmal.'],
     [$api('invalid_credentials', 401), 'Das hat nicht geklappt. Prüfe deine Angaben und versuche es noch einmal.'],
     [$api('irgendwas', 400, ['message' => 'Die Kategorie ist schon vergeben.']), 'Die Kategorie ist schon vergeben.'],
+    // Zu langer Freitext (#197)
+    [$api('invalid_station', 400, ['error' => 'invalid_station', 'max' => 200]), 'Ein Text ist zu lang. Erlaubt sind höchstens 200 Zeichen.'],
+    [$api('invalid_description', 400, ['error' => 'invalid_description', 'max' => 2000]), 'Ein Text ist zu lang. Erlaubt sind höchstens 2.000 Zeichen.'],
     [new RuntimeException('Nur JPEG, PNG, GIF und WebP sind als Bild erlaubt.'), 'Nur JPEG, PNG, GIF und WebP sind als Bild erlaubt.'],
     [new RuntimeException('Das Profilbild konnte nicht hochgeladen werden (zu groß?).'), 'Das Profilbild konnte nicht hochgeladen werden (zu groß?).'],
     [new RuntimeException('curl_init failed'), $spaeter],
@@ -28,7 +31,12 @@ foreach ($faelle as [$e, $erwartet]) {
     $text = fehlerText($e);
     assert($text === $erwartet, get_class($e) . ' ' . $e->getMessage() . ': ' . $text);
     // Nie ein Code in der Oberfläche
-    assert(!preg_match('/\b(HTTP )?[1-5]\d\d\b|[a-z]+_[a-z_]+/', $text), 'Code im Text: ' . $text);
+    assert(!preg_match('/HTTP \d{3}|\b(status|code) ?\d{3}\b|[a-z]+_[a-z_]+/i', $text), 'Code im Text: ' . $text);
 }
+
+// Fahrzeugformular: Feldname mit Grenze, unbekannte Codes nie roh (#197)
+assert(fahrzeugFehlerText($api('invalid_brand', 400, ['max' => 100])) === 'Bitte prüfen: Marke (höchstens 100 Zeichen).');
+assert(str_starts_with(fahrzeugFehlerText($api('invalid_taxDueMonth', 400)), 'Bitte prüfen: '));
+assert(!str_contains(fahrzeugFehlerText($api('irgendein_code', 400)), '_'), 'kein roher Code');
 
 echo "All tests passed\n";

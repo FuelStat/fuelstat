@@ -4,6 +4,7 @@ const express = require('express');
 const categories = require('../services/categories');
 const { pool } = require('../db');
 const { serverError } = require('../lib/http');
+const { tooLongText } = require('../lib/textLimits');
 const { loadPlanUser } = require('../lib/planUser');
 const { auth } = require('../middleware/auth');
 const { importLimiter } = require('../middleware/rateLimits');
@@ -47,6 +48,7 @@ router.post('/vehicles/:vehicleId/import', auth, requireVerified('import'), impo
     }
     else if (!nonNegative(f?.amount)) errors.push({ type: 'fillup', index, error: 'invalid_amount' });
     else if (!nonNegative(f?.totalCostEur)) errors.push({ type: 'fillup', index, error: 'invalid_totalCostEur' });
+    else if (tooLongText(f, ['station'])) errors.push({ type: 'fillup', index, ...tooLongText(f, ['station']) });
     // Ladeangaben (#25): Form vorab prüfen; ob sie zur Einheit passen, entscheidet sich unten (dort steht die Einheit)
     else {
       const c = resolveCharge(f, null, 'kwh');
@@ -57,6 +59,7 @@ router.post('/vehicles/:vehicleId/import', auth, requireVerified('import'), impo
     if (!validDate(e?.occurredAt)) errors.push({ type: 'entry', index, error: 'invalid_occurredAt' });
     else if (!String(e?.category || '').trim()) errors.push({ type: 'entry', index, error: 'missing_category' });
     else if (!nonNegative(e?.amountEur)) errors.push({ type: 'entry', index, error: 'invalid_amountEur' });
+    else if (tooLongText(e, ['vendor', 'description'])) errors.push({ type: 'entry', index, ...tooLongText(e, ['vendor', 'description']) });
     else if (e?.odometerKm !== undefined && e?.odometerKm !== null && e?.odometerKm !== '' && !nonNegative(e.odometerKm)) {
       errors.push({ type: 'entry', index, error: 'invalid_odometerKm' });
     }

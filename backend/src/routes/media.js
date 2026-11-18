@@ -6,6 +6,7 @@ const fs = require('fs');
 const { MEDIA_BASE_URL } = require('../config');
 const { pool } = require('../db');
 const { serverError } = require('../lib/http');
+const { tooLongText } = require('../lib/textLimits');
 const { auth } = require('../middleware/auth');
 const { uploadLimiter } = require('../middleware/rateLimits');
 const { removeUpload, storedMediaPath, upload, verifyUploadedImage } = require('../middleware/upload');
@@ -20,6 +21,11 @@ router.post('/media/upload', auth, requireVerified('upload'), uploadLimiter, (re
     return res.status(400).json({ error: 'missing_file' });
   }
 
+  const zuLang = tooLongText(req.body, ['mediaType']); // #197
+  if (zuLang) {
+    removeUpload(req.file);
+    return res.status(400).json(zuLang);
+  }
   const mediaType = String(req.body?.mediaType || 'image').trim();
   const url = `${MEDIA_BASE_URL}/${req.file.filename}`;
   const mimeType = req.file.mimetype;
@@ -138,6 +144,11 @@ router.post('/vehicles/:vehicleId/media/upload', auth, requireVerified('upload')
       return role ? res.status(403).json({ error: 'owner_only' }) : res.status(404).json({ error: 'vehicle_not_found' });
     }
 
+    const zuLang = tooLongText(req.body, ['mediaType']); // #197
+    if (zuLang) {
+      removeUpload(req.file);
+      return res.status(400).json(zuLang);
+    }
     const mediaType = String(req.body?.mediaType || 'image').trim();
     const url = `${MEDIA_BASE_URL}/${req.file.filename}`;
     const mimeType = req.file.mimetype;

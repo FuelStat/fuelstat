@@ -8,6 +8,7 @@ const planChanges = require('../services/planChanges');
 const plans = require('../services/plans');
 const { pool } = require('../db');
 const { UUID_RE, optionalText, serverError } = require('../lib/http');
+const { tooLongText } = require('../lib/textLimits');
 const { auth, requireAdmin, requireSelfOrAdmin } = require('../middleware/auth');
 const { storedMediaPath } = require('../middleware/upload');
 const emailVerification = require('../services/emailVerification');
@@ -173,6 +174,8 @@ router.patch('/auth/users/:userId', auth, requireSelfOrAdmin, async (req, res) =
       ? String(req.body.email).trim().toLowerCase()
       : undefined;
   const username = optionalText(req.body?.username);
+  const zuLang = tooLongText(req.body, ['username']); // #197
+  if (zuLang) return res.status(400).json(zuLang);
   let profileImageUrl = req.body?.profileImageUrl === undefined ? undefined : optionalText(req.body.profileImageUrl);
 
   if (email === undefined && username === undefined && profileImageUrl === undefined) {

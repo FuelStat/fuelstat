@@ -219,20 +219,36 @@ $filterArten = array_filter([
       </select>
       <noscript><button class="btn btn-outline-secondary ms-2">Anzeigen</button></noscript>
     </form>
-    <div class="dropdown flex-shrink-0">
+    <!-- Berichte und Export (#206, docs/design.md 7.6): die einzige Heimat für Berichte, Export und Import des Fahrzeugs;
+         Kurzwege stehen unter Profil → Daten, in Fahrten und an der Gesamtkosten-Karte. #berichte öffnet das Menü. -->
+    <div class="dropdown flex-shrink-0" id="berichte">
       <button type="button" class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-        <i class="fas fa-arrow-right-arrow-left" aria-hidden="true"></i><span class="d-none d-sm-inline">Export und Import</span><span class="d-sm-none visually-hidden">Export und Import</span>
+        <i class="fas fa-file-export" aria-hidden="true"></i><span class="d-none d-sm-inline">Berichte und Export</span><span class="d-sm-none visually-hidden">Berichte und Export</span>
       </button>
       <ul class="dropdown-menu dropdown-menu-end">
-        <li><a class="dropdown-item" download href="../pages/export.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?><?= $jahr !== null ? '&jahr=' . $jahr : '' ?>"><i class="fas fa-file-csv fa-fw" aria-hidden="true"></i>Als CSV für Excel herunterladen</a></li>
+        <li><h6 class="dropdown-header">Berichte</h6></li>
         <li><a class="dropdown-item" href="../pages/bericht.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?><?= $jahr !== null ? '&jahr=' . $jahr : '' ?>" target="_blank"><i class="fas fa-file-pdf fa-fw" aria-hidden="true"></i>Bericht drucken oder als PDF speichern</a></li>
         <li><a class="dropdown-item" href="../pages/bericht_gesamtkosten.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>" target="_blank"><i class="fas fa-scale-balanced fa-fw" aria-hidden="true"></i>Gesamtkosten-Bericht (mit Wertverlust)</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><h6 class="dropdown-header">Export</h6></li>
+        <li><a class="dropdown-item" download href="../pages/export.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?><?= $jahr !== null ? '&jahr=' . $jahr : '' ?>"><i class="fas fa-file-csv fa-fw" aria-hidden="true"></i>Einträge als CSV für Excel</a></li>
+        <li><a class="dropdown-item" download href="../pages/fahrten_export.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?><?= $jahr !== null ? '&jahr=' . $jahr : '' ?>"><i class="fas fa-route fa-fw" aria-hidden="true"></i>Fahrtenbuch als CSV</a></li>
         <?php if ($darfAendern): ?>
         <li><hr class="dropdown-divider"></li>
+        <li><h6 class="dropdown-header">Import</h6></li>
         <li><a class="dropdown-item" href="../pages/import.php?id=<?= htmlspecialchars(urlencode($fahrzeug_id)) ?>"><i class="fas fa-file-import fa-fw" aria-hidden="true"></i>Einträge aus CSV-Datei importieren</a></li>
         <?php endif; ?>
       </ul>
     </div>
+    <script>
+      // Kurzweg aus Profil → Daten: #berichte öffnet das Menü
+      if (location.hash === '#berichte') {
+        document.addEventListener('DOMContentLoaded', function () {
+          var knopf = document.querySelector('#berichte [data-bs-toggle="dropdown"]');
+          if (knopf && window.bootstrap) bootstrap.Dropdown.getOrCreateInstance(knopf).show();
+        });
+      }
+    </script>
   </div>
 
   <!-- Filter nach Art -->

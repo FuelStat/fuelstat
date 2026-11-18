@@ -6,6 +6,14 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+### Sicherheit
+- Registrieren verrät nicht mehr, ob es für eine Adresse schon ein Konto gibt: Fuelstat schickt einen Link per Mail, und erst mit diesem Link entsteht dein Konto. Der Link gilt 7 Tage, nach 5 Tagen kommt eine Erinnerung. Gibt es die Adresse schon, bekommt ihr Inhaber stattdessen einen Hinweis mit dem Weg zur Anmeldung und zu „Passwort vergessen?“ (#141).
+- Konten, deren Adresse nie bestätigt wurde, werden nach einer Erinnerung gelöscht, frühestens 2 Tage danach (#141).
+- Schutz vor Massen-Registrierungen und Mail-Fluten: Von einem Anschluss gehen nur noch wenige Registrierungen je Stunde und Tag, an eine Adresse höchstens 3 Registrierungsmails am Tag (#198).
+
+### Technik
+- `POST /auth/register` antwortet mit Mailserver mit 202 ohne Token; das Konto legt erst `POST /auth/verify-email` an (`accountCreated`). iOS-Apps vor 0.2.3 bekommen übergangsweise die alte Antwort. Neue Grenze je IP mit 429 und `Retry-After`, neuer Admin-Endpunkt `GET /auth/registrations`. Das nginx-Beispiel schaltet HTTP/2 nicht mehr ein (#141, #198, #231).
+
 ## [0.14.0] - 2026-11-18
 
 ### Verbessert

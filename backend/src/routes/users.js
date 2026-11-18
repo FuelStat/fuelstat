@@ -1,8 +1,7 @@
-// Routen: /auth/plans, /auth/users, /auth/users/:userId, /auth/users/:userId/beta, /auth/users/:userId/plan, /auth/users/:userId/plan-history, /auth/users/:userId/revoke-all
+// Routen: /auth/plans, /auth/registrations, /auth/users, /auth/users/:userId, /auth/users/:userId/beta, /auth/users/:userId/plan, /auth/users/:userId/plan-history, /auth/users/:userId/revoke-all
 // Aus backend/src/server.js ausgelagert (#110), Inhalt unverändert.
 const express = require('express');
 const { pageOrReply, queryPage, pageOfArray } = require('../lib/pagination');
-const fs = require('fs');
 const media = require('../services/media');
 const planChanges = require('../services/planChanges');
 const plans = require('../services/plans');
@@ -10,13 +9,23 @@ const { pool } = require('../db');
 const { UUID_RE, optionalText, serverError } = require('../lib/http');
 const { tooLongText } = require('../lib/textLimits');
 const { auth, requireAdmin, requireSelfOrAdmin } = require('../middleware/auth');
-const { storedMediaPath } = require('../middleware/upload');
 const emailVerification = require('../services/emailVerification');
-const sharing = require('../services/sharing');
+const { deleteAccount } = require('../services/accounts');
+const registration = require('../services/registration');
 
 const deviceSessions = require('../services/deviceSessions');
 const { fromApp } = require('../lib/appVersions');
 const router = express.Router();
+
+// Registrierungen und Registrierungsmails (Admin, #198): offene Anfragen, unbestätigte Konten, Mails der letzten Stunde
+// und ob die Grenze je Stunde in den letzten 24 Stunden Mails zurückgehalten hat (Hinweis auf der Admin-Seite)
+router.get('/auth/registrations', auth, requireAdmin, async (req, res) => {
+  try {
+    res.json(await registration.status(pool));
+  } catch (e) {
+    serverError(res, e);
+  }
+});
 
 // List all users (Admin-Endpoint)
 router.get('/auth/users', auth, requireAdmin, async (req, res) => {
@@ -268,39 +277,9 @@ router.delete('/auth/users/:userId', auth, requireSelfOrAdmin, async (req, res) 
   if (!userId) return res.status(400).json({ error: 'missing_userId' });
 
   try {
-    // Hochgeladene Bilder (Profil und Fahrzeuge) merken, damit nach dem Löschen keine Dateien liegen bleiben. Nur Dateien,
-    // die das Konto selbst hochgeladen hat: profile_image_url könnte aus der Zeit vor #196 auf eine fremde Datei zeigen.
-    const media = await pool.query(
-      `SELECT url FROM user_media WHERE user_id = $1
-       UNION SELECT url FROM vehicle_media WHERE user_id = $1`,
-      [userId]
-    );
-
-    // Einträge an geteilten Fahrzeugen anderer bleiben beim Fahrzeug (#53): sie gehen an den jeweiligen Besitzer über,
-    // statt mit dem Konto gelöscht zu werden. Eigene Fahrzeuge samt allen Einträgen werden mit dem Konto gelöscht.
-    const client = await pool.connect();
-    let r;
-    try {
-      await client.query('BEGIN');
-      await sharing.handOverEntries(client, userId);
-      r = await client.query('DELETE FROM users WHERE id = $1 RETURNING id', [userId]);
-      await client.query('COMMIT');
-    } catch (e) {
-      await client.query('ROLLBACK').catch(() => {});
-      throw e;
-    } finally {
-      client.release();
-    }
-
-    if (r.rowCount === 0) {
+    if (!(await deleteAccount(pool, userId))) {
       return res.status(404).json({ error: 'user_not_found' });
     }
-
-    await Promise.all(media.rows.map(({ url }) => {
-      const p = storedMediaPath(url);
-      return p ? fs.promises.unlink(p).catch(() => {}) : null;
-    }));
-
     return res.status(204).send();
   } catch (e) {
     serverError(res, e);

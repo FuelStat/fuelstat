@@ -39,7 +39,28 @@ const stationsLimiter = limiter(60 * 1000, 30, 30);
 const chargingStationsLimiter = limiter(60 * 1000, 30, 30);
 // Passwort vergessen (#141): ohne Anmeldung, je IP; schützt Postfächer vor Mail-Fluten (zusätzlich 3 je Konto und Stunde)
 const passwordResetLimiter = limiter(15 * 60 * 1000, 10, 10);
+// Registrierung (#198): immer je IP (auch mit Token), Stunden- und Tagesgrenze, per .env einstellbar (bei jeder
+// Anfrage gelesen). Die Client-IP setzt das PHP-Frontend per X-Forwarded-For (nur von lokalen/privaten Adressen
+// übernommen, app.js „trust proxy“); hinter Cloudflare braucht nginx dafür real_ip (docs/installation.md).
+// Die Zähler liegen im Speicher des Prozesses, ein Neustart setzt sie zurück (#126). Die Grenzen für Mails
+// (services/registration.js) zählen dagegen in der Datenbank.
+const zahl = (wert, standard) => {
+  const n = Number.parseInt(String(wert ?? ''), 10);
+  return Number.isFinite(n) && n > 0 ? n : standard;
+};
+const ipLimiter = (windowMs, limit) => rateLimit({
+  windowMs,
+  limit,
+  keyGenerator: (req) => 'ip:' + ipKeyGenerator(req.ip || ''),
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: (req, res) => res.status(429).json({ error: 'too_many_requests' })
+});
+const registerLimiter = [
+  ipLimiter(60 * 60 * 1000, () => zahl(process.env.REGISTER_LIMIT_PER_HOUR, 10)),
+  ipLimiter(24 * 60 * 60 * 1000, () => zahl(process.env.REGISTER_LIMIT_PER_DAY, 30))
+];
 // Signierte Bilder (#103): ohne Anmeldung, zählen je IP; großzügig, eine Seite lädt mehrere Bilder
 const fileLimiter = limiter(60 * 1000, 2000, 2000);
 
-module.exports = { apiLimiter, chargingStationsLimiter, fileLimiter, importLimiter, limitKey, limiter, passwordResetLimiter, stationsLimiter, uploadLimiter };
+module.exports = { apiLimiter, chargingStationsLimiter, fileLimiter, importLimiter, limitKey, limiter, passwordResetLimiter, registerLimiter, stationsLimiter, uploadLimiter };

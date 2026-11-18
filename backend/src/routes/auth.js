@@ -14,9 +14,10 @@ const { MFA_TOKEN_SECRET, base32Encode, consumeTotp, readMfaSecret, storeMfaSecr
 const emailVerification = require('../services/emailVerification');
 const passwordReset = require('../services/passwordReset');
 const { loadDefaultSmtp } = require('../services/mail');
-const { passwordResetLimiter } = require('../middleware/rateLimits');
+const { passwordResetLimiter, registerLimiter } = require('../middleware/rateLimits');
+const registration = require('../services/registration');
 const deviceSessions = require('../services/deviceSessions');
-const { fromApp } = require('../lib/appVersions');
+const { fromApp, legacyRegistration } = require('../lib/appVersions');
 
 const router = express.Router();
 
@@ -46,14 +47,17 @@ router.post('/auth/refresh', auth, async (req, res) => {
   }
 });
 
-// Register
-router.post('/auth/register', async (req, res) => {
+// Registrieren. Mit Mailserver (#141): Antwort immer 202 ohne Token, das Konto entsteht erst mit dem Link aus der Mail
+// (services/registration.js); so verrät die Antwort nicht, ob es die Adresse schon gibt. Ohne Mailserver bzw. mit
+// EMAIL_VERIFICATION=false und für alte Apps (lib/appVersions.js) wie bisher: Konto sofort, 201 mit Token.
+// Grenzen je IP (#198): middleware/rateLimits.js, Grenzen für Mails: services/registration.js.
+router.post('/auth/register', registerLimiter, async (req, res) => {
   // Öffentliche Registrierung abschaltbar (z. B. für eine private Installation)
   if (process.env.REGISTRATION_ENABLED === 'false') return res.status(403).json({ error: 'registration_disabled' });
   const email = String(req.body?.email || '').trim().toLowerCase();
   const password = String(req.body?.password || '');
 
-  if (!email || !email.includes('@')) return res.status(400).json({ error: 'invalid_email' });
+  if (!email || !email.includes('@') || email.length > 254) return res.status(400).json({ error: 'invalid_email' });
   if (password.length < 8) return res.status(400).json({ error: 'password_too_short' });
   const geraet = deviceSessions.parseDevice(req.body?.device);
   if (geraet.error) return res.status(400).json({ error: geraet.error });
@@ -66,6 +70,13 @@ router.post('/auth/register', async (req, res) => {
     // Konto trotzdem an; die Zustimmung wird dann nach der Anmeldung nachgeholt (whoami.terms.required).
     const fassung = termsVersion();
     const zugestimmt = fassung !== null && req.body?.acceptTerms === true && String(req.body?.termsVersion || '') === fassung;
+    if (bestaetigen && !legacyRegistration(req)) {
+      // Erst antworten, dann im Hintergrund prüfen und Mail schicken: gleiche Antwort und Antwortzeit für jede Adresse
+      res.status(202).json({ verificationRequired: true, email });
+      registration.register(pool, { email, passwordHash, termsVersion: zugestimmt ? fassung : null, app: fromApp(req) })
+        .catch((e) => console.error('[register] Registrierungsmail fehlgeschlagen:', e.code || e.message));
+      return;
+    }
     const r = await pool.query(
       `INSERT INTO users (email, password_hash, beta_tester, email_verified_at, terms_version, terms_accepted_at)
        VALUES ($1, $2, $3, CASE WHEN $4 THEN NULL ELSE now() END, $5, CASE WHEN $5::text IS NULL THEN NULL ELSE now() END)
@@ -93,6 +104,11 @@ router.post('/auth/register', async (req, res) => {
 // E-Mail-Adresse bestätigen (#135): Token aus der Mail. Ohne Anmeldung, das Token selbst ist der Nachweis.
 router.post('/auth/verify-email', async (req, res) => {
   try {
+    // Zuerst offene Registrierungen (#141): Der Link legt das Konto an
+    const neu = await registration.confirm(pool, req.body?.token, { betaTester: isBetaPhase() });
+    if (neu?.error === 'email_already_exists') return res.status(409).json({ error: neu.error });
+    if (neu?.error) return res.status(400).json({ error: neu.error });
+    if (neu) return res.json({ verified: true, email: neu.email, accountCreated: true });
     const r = await emailVerification.verify(pool, req.body?.token);
     if (r.error === 'email_already_exists') return res.status(409).json({ error: r.error });
     if (r.error) return res.status(400).json({ error: r.error });

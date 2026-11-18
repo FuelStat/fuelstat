@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
   pending_email text NULL,                 -- neue Adresse, bis sie bestätigt ist
   terms_version text NULL,                 -- zugestimmte Fassung der Nutzungsbedingungen (TERMS_VERSION, #135)
   terms_accepted_at timestamptz NULL,
+  unverified_reminder_sent_at timestamptz NULL, -- Erinnerung vor dem Löschen eines unbestätigten Kontos (#141)
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -40,6 +41,33 @@ CREATE TABLE IF NOT EXISTS email_verifications (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_email_verifications_user ON email_verifications(user_id, created_at DESC);
+
+-- Registrierung mit Mailserver (#141): Das Konto entsteht erst mit dem Link aus der Mail. Bis dahin nur Hashes von
+-- Passwort und Tokens; verfällt nach 7 Tagen, nach 5 Tagen kommt eine Erinnerung mit einem zweiten Link.
+CREATE TABLE IF NOT EXISTS pending_registrations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email text NOT NULL UNIQUE,
+  password_hash text NOT NULL,
+  terms_version text NULL,
+  terms_accepted_at timestamptz NULL,
+  token_hash text NOT NULL UNIQUE,
+  reminder_token_hash text NULL UNIQUE,
+  from_app boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL,
+  reminder_sent_at timestamptz NULL
+);
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_expires ON pending_registrations(expires_at);
+
+-- Mails, die eine Registrierung auslöst (#198): Grenzen je Adresse (nur ihr Hash) und je Stunde; nach 2 Tagen gelöscht
+CREATE TABLE IF NOT EXISTS registration_mails (
+  id bigserial PRIMARY KEY,
+  address_hash text NOT NULL,
+  kind text NOT NULL CHECK (kind IN ('verify', 'exists', 'reminder', 'blocked')),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_registration_mails_address ON registration_mails(address_hash, created_at);
+CREATE INDEX IF NOT EXISTS idx_registration_mails_created ON registration_mails(created_at);
 
 -- Fahrzeuge
 CREATE TABLE IF NOT EXISTS vehicles (

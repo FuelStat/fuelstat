@@ -17,7 +17,7 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | GET | `/health` | – | Healthcheck, enthält `version`, `registration_enabled`, `beta_phase`, `terms_version`, `apps` (Mindest-App-Version, #118) und `passkeys_enabled` (#2) |
 | GET | `/db-ping` | – | Datenbank erreichbar? |
 | GET | `/whoami` | ✓ | Eigenes Konto inkl. `is_admin`, `beta_tester`, Tarif und Rechte, `email_verified`, `pending_invitations`, `terms` |
-| POST | `/auth/register` | – | Konto anlegen, liefert Token |
+| POST | `/auth/register` | – | Registrieren: mit Mailserver 202 (Konto erst mit dem Link aus der Mail, #141), sonst Konto anlegen mit Token |
 | POST | `/auth/login` | – | Anmelden (bei 2FA: `mfa_required` + `mfaToken`) |
 | POST | `/auth/login/mfa` | – | Zweiter Schritt mit 2FA-Code |
 | POST | `/auth/passkeys/login/options` | – | Anmelden mit Passkey, Schritt 1: WebAuthn-Optionen (#2) |
@@ -26,7 +26,7 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | POST | `/auth/passkeys/register/options` | ✓ | Passkey anlegen, Schritt 1 (aktuelles Passwort nötig) |
 | POST | `/auth/passkeys/register` | ✓ | Passkey anlegen, Schritt 2 |
 | PATCH · DELETE | `/auth/passkeys/:passkeyId` | ✓ | Passkey umbenennen bzw. entfernen |
-| POST | `/auth/verify-email` | – | E-Mail-Adresse mit dem Token aus der Mail bestätigen (#135) |
+| POST | `/auth/verify-email` | – | E-Mail-Adresse mit dem Token aus der Mail bestätigen (#135), legt bei einer offenen Registrierung das Konto an (#141) |
 | POST | `/auth/resend-verification` | ✓ | Bestätigungsmail erneut senden |
 | POST | `/auth/accept-terms` | ✓ | Nutzungsbedingungen zustimmen (`version`) |
 | POST | `/auth/forgot-password` | – | Link zum Zurücksetzen des Passworts anfordern (#141) |
@@ -97,23 +97,42 @@ Pfade relativ zu `/api/v1`. „Auth“: ohne = öffentlich, ✓ = angemeldet, Ad
 | GET | `/vehicles/:vehicleId/media` | ✓ | Bilder eines Fahrzeugs |
 | DELETE | `/vehicles/:vehicleId/media/:mediaId` | ✓ | Fahrzeugbild löschen |
 | POST | `/feedback` | ✓ | Feedback senden |
+| GET | `/auth/registrations` | Admin | Offene Registrierungen, unbestätigte Konten, Registrierungsmails und Notbremse (#198) |
 | GET | `/feedback` | Admin | Feedback-Eingang |
 | PATCH | `/feedback/:id` | Admin | Feedback als erledigt markieren |
 
 ## Auth
 
 ### POST /auth/register
-Legt einen neuen User an und gibt direkt ein JWT zurück.
 
 **Body**
 ```json
 {
   "email": "mario@test.local",
-  "password": "SuperSecret123!"
+  "password": "SuperSecret123!",
+  "acceptTerms": true,
+  "termsVersion": "2026-11-01"
 }
-````
+```
 
-**Responses**
+**Mit Mailserver** (Standard-Mailserver eingerichtet, `EMAIL_VERIFICATION` nicht `false`, #141): Die Antwort ist für jede
+Adresse gleich und verrät nicht, ob es schon ein Konto gibt.
+
+* 202
+
+```json
+{ "verificationRequired": true, "email": "mario@test.local" }
+```
+
+Es gibt **kein Token** und noch **kein Konto**. Die Mail enthält einen Link (`{APP_URL}/pages/email_bestaetigen.php?token=…`),
+der 7 Tage gilt; erst `POST /auth/verify-email` mit diesem Token legt das Konto an (Adresse bestätigt). Bis dahin
+antwortet `/auth/login` mit 401 `invalid_credentials` wie bei einer unbekannten Adresse. Nach 5 Tagen kommt eine
+Erinnerung mit einem zweiten Link, nach 7 Tagen verfällt die Anfrage. Wer sich erneut mit derselben Adresse registriert,
+ersetzt die offene Anfrage (neues Passwort, neuer Link). Gibt es die Adresse schon, bekommt ihr Inhaber statt des Links
+eine Mail mit dem Weg zur Anmeldung und zu „Passwort vergessen?“; am bestehenden Konto ändert sich nichts.
+
+**Ohne Mailserver** bzw. mit `EMAIL_VERIFICATION=false` gibt es keinen Nachweis per Mail. Dann entsteht das Konto wie
+bisher sofort:
 
 * 201
 
@@ -123,13 +142,27 @@ Legt einen neuen User an und gibt direkt ein JWT zurück.
   "user": {
     "id": "<uuid>",
     "email": "mario@test.local",
+    "email_verified": true,
     "created_at": "2025-12-23T08:34:47.135Z"
   }
 }
 ```
 
+* 409: `email_already_exists` (nur ohne Mailserver)
+
+**Übergang für ältere Apps:** iOS-Apps vor 0.2.3 (Header `X-Fuelstat-Client`, siehe `REGISTRATION_WITHOUT_TOKEN` in
+`backend/src/lib/appVersions.js`) bekommen auch mit Mailserver noch die alte Antwort: Konto sofort (unbestätigt), 201 mit
+Token, 409 bei vorhandener Adresse. Sobald `ios.minimum` mindestens 0.2.3 ist, entfällt dieser Weg.
+
+**Grenzen (#198):** höchstens 10 Registrierungen je Stunde und 30 je Tag und IP (`REGISTER_LIMIT_PER_HOUR`,
+`REGISTER_LIMIT_PER_DAY`), darüber 429 `too_many_requests` mit `Retry-After`. Mails, die eine Registrierung auslöst:
+höchstens 3 je Zieladresse und Tag (`REGISTER_MAILS_PER_ADDRESS_PER_DAY`) und 100 je Stunde insgesamt
+(`REGISTER_MAILS_PER_HOUR`, Notbremse für den Mailserver). Über diesen Grenzen geht keine Mail raus, die Antwort bleibt
+trotzdem 202; die Admin-Seite zeigt einen Hinweis (`GET /auth/registrations`).
+
 * 400: `invalid_email` | `password_too_short`
-* 409: `email_already_exists`
+* 403: `registration_disabled`
+* 429: `too_many_requests`
 * 500: `server_error`
 
 ### POST /auth/login
@@ -206,7 +239,9 @@ Grundgerüst für ein späteres Premium-Modell. Was ein Tarif darf, steht an ein
 
 ## E-Mail-Adresse bestätigen (#135)
 
-Neue Konten bekommen nach der Registrierung eine Mail mit einem Link (`{APP_URL}/pages/email_bestaetigen.php?token=…`, ohne `APP_URL` steht nur der Code in der Mail). Das Token gilt 24 Stunden und nur einmal; in der Datenbank liegt nur sein SHA-256-Hash. Eingelöst wird es mit `POST /auth/verify-email` `{ "token" }` – ohne Anmeldung, das Token selbst ist der Nachweis. Antworten: 200 `{ verified, email }`, 400 `invalid_token` bzw. `token_expired`. `POST /auth/resend-verification` schickt eine neue Mail (frühestens nach 60 s: 429 `resend_too_soon`; höchstens 5 je Tag: 429 `too_many_attempts`; schon bestätigt: 409 `already_verified`).
+Neue Konten bekommen nach der Registrierung eine Mail mit einem Link (`{APP_URL}/pages/email_bestaetigen.php?token=…`, ohne `APP_URL` steht nur der Code in der Mail). Das Token gilt 24 Stunden und nur einmal; in der Datenbank liegt nur sein SHA-256-Hash. Eingelöst wird es mit `POST /auth/verify-email` `{ "token" }` – ohne Anmeldung, das Token selbst ist der Nachweis. Antworten: 200 `{ verified, email }` (bei einer offenen Registrierung zusätzlich `accountCreated: true`: das Konto ist jetzt angelegt, #141), 400 `invalid_token` bzw. `token_expired`, 409 `email_already_exists`. `POST /auth/resend-verification` schickt eine neue Mail (frühestens nach 60 s: 429 `resend_too_soon`; höchstens 5 je Tag: 429 `too_many_attempts`; schon bestätigt: 409 `already_verified`).
+
+**Unbestätigte Konten** gibt es nur noch aus der Zeit vor #141 und von iOS-Apps vor 0.2.3. Sie bekommen nach 5 Tagen eine Erinnerung und werden frühestens 2 Tage danach samt Fahrzeugen und Einträgen gelöscht (nie ohne Erinnerung, Admins ausgenommen; stündlicher Lauf, abschaltbar mit `ACCOUNT_CLEANUP_ENABLED=false`).
 
 **Solange die Adresse unbestätigt ist** (`email_verified: false` in Login, Registrierung und `/whoami`), erlaubt die API **ein Fahrzeug und einen Eintrag** (Tank-/Ladevorgang, Ausgabe oder Fahrt). Gesperrt sind weitere Fahrzeuge und Einträge, Bilder hochladen, Import, E-Mail-Einstellungen, Feedback, Stationssuchen, eigene Kategorien und Teilen – Antwort 403 `{ "error": "email_not_verified", "feature": "maxVehicles" | "maxEntries" | "upload" | "import" | "mail" | "feedback" | "stations" | "customCategories" | "sharing", "limit"? }`. Lesen, Profil, Passwort, 2FA und Konto löschen gehen immer. `/whoami` liefert die Grenzen als `unverified_limits` (`null`, wenn bestätigt). An unbestätigte Adressen gehen keine Erinnerungen oder Berichte.
 

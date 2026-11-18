@@ -144,6 +144,8 @@ class FuelstatApi
     public function revokeToken(string $token): array { return $this->request('POST', '/auth/tokens/revoke', ['token' => $token, 'reason' => 'logout']); }
     public function revokeAllTokens(string $userId): array { return $this->request('POST', '/auth/users/' . rawurlencode($userId) . '/revoke-all', ['reason' => 'logout_all']); }
     public function getUsers(): array { return $this->getAllPages('/auth/users'); }
+    /** Registrierungen und Registrierungsmails (Admin, #198) */
+    public function getRegistrationStatus(): array { return $this->request('GET', '/auth/registrations'); }
     /** Angemeldete Apps (Gerätesitzungen, #117), zuletzt genutzte zuerst */
     public function getDeviceSessions(): array { return $this->getAllPages('/auth/sessions'); }
     public function revokeDeviceSession(string $sessionId): void { $this->request('DELETE', '/auth/sessions/' . rawurlencode($sessionId)); }

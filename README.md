@@ -100,7 +100,7 @@ Fuelstat führt diese Informationen zusammen und macht sie nachvollziehbar.
 
 ### Konto und Benutzerverwaltung
 
-- Registrierung mit Bestätigung der E-Mail-Adresse und Zustimmung zu den Nutzungsbedingungen
+- Registrierung mit Bestätigung der E-Mail-Adresse (Konto erst mit dem Link aus der Mail, verrät keine vorhandenen Adressen), Grenzen gegen Massen-Registrierungen und Zustimmung zu den Nutzungsbedingungen
 - Anmeldung
 - Optionale Zwei-Faktor-Authentifizierung
 - Anmelden mit Passkey (Face ID, Fingerabdruck, Windows Hello, Sicherheitsschlüssel), auch per Autofill

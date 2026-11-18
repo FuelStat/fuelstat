@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "node --test test/*.test.js"
+    "test": "REGISTER_LIMIT_PER_HOUR=${REGISTER_LIMIT_PER_HOUR:-100000} REGISTER_LIMIT_PER_DAY=${REGISTER_LIMIT_PER_DAY:-100000} node --test test/*.test.js"
   },
   "dependencies": {
     "@simplewebauthn/server": "14.1.0",

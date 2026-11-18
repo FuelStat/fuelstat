@@ -114,6 +114,12 @@ paths:
       summary: User Register
       operationId: postAuthRegister
       security: []
+      description: >
+        Mit Mailserver (#141) antwortet die API für jede Adresse gleich mit 202 ohne Token; das Konto entsteht erst mit
+        POST /api/v1/auth/verify-email und dem Token aus der Mail (7 Tage gültig). Gibt es die Adresse schon, bekommt ihr
+        Inhaber stattdessen einen Hinweis per Mail. Ohne Mailserver bzw. mit EMAIL_VERIFICATION=false und für iOS-Apps vor
+        0.2.3 (X-Fuelstat-Client) wie bisher 201 mit Token bzw. 409 email_already_exists. Höchstens 10 Registrierungen je
+        Stunde und 30 je Tag und IP (#198), darüber 429 mit Retry-After.
       requestBody:
         required: true
         content:
@@ -141,10 +147,36 @@ paths:
                   beta_tester: true
                   created_at: "2025-12-23T08:34:47.135Z"
                   updated_at: "2025-12-23T08:34:47.135Z"
+        "202":
+          description: Mail mit Link verschickt (bzw. Hinweis an den Inhaber einer vorhandenen Adresse); noch kein Konto
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [verificationRequired, email]
+                properties:
+                  verificationRequired: { type: boolean, enum: [true] }
+                  email: { type: string, format: email }
+              example:
+                verificationRequired: true
+                email: "mario@test.local"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "403":
+          description: registration_disabled (REGISTRATION_ENABLED=false)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: too_many_requests (Grenze je IP, Header Retry-After in Sekunden)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "409":
-          description: Conflict (email_already_exists)
+          description: Conflict (email_already_exists), nur ohne Mailserver und für ältere Apps
           content:
             application/json:
               schema:
@@ -265,7 +297,8 @@ paths:
       summary: Confirm the e-mail address with the token from the mail (#135)
       description: >
         Ohne Anmeldung, das Token aus der Mail ist der Nachweis. Gilt 24 Stunden und nur einmal. Bestätigt die
-        Konto-Adresse bzw. übernimmt eine ausstehende neue Adresse (pending_email).
+        Konto-Adresse bzw. übernimmt eine ausstehende neue Adresse (pending_email). Token einer offenen Registrierung
+        (#141, 7 Tage gültig) legen das Konto an: Antwort mit accountCreated true.
       operationId: postVerifyEmail
       security: []
       requestBody:
@@ -288,6 +321,7 @@ paths:
                 properties:
                   verified: { type: boolean, example: true }
                   email: { type: string, format: email }
+                  accountCreated: { type: boolean, description: "Nur bei einer offenen Registrierung (#141): das Konto ist jetzt angelegt" }
         "400":
           description: invalid_token (falsch oder schon benutzt) | token_expired
           content:
@@ -937,6 +971,38 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/auth/registrations:
+    get:
+      tags: [Users]
+      summary: Registration status for admins (#198)
+      operationId: getRegistrationStatus
+      description: >
+        Nur für Admins (ADMIN_USER_IDS). Offene Registrierungen, unbestätigte Konten, Registrierungsmails der letzten
+        Stunde mit Grenze, und wie oft die Grenze je Stunde in den letzten 24 Stunden Mails zurückgehalten hat.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [mailsLastHour, mailsPerHourLimit, mailsPerAddressPerDayLimit, blockedLast24h, lastBlockedAt, pendingRegistrations, unverifiedAccounts]
+                properties:
+                  mailsLastHour: { type: integer }
+                  mailsPerHourLimit: { type: integer }
+                  mailsPerAddressPerDayLimit: { type: integer }
+                  blockedLast24h: { type: integer }
+                  lastBlockedAt: { type: string, format: date-time, nullable: true }
+                  pendingRegistrations: { type: integer }
+                  unverifiedAccounts: { type: integer }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "500":
           $ref: "#/components/responses/ServerError"
 

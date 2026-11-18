@@ -25,20 +25,27 @@ async function required(pool) {
 }
 
 // app: Anlass kam aus einer App (#175) – der https-Link bekommt quelle=app (Knopf „Zurück zur Fuelstat-App“)
-function verificationMail(email, token, { change = false, appUrl = process.env.APP_URL, app = false } = {}) {
+// hours: Gültigkeit des Links; deleteOn: Erinnerung vor dem Löschen eines unbestätigten Kontos (#141)
+function verificationMail(email, token, { change = false, appUrl = process.env.APP_URL, app = false, hours = TOKEN_HOURS, deleteOn = null } = {}) {
   const base = appUrl ? String(appUrl).replace(/\/+$/, '') : null;
   const link = base ? `${base}/pages/email_bestaetigen.php?token=${encodeURIComponent(token)}${app ? '&quelle=app' : ''}` : null;
-  const subject = change ? 'Fuelstat: neue E-Mail-Adresse bestätigen' : 'Fuelstat: E-Mail-Adresse bestätigen';
+  const loeschDatum = deleteOn
+    ? new Date(deleteOn).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Berlin' })
+    : null;
+  const subject = change ? 'Fuelstat: neue E-Mail-Adresse bestätigen'
+    : loeschDatum ? 'Fuelstat: Konto bestätigen, sonst wird es gelöscht' : 'Fuelstat: E-Mail-Adresse bestätigen';
   const anlass = change
     ? `du möchtest die E-Mail-Adresse deines Fuelstat-Kontos auf ${email} ändern.`
-    : `willkommen bei Fuelstat! Bitte bestätige noch deine E-Mail-Adresse ${email}.`;
+    : loeschDatum
+      ? `deine E-Mail-Adresse ${email} ist noch nicht bestätigt. Ohne Bestätigung löschen wir dein Fuelstat-Konto samt Fahrzeugen und Einträgen am ${loeschDatum}.`
+      : `willkommen bei Fuelstat! Bitte bestätige noch deine E-Mail-Adresse ${email}.`;
   const weg = link
-    ? `Zum Bestätigen diesen Link öffnen (gültig ${TOKEN_HOURS} Stunden):\n${link}`
-    : `Zum Bestätigen in Fuelstat unter Profil → „E-Mail bestätigen“ diesen Code eingeben (gültig ${TOKEN_HOURS} Stunden):\n${token}`;
+    ? `Zum Bestätigen diesen Link öffnen (gültig ${hours} Stunden):\n${link}`
+    : `Zum Bestätigen in Fuelstat unter Profil → „E-Mail bestätigen“ diesen Code eingeben (gültig ${hours} Stunden):\n${token}`;
   const text = `Hallo,\n\n${anlass}\n\n${weg}\n\nWenn du das nicht warst, kannst du diese Mail ignorieren.\n\nDeine Fuelstat-App`;
   const html = `<p>Hallo,</p><p>${esc(anlass)}</p>${link
-    ? `<p><a href="${esc(link)}">E-Mail-Adresse bestätigen</a> (gültig ${TOKEN_HOURS} Stunden)</p>`
-    : `<p>Zum Bestätigen in Fuelstat unter Profil → „E-Mail bestätigen“ diesen Code eingeben (gültig ${TOKEN_HOURS} Stunden):</p><p><code>${esc(token)}</code></p>`
+    ? `<p><a href="${esc(link)}">E-Mail-Adresse bestätigen</a> (gültig ${hours} Stunden)</p>`
+    : `<p>Zum Bestätigen in Fuelstat unter Profil → „E-Mail bestätigen“ diesen Code eingeben (gültig ${hours} Stunden):</p><p><code>${esc(token)}</code></p>`
   }<p>Wenn du das nicht warst, kannst du diese Mail ignorieren.</p><p>Deine Fuelstat-App</p>`;
   return { subject, text, html };
 }
@@ -64,7 +71,7 @@ async function resendBlocked(pool, userId) {
  * Ältere, noch nicht benutzte Tokens des Kontos verfallen dabei.
  * @throws Error mit code 'mail_not_configured', wenn kein Standard-Mailserver eingerichtet ist
  */
-async function sendVerification(pool, userId, email, { change = false, sender = sendUserMail, app = false } = {}) {
+async function sendVerification(pool, userId, email, { change = false, sender = sendUserMail, app = false, hours = TOKEN_HOURS, deleteOn = null } = {}) {
   const defaults = await loadDefaultSmtp(pool);
   if (!defaults) {
     const e = new Error('mail_not_configured');
@@ -76,11 +83,11 @@ async function sendVerification(pool, userId, email, { change = false, sender = 
   await pool.query(
     `INSERT INTO email_verifications (user_id, email, token_hash, expires_at)
      VALUES ($1, $2, $3, now() + make_interval(hours => $4))`,
-    [userId, email, hashToken(token), TOKEN_HOURS]
+    [userId, email, hashToken(token), hours]
   );
   // Empfänger ist immer die zu bestätigende Adresse (withDefaultSmtp setzt to_address = account_email)
   const settings = withDefaultSmtp({ user_id: userId, account_email: email }, defaults);
-  await sender(settings, verificationMail(email, token, { change, app }));
+  await sender(settings, verificationMail(email, token, { change, app, hours, deleteOn }));
   return token;
 }
 

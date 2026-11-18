@@ -12,11 +12,14 @@ $angemeldetHier = isApiAuthenticated();
 $bestaetigen = function (string $token) use (&$fehler, &$erfolg): void {
     try {
         $r = getApiClient(null)->postVerifyEmail($token);
-        $erfolg = 'Danke! Die E-Mail-Adresse ' . ($r['email'] ?? '') . ' ist bestätigt.';
+        // Registrierung abgeschlossen (#141): Erst jetzt gibt es das Konto
+        $erfolg = !empty($r['accountCreated'])
+            ? 'Danke! Dein Konto für ' . ($r['email'] ?? '') . ' ist angelegt. Du kannst dich jetzt anmelden.'
+            : 'Danke! Die E-Mail-Adresse ' . ($r['email'] ?? '') . ' ist bestätigt.';
     } catch (Throwable $e) {
         $fehler = [
             'invalid_token' => 'Dieser Link ist ungültig oder wurde schon benutzt. Bitte fordere einen neuen an.',
-            'token_expired' => 'Dieser Link ist abgelaufen (gültig 24 Stunden). Bitte fordere einen neuen an.',
+            'token_expired' => 'Dieser Link ist abgelaufen. Bitte fordere einen neuen an oder registriere dich erneut.',
             'email_already_exists' => 'Diese E-Mail-Adresse gehört inzwischen zu einem anderen Konto.',
         ][$e->getMessage()] ?? 'Die Bestätigung hat nicht geklappt. Bitte versuch es später noch einmal.';
     }

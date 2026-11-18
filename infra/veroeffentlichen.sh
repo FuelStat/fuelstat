@@ -65,11 +65,24 @@ if [ "$datei_version" != "$version" ] || [ "$paket_version" != "$version" ]; the
   abbruch "main hat VERSION $datei_version und backend/package.json $paket_version, nicht $version.
 Ist der Release-PR (node backend/scripts/neue-version.js $version) schon gemergt?"
 fi
-git_ show origin/main:CHANGELOG.md | grep -q "^## \[$version\] - " \
+
+# git_ show origin/main:CHANGELOG.md | grep -q "^## \[$version\] - " \
+#   || abbruch "CHANGELOG.md auf main hat keinen Abschnitt „## [$version] - JJJJ-MM-TT“."
+# git_ show origin/main:docs/update-hinweise.md 2> /dev/null | grep -q "^## \[$version\]" \
+#   || echo "Hinweis: docs/update-hinweise.md hat keinen Abschnitt [$version] (ausrollen.sh zeigt dann keine Hinweise)."
+# echo "VERSION, backend/package.json und CHANGELOG.md passen zu $version."
+# Fehlerbehebung 2026-11-18 Mario Caraggiu
+# Erst lesen, dann suchen: „git show | grep -q“ bricht mit pipefail ab,
+# wenn grep vor dem Ende der Ausgabe aussteigt.
+changelog="$(git_ show origin/main:CHANGELOG.md)"
+hinweise="$(git_ show origin/main:docs/update-hinweise.md 2> /dev/null || true)"
+
+grep -q "^## \[$version\] - " <<< "$changelog" \
   || abbruch "CHANGELOG.md auf main hat keinen Abschnitt „## [$version] - JJJJ-MM-TT“."
-git_ show origin/main:docs/update-hinweise.md 2> /dev/null | grep -q "^## \[$version\]" \
+
+grep -q "^## \[$version\]" <<< "$hinweise" \
   || echo "Hinweis: docs/update-hinweise.md hat keinen Abschnitt [$version] (ausrollen.sh zeigt dann keine Hinweise)."
-echo "VERSION, backend/package.json und CHANGELOG.md passen zu $version."
+
 
 # Tag: auf GitHub frei oder schon auf genau diesem Commit. Ein vorhandenes Tag auf einem anderen Commit wird nie
 # verschoben (siehe docs/betrieb.md); ein liegengebliebenes lokales Tag ohne Gegenstück auf GitHub wird ersetzt.

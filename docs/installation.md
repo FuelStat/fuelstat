@@ -90,6 +90,18 @@ curl -sk -D - -o /dev/null --resolve fuelstat.example.de:443:127.0.0.1 "https://
   real_ip_header CF-Connecting-IP;
   ```
 
+  Prüfen, ob es greift: Nach einer Anmeldung zeigt `sudo tail -n 3 /var/log/nginx/access.log` die eigene IP, nicht
+  eine Adresse von Cloudflare. Die Grenze für Registrierungen (#198) zählt je IP; ohne `real_ip` träfe sie alle
+  Besucher gemeinsam.
+- **Server nur über Cloudflare erreichbar machen:** In der Firewall des Hosters (z. B. Hetzner Cloud Firewall) die Ports
+  80 und 443 nur für die [IP-Bereiche von Cloudflare](https://www.cloudflare.com/ips/) öffnen. Sonst erreicht jeder
+  nginx direkt über die IP des Servers, an Cloudflare vorbei (#231). Port 22 bleibt für die eigene Verwaltung offen.
+- **Kein HTTP/2 zum Server nötig:** Cloudflare spricht mit den Besuchern HTTP/2, mit dem Server reicht HTTP/1.1. Im
+  Beispiel ist `http2 on;` deshalb auskommentiert; einschalten nur mit aktuellem, gepatchtem nginx (CVE-2026-123007).
+  In Cloudflare unter Speed → Optimization → Protocol Optimization „HTTP/2 to Origin“ aus lassen.
+- **Sicherheitsupdates automatisch:** `sudo apt install unattended-upgrades` (Debian spielt damit Sicherheitsupdates
+  wie die für nginx selbst ein), sonst regelmäßig `sudo apt update && sudo apt upgrade`.
+
 ## 4. Erstes Konto und Admin
 
 1. Auf der Seite registrieren.

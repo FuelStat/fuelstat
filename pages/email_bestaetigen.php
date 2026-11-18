@@ -8,15 +8,33 @@ require_once __DIR__ . '/../includes/basis_url.php';
 $fehler = '';
 $erfolg = '';
 $angemeldetHier = isApiAuthenticated();
+// Offene Registrierung (#141): Das Konto entsteht erst mit dem Passwort der Registrierung. Gesetzt, solange es fehlt.
+$registrierung = null;
 
-$bestaetigen = function (string $token) use (&$fehler, &$erfolg): void {
+$bestaetigen = function (string $token, ?string $passwort = null) use (&$fehler, &$erfolg, &$registrierung): void {
     try {
-        $r = getApiClient(null)->postVerifyEmail($token);
-        $erfolg = 'Danke! Die E-Mail-Adresse ' . ($r['email'] ?? '') . ' ist bestätigt.';
+        $r = getApiClient(null)->postVerifyEmail($token, $passwort);
+        // Registrierung abgeschlossen (#141): Erst jetzt gibt es das Konto
+        $erfolg = !empty($r['accountCreated'])
+            ? 'Danke! Dein Konto für ' . ($r['email'] ?? '') . ' ist angelegt. Du kannst dich jetzt anmelden.'
+            : 'Danke! Die E-Mail-Adresse ' . ($r['email'] ?? '') . ' ist bestätigt.';
     } catch (Throwable $e) {
+        if (in_array($e->getMessage(), ['password_required', 'invalid_password'], true)) {
+            $registrierung = [
+                'token' => $token,
+                'email' => $e instanceof FuelstatApiException && isset($e->data['email'])
+                    ? (string)$e->data['email']
+                    : (filter_var($_POST['email'] ?? '', FILTER_VALIDATE_EMAIL) ?: ''),
+            ];
+            if ($e->getMessage() === 'invalid_password') {
+                $fehler = 'Das Passwort passt nicht. Gib das Passwort ein, das du bei der Registrierung gewählt hast.';
+            }
+            return;
+        }
         $fehler = [
+            'too_many_attempts' => 'Zu viele falsche Versuche. Bitte warte 15 Minuten.',
             'invalid_token' => 'Dieser Link ist ungültig oder wurde schon benutzt. Bitte fordere einen neuen an.',
-            'token_expired' => 'Dieser Link ist abgelaufen (gültig 24 Stunden). Bitte fordere einen neuen an.',
+            'token_expired' => 'Dieser Link ist abgelaufen. Bitte fordere einen neuen an oder registriere dich erneut.',
             'email_already_exists' => 'Diese E-Mail-Adresse gehört inzwischen zu einem anderen Konto.',
         ][$e->getMessage()] ?? 'Die Bestätigung hat nicht geklappt. Bitte versuch es später noch einmal.';
     }
@@ -26,7 +44,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['token']) && is_string($
     $bestaetigen(trim($_GET['token']));
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $aktion = $_POST['aktion'] ?? '';
-    if ($aktion === 'code') {
+    if ($aktion === 'registrierung') {
+        $token = trim((string)($_POST['token'] ?? ''));
+        $passwort = (string)($_POST['password'] ?? '');
+        if ($passwort === '') {
+            $registrierung = ['token' => $token, 'email' => ''];
+            $fehler = 'Bitte gib dein Passwort ein.';
+        } else {
+            $bestaetigen($token, $passwort);
+        }
+    } elseif ($aktion === 'code') {
         $code = trim((string)($_POST['code'] ?? ''));
         if ($code === '') {
             $fehler = 'Bitte den Code aus der Mail eingeben.';
@@ -64,7 +91,19 @@ include '../includes/header.php';
             <div class="alert alert-danger" role="alert"><?= htmlspecialchars($fehler) ?></div>
           <?php endif; ?>
 
-          <?php if ($erfolg && !isset($_POST['aktion'])): ?>
+          <?php if ($registrierung): ?>
+            <p>Fast geschafft. Gib das Passwort ein, das du bei der Registrierung<?= $registrierung['email'] !== '' ? ' für <strong>' . htmlspecialchars($registrierung['email']) . '</strong>' : '' ?> gewählt hast. Dann legen wir dein Konto an.</p>
+            <form method="post">
+              <input type="hidden" name="aktion" value="registrierung">
+              <input type="hidden" name="token" value="<?= htmlspecialchars($registrierung['token']) ?>">
+              <?php if ($registrierung['email'] !== ''): ?>
+                <input type="hidden" name="email" value="<?= htmlspecialchars($registrierung['email']) ?>" autocomplete="username">
+              <?php endif; ?>
+              <label for="password" class="form-label">Passwort</label>
+              <input type="password" class="form-control mb-3" id="password" name="password" autocomplete="current-password" required autofocus>
+              <button type="submit" class="btn btn-primary">Konto anlegen</button>
+            </form>
+          <?php elseif ($erfolg && in_array($_POST['aktion'] ?? '', ['', 'registrierung'], true)): ?>
             <?php // Bestätigung aus der iOS-App angestoßen (#175): zurück in die App, auf iPhone/iPad ?>
             <?php if (($knopf = appKnopf('email-bestaetigt', 'Zurück zur Fuelstat-App', [], 'btn btn-primary mb-2')) !== ''): ?><div><?= $knopf ?></div><?php endif; ?>
             <a class="btn <?= $knopf !== '' ? 'btn-outline-primary' : 'btn-primary' ?>" href="<?= htmlspecialchars($baseUrl) ?><?= $angemeldetHier ? 'index.php' : 'pages/login.php' ?>"><?= $angemeldetHier ? 'Weiter zu Fuelstat' : 'Zur Anmeldung' ?></a>

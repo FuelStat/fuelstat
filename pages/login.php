@@ -84,7 +84,8 @@ try {
                 } elseif ($e->getCode() === 401 || $msg === 'invalid_credentials') {
                     unset($_SESSION['mfa_pending']);
                     $show_mfa_form = false;
-                    $error = "Ungültige E-Mail oder Passwort.";
+                    // Nach der Registrierung gibt es das Konto erst mit dem Link aus der Mail (#141)
+                    $error = 'Ungültige E-Mail oder Passwort. Gerade registriert? Öffne zuerst den Link aus der Mail, erst dann gibt es dein Konto.';
                 } else {
                     $error = fehlerText($e);
                 }

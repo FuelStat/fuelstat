@@ -76,6 +76,12 @@ try {
     $benutzer = [];
     $error = fehlerText($e);
 }
+// Registrierungen (#198): Hinweis, wenn die Grenze je Stunde Mails zurückgehalten hat
+try {
+    $registrierung = $api->getRegistrationStatus();
+} catch (Throwable $e) {
+    $registrierung = null;
+}
 try {
     $feedback = $api->getFeedback();
 } catch (Throwable $e) {
@@ -118,6 +124,14 @@ include '../includes/header.php';
     <p class="text-body-secondary"><?= count($benutzer) ?> Benutzer, davon <?= $aktivAnzahl ?> in den letzten 7 Tagen aktiv und <?= $betaAnzahl ?> Beta-Tester<?= $offenAnzahl ? ' · <a href="#feedback">' . $offenAnzahl . ' offene Feedbacks</a>' : '' ?></p>
     <?php if ($error): ?>
         <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+    <?php endif; ?>
+    <?php if ($registrierung): ?>
+        <p class="small text-body-secondary">Registrierungen: <?= (int)$registrierung['pendingRegistrations'] ?> offen (Link noch nicht geöffnet), <?= (int)$registrierung['unverifiedAccounts'] ?> unbestätigte Konten · <?= (int)$registrierung['mailsLastHour'] ?> von höchstens <?= (int)$registrierung['mailsPerHourLimit'] ?> Registrierungsmails in der letzten Stunde</p>
+        <?php if (!empty($registrierung['blockedLast24h'])): ?>
+            <div class="alert alert-warning" role="status">
+                <strong>Registrierungsmails zurückgehalten.</strong> In den letzten 24 Stunden wurde die Grenze von <?= (int)$registrierung['mailsPerHourLimit'] ?> Mails je Stunde erreicht. Zurückgehaltene Mails: <?= (int)$registrierung['blockedLast24h'] ?>, zuletzt <?= zeitpunkt($registrierung['lastBlockedAt'] ?? null) ?>. Das kann ein Angriff auf den Mailserver sein. Die Grenze steht in <code>REGISTER_MAILS_PER_HOUR</code> in <code>infra/.env</code>.
+            </div>
+        <?php endif; ?>
     <?php endif; ?>
     <!-- Tarif für mehrere Benutzer: Häkchen in der Tabelle setzen, dann hier Tarif wählen -->
     <form method="post" id="tarifSammel" class="d-flex flex-wrap gap-2 align-items-center mb-3 p-2 rounded bg-body-tertiary"

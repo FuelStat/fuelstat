@@ -14,6 +14,11 @@ const APP_VERSIONS = {
   android: { minimum: null, recommended: null }
 };
 
+// Erste App-Version, die die Registrierung ohne Token versteht (#141: 202, Konto erst nach dem Link aus der Mail).
+// Ältere Apps bekommen bis dahin die alte Antwort (Konto sofort, Token, 409 bei vorhandener Adresse). Sobald minimum
+// mindestens diese Version ist, erreicht keine alte App mehr die Registrierung; dann kann der alte Weg entfallen.
+const REGISTRATION_WITHOUT_TOKEN = { ios: '0.2.3', android: null };
+
 const VERSION_RE = /^(\d{1,4})\.(\d{1,4})\.(\d{1,4})$/;
 
 /** "ios/0.2.0" bzw. "ios/0.2.0 (42)" → { platform, version } oder null */
@@ -54,7 +59,14 @@ function requireSupportedApp(versions = APP_VERSIONS) {
   };
 }
 
+/** Alte App, die nach der Registrierung sofort ein Token erwartet? (#141) */
+function legacyRegistration(req, versions = REGISTRATION_WITHOUT_TOKEN) {
+  const client = parseClient(req.header('X-Fuelstat-Client'));
+  const ab = client && versions[client.platform];
+  return Boolean(ab) && compareVersions(client.version, ab) < 0;
+}
+
 /** Kam die Anfrage aus einer App (Header X-Fuelstat-Client)? Für Links in Mails (#175) */
 const fromApp = (req) => parseClient(req.header('X-Fuelstat-Client')) !== null;
 
-module.exports = { APP_VERSIONS, appVersionsForHealth, compareVersions, fromApp, parseClient, requireSupportedApp };
+module.exports = { APP_VERSIONS, REGISTRATION_WITHOUT_TOKEN, appVersionsForHealth, compareVersions, fromApp, legacyRegistration, parseClient, requireSupportedApp };

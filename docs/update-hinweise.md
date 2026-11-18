@@ -8,6 +8,39 @@ Was beim Ausrollen einer Version zu tun ist, soweit es über `sudo infra/ausroll
 
 ## [Unreleased]
 
+- **nginx, HTTP/2 abschalten (CVE-2026-123007, #231):** Ein Fehler in nginx mit HTTP/2 kann den Server abstürzen lassen
+  oder Schlimmeres. Solange Debian keinen Fix liefert, HTTP/2 auf dem Server abschalten (hinter Cloudflare merkt das
+  niemand). Vorher sichern, dann `http2` aus den `listen`-Zeilen entfernen bzw. `http2 on;` auskommentieren:
+
+  ```bash
+  sudo cp -a /etc/nginx/sites-available /root/nginx-sites-backup-$(date +%F)
+  sudo sed -i -E 's/(listen [^;]*) http2;/\1;/; s/^(\s*)http2 on;/\1# http2 on;/' /etc/nginx/sites-available/*
+  sudo grep -rn "http2" /etc/nginx/sites-enabled/ /etc/nginx/nginx.conf
+  sudo nginx -t && sudo systemctl reload nginx
+  ```
+
+  `grep` darf danach nur auskommentierte Zeilen zeigen. Ob der Fix da ist:
+  `zgrep -n "CVE-2026-123007" /usr/share/doc/nginx-common/changelog.Debian.gz`. Dann
+  `sudo apt update && sudo apt install --only-upgrade nginx nginx-common && sudo nginx -t && sudo systemctl restart nginx`.
+  Hinter Cloudflare zusätzlich die Firewall auf die Cloudflare-Adressen beschränken (`docs/installation.md`,
+  „Hinter Cloudflare“).
+- **Registrierung (#141, #198):** Mit Mailserver entsteht ein neues Konto erst mit dem Link aus der Mail. Unbestätigte
+  Konten von früher bekommen beim ersten stündlichen Lauf nach dem Ausrollen eine Erinnerung und werden frühestens
+  2 Tage danach gelöscht (Admins aus `ADMIN_USER_IDS` nie). Wie viele das betrifft:
+
+  ```bash
+  cd infra
+  sudo docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT count(*) AS unbestaetigt, count(*) FILTER (WHERE created_at < now() - interval '"'"'5 days'"'"') AS werden_erinnert FROM users WHERE email_verified_at IS NULL"'
+  ```
+
+  Wer das nicht will: `ACCOUNT_CLEANUP_ENABLED=false` in `infra/.env`. Neue Grenzen (Standardwerte passen meist):
+  `REGISTER_LIMIT_PER_HOUR`, `REGISTER_LIMIT_PER_DAY`, `REGISTER_MAILS_PER_ADDRESS_PER_DAY`, `REGISTER_MAILS_PER_HOUR`
+  (siehe `infra/.env.example`). **Hinter Cloudflare vorher prüfen**, dass nginx die echte Besucher-IP weitergibt
+  (`real_ip`, siehe `docs/installation.md`), sonst teilen sich alle Besucher die Grenze je IP:
+  `sudo grep -rn "real_ip_header\|set_real_ip_from" /etc/nginx/ | head -3` muss Treffer zeigen.
+- **iOS-App:** Apps vor 0.2.3 bekommen bei der Registrierung bis auf Weiteres die alte Antwort. Sobald iOS 0.2.3
+  installiert ist, hebt ein späteres Release die Mindest-App-Version an (FuelStat/fuelstat-ios#89).
+
 ## [0.14.0] - 2026-11-18
 
 - **Textgrenzen (#197):** Die API nimmt Freitexte nur noch bis zu einer Länge an (Fahrzeugname, Marke, Modell, Benutzername 100; Tankstelle/Ort/Anbieter 200; Beschreibung 2000). Vorhandene längere Werte bleiben lesbar, lassen sich aber erst nach dem Kürzen wieder speichern. Ob es solche Werte gibt (erwartet: überall 0):

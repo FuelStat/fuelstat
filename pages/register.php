@@ -13,6 +13,13 @@ try {
         $password = $_POST['password'] ?? '';
         $password_confirm = $_POST['password_confirm'] ?? '';
 
+        // Honigtopf gegen Formular-Roboter (#198): Das Feld ist für Menschen unsichtbar. Gefüllt: dieselbe Rückmeldung wie
+        // bei einer echten Registrierung, aber keine Anfrage an die API.
+        if (trim((string)($_POST['hp_kontrolle'] ?? '')) !== '') {
+            $_SESSION['success_message'] = 'Fast geschafft! Wir haben dir eine Mail geschickt. Öffne den Link darin und gib dein Passwort ein, dann legen wir dein Konto an. Der Link gilt 7 Tage.';
+            header('Location: login.php');
+            exit;
+        }
         if ($email === '' || $password === '') {
             $error = "Bitte alle Felder ausfüllen.";
         } elseif ($password !== $password_confirm) {
@@ -25,15 +32,19 @@ try {
             try {
                 $apiRegister = getApiClient(null);
                 $response = $apiRegister->postAuthRegister($email, $password, $termsVersion);
-                $_SESSION['success_message'] = isset($response['user']['email_verified']) && !$response['user']['email_verified']
-                    ? 'Registrierung erfolgreich! Wir haben dir einen Link zum Bestätigen deiner E-Mail-Adresse geschickt. Du kannst dich schon anmelden; ein Fahrzeug und ein Eintrag gehen sofort, alles Weitere nach der Bestätigung.'
-                    : 'Registrierung erfolgreich! Sie können sich jetzt anmelden.';
+                // Mit Mailserver (#141): Das Konto entsteht erst mit dem Link aus der Mail. Die Antwort ist für jede Adresse
+                // gleich, auch für eine schon registrierte (deren Inhaber bekommt stattdessen einen Hinweis per Mail).
+                $_SESSION['success_message'] = !empty($response['verificationRequired'])
+                    ? 'Fast geschafft! Wir haben dir eine Mail geschickt. Öffne den Link darin und gib dein Passwort ein, dann legen wir dein Konto an. Der Link gilt 7 Tage.'
+                    : 'Registrierung erfolgreich! Du kannst dich jetzt anmelden.';
                 header('Location: login.php');
                 exit;
             } catch (RuntimeException $e) {
                 $msg = $e->getMessage();
                 if (strpos($msg, 'email_already_exists') !== false || $e->getCode() === 409) {
                     $error = "Diese E-Mail-Adresse ist bereits registriert.";
+                } elseif ($msg === 'too_many_requests' || $e->getCode() === 429) {
+                    $error = 'Von diesem Anschluss kamen gerade sehr viele Registrierungen. Bitte versuch es später noch einmal.';
                 } elseif ($msg === 'registration_disabled') {
                     $error = "Die Registrierung neuer Konten ist auf dieser Installation deaktiviert.";
                 } else {
@@ -89,6 +100,11 @@ try {
                                 <input type="password" class="form-control" id="password_confirm" name="password_confirm"
                                        placeholder="Passwort wiederholen" required>
                             </div>
+                        </div>
+                        <!-- Honigtopf (#198): für Menschen unsichtbar, Roboter füllen es aus -->
+                        <div class="visually-hidden" aria-hidden="true">
+                            <label for="hp_kontrolle">Dieses Feld leer lassen</label>
+                            <input type="text" id="hp_kontrolle" name="hp_kontrolle" tabindex="-1" autocomplete="off" data-1p-ignore data-lpignore="true">
                         </div>
                         <?php if ($termsVersion !== null): ?>
                         <div class="form-check mb-2">

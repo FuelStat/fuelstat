@@ -536,7 +536,9 @@ Statistik (Teile „Verbrauch“ und „Kosten“), Service, Fahrten und Fahrzeu
 Profil. Alte Links auf `pages/fahrzeug_detail.php` (auch mit `#Reiter`) leiten weiter. Die Fahrzeugwahl gilt nur für die Sitzung
 (7.2): Sie liegt in der PHP-Sitzung, ohne Wahl zeigt Start das Standardfahrzeug. Profil ist gruppiert (7.4),
 Berichte, Export und Import stehen im Menü „Berichte und Export“ an den Einträgen, Status und Löschen nur in den
-Fahrzeugdaten. **Noch offen:** Flotten-Start. iOS (#84) und Android (#62) folgen.
+Fahrzeugdaten. Im Flotten-Tarif ist Start ab zwei aktiven Fahrzeugen die Liste der Fahrzeugkarten
+(`includes/fahrzeug_karte.php` ohne „Eintrag erfassen“), eine Karte öffnet die Übersicht mit „Alle Fahrzeuge“ zurück.
+Damit folgt das Web dem Aufbau vollständig; iOS (#84) und Android (#62) folgen.
 
 ### 7.8 Start – Beispielinhalt
 

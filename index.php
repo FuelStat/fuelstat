@@ -1,7 +1,8 @@
 <?php
 // Start (#158, docs/design.md 7.8): ein Fahrzeug im Blick – Wechsler, Hero, drei Kennzahlen, nächste Termine,
 // letzte Einträge. Welches Fahrzeug, entscheidet includes/header.php ($startFahrzeug: Wahl der Sitzung, sonst das
-// Standardfahrzeug, #206). Alle Fahrzeuge als Karten: pages/fahrzeuge.php. Alle Zahlen kommen aus der API.
+// Standardfahrzeug, #206). Im Flotten-Tarif mit mindestens zwei aktiven Fahrzeugen ist Start die Liste der Fahrzeuge als
+// Karten (design.md 7.2); ?fahrzeug= zeigt die Übersicht eines Fahrzeugs. Alle Zahlen kommen aus der API.
 include 'includes/session.php';
 include 'includes/functions.php';
 include 'includes/header.php';
@@ -25,8 +26,12 @@ try {
 // Verkaufte und stillgelegte Fahrzeuge (#79) stehen im Archiv unter „Meine Fahrzeuge“, nicht auf dem Start
 $archivierte = count(array_filter($vehicles, fn($v) => ($v['status'] ?? 'active') !== 'active'));
 $vehicles = array_values(array_filter($vehicles, fn($v) => ($v['status'] ?? 'active') === 'active'));
+// Flotte (#206, docs/design.md 7.2): ab zwei aktiven Fahrzeugen Karten statt der Übersicht eines Fahrzeugs. Die Karten
+// sind kein Vergleich (keine gemeinsame Tabelle, keine gemeinsamen Diagramme).
+$flotte = !$ladeFehler && !empty($currentUser['features']['fleet']) && count($vehicles) >= 2;
+$flottenListe = $flotte && !isset($_GET['fahrzeug']);
 $fz = null;
-foreach ($vehicles as $v) {
+foreach ($flottenListe ? [] : $vehicles as $v) {
     if ($startFahrzeug && (string)$v['id'] === (string)$startFahrzeug['id']) {
         $fz = $v;
     }
@@ -73,6 +78,25 @@ endif;
 <div class="container mt-3 mt-lg-4 start">
 <?php if ($ladeFehler): ?>
     <div class="alert alert-danger">Die Fahrzeuge konnten gerade nicht geladen werden. Bitte versuche es gleich noch einmal.</div>
+<?php elseif ($flottenListe): ?>
+    <h1 class="h3 mb-3">Fahrzeuge</h1>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+        <?php
+        $kraftstoffNamen = getKraftstoffOptionen();
+        // Kennzahlen und Termine aller Karten gleichzeitig laden (#89)
+        $api->vorladen(array_merge(...array_map(fn($v) => [
+            '/vehicles/' . rawurlencode((string)$v['id']) . '/stats',
+            '/vehicles/' . rawurlencode((string)$v['id']) . '/reminders',
+        ], $vehicles)));
+        $archiviert = false;
+        $sortiermodus = false;
+        $ohneAktion = true;
+        $aktive = $vehicles;
+        foreach ($vehicles as $index => $row) {
+            include __DIR__ . '/includes/fahrzeug_karte.php';
+        }
+        ?>
+    </div>
 <?php elseif (!$fz): ?>
     <!-- EmptyState: Symbol, ein Satz, eine Aktion -->
     <div class="card leer-zustand mx-auto">
@@ -100,6 +124,10 @@ endif;
 <?php else: ?>
     <h1 class="visually-hidden">Start: <?= htmlspecialchars($fz['name'] ?? 'Fahrzeug') ?></h1>
 
+    <?php if ($flotte): ?>
+    <!-- Flotte: zurück zur Liste aller Fahrzeuge (#206, design.md 7.2) -->
+    <a href="index.php" class="tipp-link d-inline-flex align-items-center gap-2 mb-2"><i class="fas fa-chevron-left" aria-hidden="true"></i>Alle Fahrzeuge</a>
+    <?php endif; ?>
     <!-- VehicleSwitcher (mobil; am PC steht er in der Kopfleiste) -->
     <div class="d-flex align-items-center gap-2 mb-3 d-lg-none">
         <?php if (count($vehicles) > 1): ?>

@@ -23,7 +23,7 @@ $meldungen = [
 ];
 // Anlässe in der Reihenfolge der Seite (Schlüssel wie in der API)
 $anlaesse = [
-    'reminders' => ['fa-calendar-check', 'Termine', 'TÜV, Wartung, Versicherung und Steuer – vorher und noch einmal, wenn überfällig'],
+    'reminders' => ['fa-calendar-check', 'Termine', 'TÜV, Wartung, Versicherung und Steuer: vorher und noch einmal, wenn überfällig'],
     'odometer' => ['fa-gauge-high', 'Kilometerstand nachtragen', 'Wenn bei einer Tankfüllung der Kilometerstand fehlt'],
     'report' => ['fa-chart-line', 'Monatsbericht', 'Am Monatsanfang: Kosten, Strecke und Verbrauch je Fahrzeug'],
     'inactive' => ['fa-hourglass-half', 'Lange kein Eintrag', 'Wenn für ein Fahrzeug 30 Tage nichts erfasst wurde'],
@@ -203,7 +203,7 @@ include '../includes/header.php';
                     <h3 class="h6 mt-4 mb-2">Geräte mit Push</h3>
                     <ul class="list-group">
                         <?php foreach ($geraete as $g):
-                            $zuletzt = !empty($g['last_used_at']) ? (new DateTime($g['last_used_at']))->setTimezone(new DateTimeZone('Europe/Berlin'))->format('d.m.Y, H:i') : '–'; ?>
+                            $zuletzt = !empty($g['last_used_at']) ? (new DateTime($g['last_used_at']))->setTimezone(new DateTimeZone('Europe/Berlin'))->format('d.m.Y, H:i') : 'noch nie'; ?>
                         <li class="list-group-item d-flex align-items-center gap-3">
                             <i class="fas fa-bell fa-fw" aria-hidden="true"></i>
                             <div class="flex-grow-1 min-w-0">
@@ -274,7 +274,7 @@ include '../includes/header.php';
                         <div class="col-md-6">
                             <label class="form-label" for="smtp_password">Passwort</label>
                             <input type="password" class="form-control" id="smtp_password" name="smtp_password" autocomplete="new-password"
-                                   placeholder="<?= !empty($s['has_password']) ? 'gespeichert – leer lassen, um es zu behalten' : '' ?>">
+                                   placeholder="<?= !empty($s['has_password']) ? 'gespeichert, leer lassen zum Behalten' : '' ?>">
                             <?php if (!empty($s['has_password'])): ?>
                                 <div class="form-check mt-1">
                                     <input class="form-check-input" type="checkbox" id="clear_password" name="clear_password" value="1">

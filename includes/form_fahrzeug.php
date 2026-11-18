@@ -19,7 +19,7 @@ $wert = fn(string $spalte) => htmlspecialchars((string)($f[$spalte] ?? ''));
 $zahl = fn(string $spalte) => isset($f[$spalte]) && $f[$spalte] !== null ? htmlspecialchars((string)(float)$f[$spalte]) : '';
 $monate = [1 => 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 $monatsAuswahl = function (string $name, $aktuell) use ($monate) {
-    $html = '<select class="form-select" id="' . $name . '" name="' . $name . '"><option value="">–</option>';
+    $html = '<select class="form-select" id="' . $name . '" name="' . $name . '"><option value="">keine Angabe</option>';
     foreach ($monate as $nr => $text) {
         $html .= '<option value="' . $nr . '"' . ((int)$aktuell === $nr ? ' selected' : '') . '>' . $text . '</option>';
     }

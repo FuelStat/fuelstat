@@ -26,12 +26,12 @@ function resetMail(token, appUrl = process.env.APP_URL, { app = false } = {}) {
     ? `Neues Passwort festlegen (gültig ${TOKEN_MINUTES} Minuten):\n${link}`
     : `In Fuelstat unter „Passwort vergessen?“ → „Code eingeben“ diesen Code verwenden (gültig ${TOKEN_MINUTES} Minuten):\n${token}`;
   const text = `Hallo,\n\nfür dein Fuelstat-Konto wurde ein neues Passwort angefordert.\n\n${weg}\n\n`
-    + 'Wenn du das nicht warst, kannst du diese Mail ignorieren – dein Passwort bleibt unverändert.\n\nDeine Fuelstat-App';
+    + 'Wenn du das nicht warst, kannst du diese Mail ignorieren. Dein Passwort bleibt unverändert.\n\nDeine Fuelstat-App';
   const html = '<p>Hallo,</p><p>für dein Fuelstat-Konto wurde ein neues Passwort angefordert.</p>'
     + (link
       ? `<p><a href="${esc(link)}">Neues Passwort festlegen</a> (gültig ${TOKEN_MINUTES} Minuten)</p>`
       : `<p>In Fuelstat unter „Passwort vergessen?“ → „Code eingeben“ diesen Code verwenden (gültig ${TOKEN_MINUTES} Minuten):</p><p><code>${esc(token)}</code></p>`)
-    + '<p>Wenn du das nicht warst, kannst du diese Mail ignorieren – dein Passwort bleibt unverändert.</p><p>Deine Fuelstat-App</p>';
+    + '<p>Wenn du das nicht warst, kannst du diese Mail ignorieren. Dein Passwort bleibt unverändert.</p><p>Deine Fuelstat-App</p>';
   return { subject, text, html };
 }
 

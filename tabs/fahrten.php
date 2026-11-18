@@ -146,7 +146,7 @@ if ($nurZeilen) {
       </div></div>
       <div><div class="kennzahl">
         <div>Anteil dienstlich</div>
-        <div class="kennzahl-wert"><?= $fahrtSumme['businessShare'] !== null ? number_format((float)$fahrtSumme['businessShare'], 1, ',', '.') . ' %' : '–' ?></div>
+        <div class="kennzahl-wert"><?= $fahrtSumme['businessShare'] !== null ? number_format((float)$fahrtSumme['businessShare'], 1, ',', '.') . ' %' : leerWert() ?></div>
       </div></div>
       <?php foreach ($zwecke as $wert => $name): $z = $fahrtSumme['byPurpose'][$wert] ?? ['km' => 0, 'count' => 0, 'estimatedCost' => null]; if (!$z['count']) continue; ?>
       <div><div class="kennzahl">
@@ -186,7 +186,7 @@ if ($nurZeilen) {
               <tbody>
               <?php foreach (array_reverse($fahrtSumme['months']) as $m): ?>
                 <tr><th scope="row" class="fw-normal"><?= htmlspecialchars(formatMonat($m['month'], true)) ?></th>
-                  <?php foreach (array_keys($zwecke) as $wert): ?><td class="text-end"><?= (float)$m[$wert] > 0 ? $km($m[$wert]) : '–' ?></td><?php endforeach; ?>
+                  <?php foreach (array_keys($zwecke) as $wert): ?><td class="text-end"><?= (float)$m[$wert] > 0 ? $km($m[$wert]) : leerWert() ?></td><?php endforeach; ?>
                 </tr>
               <?php endforeach; ?>
               </tbody>

@@ -173,7 +173,7 @@ endif;
             <div class="row row-cols-3 g-2 mt-1 start-kennzahlen">
                 <div class="col">
                     <div class="kennzahl h-100">
-                        <?php $verbrauchHtml = $verbrauch ? implode(' + ', array_map(fn($x) => htmlspecialchars($x[0]) . ' <small>' . htmlspecialchars($x[1]) . '</small>', $verbrauch)) : '–'; ?>
+                        <?php $verbrauchHtml = $verbrauch ? implode(' + ', array_map(fn($x) => htmlspecialchars($x[0]) . ' <small>' . htmlspecialchars($x[1]) . '</small>', $verbrauch)) : leerWert(); ?>
                         <?php if ($kostenHtml !== null): ?>
                         <div class="kennzahl-wert"><?= str_replace('<small>', '<small class="d-block">', $kostenHtml) ?></div>
                         Energiekosten
@@ -185,13 +185,13 @@ endif;
                 </div>
                 <div class="col">
                     <div class="kennzahl h-100">
-                        <div class="kennzahl-wert"><?= $kmKosten !== null ? htmlspecialchars(number_format((float)$kmKosten, 2, ',', '.')) . ' <small>€/km</small>' : '–' ?></div>
+                        <div class="kennzahl-wert"><?= $kmKosten !== null ? htmlspecialchars(number_format((float)$kmKosten, 2, ',', '.')) . ' <small>€/km</small>' : leerWert() ?></div>
                         Kosten je km
                     </div>
                 </div>
                 <div class="col">
                     <div class="kennzahl h-100">
-                        <div class="kennzahl-wert"><?= $monat !== null ? htmlspecialchars($euro($monat)) : '–' ?></div>
+                        <div class="kennzahl-wert"><?= $monat !== null ? htmlspecialchars($euro($monat)) : leerWert() ?></div>
                         Diesen Monat
                     </div>
                 </div>

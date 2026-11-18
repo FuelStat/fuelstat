@@ -456,7 +456,7 @@ function importKategorienZuordnen(array $umgewandelt, array $katalog, bool $eige
         } else {
             $e['category'] = 'Sonstiges';
             // Den ursprünglichen Namen voranstellen, solange die Beschreibung damit in die Grenze der API passt (#197)
-            $mitName = trim($original . (($e['description'] ?? '') !== '' ? ' – ' . $e['description'] : ''));
+            $mitName = trim($original . (($e['description'] ?? '') !== '' ? ': ' . $e['description'] : ''));
             if (mb_strlen($mitName) <= 2000) {
                 $e['description'] = $mitName;
             }

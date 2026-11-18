@@ -8,7 +8,7 @@
 
   var zahl = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 });
   var text = function (v) {
-    if (v === null || v === undefined || (typeof v === 'number' && isNaN(v))) return '–';
+    if (v === null || v === undefined || (typeof v === 'number' && isNaN(v))) return 'keine Angabe';
     if (typeof v === 'object' && v !== null) v = v.y !== undefined ? v.y : v.x;
     return typeof v === 'number' ? zahl.format(v) : String(v);
   };

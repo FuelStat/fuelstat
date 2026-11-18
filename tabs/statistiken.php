@@ -555,7 +555,7 @@ $jahrWerte = function (int $jahr) use ($proEinheit) {
             };
         }
         if (mehrere) {
-            extra.plugins = { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: function (c) { return c.dataset.label + ': ' + (c.parsed.y === null ? '–' : zahl(c.parsed.y, 2) + c.dataset.einheit); } } } };
+            extra.plugins = { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: function (c) { return c.dataset.label + ': ' + (c.parsed.y === null ? 'keine Angabe' : zahl(c.parsed.y, 2) + c.dataset.einheit); } } } };
         }
         new Chart(el, { type: 'bar', data: { labels: <?= json_encode($monatsLabels, JSON_UNESCAPED_UNICODE) ?>, datasets: datasets }, options: optionen(einheiten[Object.keys(einheiten)[0]].einheit, 2, extra) });
     }

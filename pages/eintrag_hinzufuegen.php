@@ -286,7 +286,7 @@ $heute = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->form
         <div id="fields_km" class="eintrag-abschnitt" hidden>
             <p class="text-body-secondary small mb-3">
                 <i class="fas fa-circle-info me-1"></i>Notiert nur den Tachostand, z. B. beim Parken. Er hilft beim Schätzen fehlender Kilometerstände,
-                bei der Plausibilitätsprüfung und bei der Fahrleistung – ohne Kosten.
+                bei der Plausibilitätsprüfung und bei der Fahrleistung. Kosten entstehen keine.
             </p>
             <div class="mb-3">
                 <label for="km_notiz" class="form-label">Notiz (optional)</label>
@@ -435,7 +435,7 @@ btnSchaetzung.addEventListener('click', () => {
     if (schaetzung === null) return;
     tachoFeld.value = schaetzung;
     tachoGeschaetzt.value = '1';
-    document.getElementById('tachoHinweisText').textContent = 'Geschätzt – bitte später durch den echten Tachostand ersetzen.';
+    document.getElementById('tachoHinweisText').textContent = 'Geschätzt. Bitte später durch den echten Tachostand ersetzen.';
     aktualisiereSchaetzung();
 });
 tachoFeld.addEventListener('input', () => { tachoGeschaetzt.value = ''; aktualisiereSchaetzung(); });
@@ -541,7 +541,7 @@ function zeigeTankstellen(stations, mitPreis, sorte, ortHinweis) {
         const li = document.createElement('li');
         li.className = 'list-group-item list-group-item-action';
         li.style.cursor = 'pointer';
-        li.textContent = (marke ? marke + ' – ' : '') + name + ' – ' + (preis ? preis + ' €/L' : 'Preis n/a');
+        li.textContent = (marke ? marke + ' · ' : '') + name + ' · ' + (preis ? preis + ' €/L' : 'Preis n/a');
         li.addEventListener('click', () => {
             document.getElementById('standort').value = eintrag;
             if (preis) {
@@ -603,7 +603,7 @@ function zeigeLadestationen(stations, ortHinweis) {
         titel.className = 'fw-semibold';
         // Betreiber nur nennen, wenn er nicht schon im Namen steckt ("Aldi Süd Bopfingen")
         const betreiber = station.operator && !station.name.toLowerCase().includes(station.operator.toLowerCase()) ? station.operator : '';
-        titel.textContent = station.name + (betreiber ? ' – ' + betreiber : '');
+        titel.textContent = station.name + (betreiber ? ' · ' + betreiber : '');
         const details = document.createElement('div');
         details.className = 'small text-body-secondary';
         details.textContent = [

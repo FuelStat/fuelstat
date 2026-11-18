@@ -71,7 +71,7 @@ function reminderMail(due) {
   const line = (r) => {
     const when = faelligText(r);
     const km = r.due_km ? ` oder bei ${fmt(r.due_km, 0)} km` : '';
-    return { text: `${r.vehicle}: ${r.title} – ${when} (${fmtDate(r.due_date)}${km})`, overdue: r.status === 'ueberfaellig' };
+    return { text: `${r.vehicle}: ${r.title}, ${when} (${fmtDate(r.due_date)}${km})`, overdue: r.status === 'ueberfaellig' };
   };
   const lines = due.map(line);
   const subject = due.some((r) => r.status === 'ueberfaellig')
@@ -114,7 +114,7 @@ function odometerMail(rows, appUrl = process.env.APP_URL) {
   const text = `Hallo,\n\nbei diesen Einträgen fehlt noch der Kilometerstand. Mit ihm stimmt die Verbrauchsberechnung wieder:\n\n${items
     .map((i) => '- ' + i.text + (i.link ? `\n  ${i.link}` : '')).join('\n')}\n${hint}\nDeine Fuelstat-App`;
   const html = `<p>Hallo,</p><p>bei diesen Einträgen fehlt noch der Kilometerstand. Mit ihm stimmt die Verbrauchsberechnung wieder:</p><ul>${items
-    .map((i) => `<li>${esc(i.text)}${i.link ? ` – <a href="${esc(i.link)}">jetzt nachtragen</a>` : ''}</li>`).join('')}</ul>${base
+    .map((i) => `<li>${esc(i.text)}${i.link ? `: <a href="${esc(i.link)}">jetzt nachtragen</a>` : ''}</li>`).join('')}</ul>${base
     ? '' : '<p>Du findest die Einträge in der Eintragsliste des Fahrzeugs („Nachtragen“).</p>'}<p>Deine Fuelstat-App</p>`;
   return { subject, text, html };
 }
@@ -124,7 +124,7 @@ function reminderPush(due) {
   const ueberfaellig = due.some((r) => r.status === 'ueberfaellig');
   if (due.length === 1) {
     const r = due[0];
-    return { title: ueberfaellig ? 'Termin überfällig' : 'Termin bald fällig', body: `${r.vehicle}: ${r.title} – ${faelligText(r)}`,
+    return { title: ueberfaellig ? 'Termin überfällig' : 'Termin bald fällig', body: `${r.vehicle}: ${r.title}, ${faelligText(r)}`,
       url: `pages/service.php?id=${encodeURIComponent(r.vehicle_id)}`, tag: 'termine',
       badge: 1, ttl: 3 * 86400, urgency: ueberfaellig ? 'high' : 'normal' };
   }
@@ -182,9 +182,9 @@ async function collectInactive(pool, settings, now = new Date()) {
 function inactiveMail(rows) {
   const lines = rows.map((x) => `${x.vehicle}: seit ${x.days} Tagen nichts erfasst`);
   return {
-    subject: rows.length === 1 ? `Fuelstat: ${rows[0].vehicle} – lange kein Eintrag` : 'Fuelstat: lange kein Eintrag',
-    text: `Hallo,\n\nfür diese Fahrzeuge wurde länger nichts erfasst:\n\n${lines.map((l) => '- ' + l).join('\n')}\n\nWenn du getankt hast oder gefahren bist, trag es nach – dann stimmen Verbrauch und Kosten.\n\nDeine Fuelstat-App`,
-    html: `<p>Hallo,</p><p>für diese Fahrzeuge wurde länger nichts erfasst:</p><ul>${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul><p>Wenn du getankt hast oder gefahren bist, trag es nach – dann stimmen Verbrauch und Kosten.</p><p>Deine Fuelstat-App</p>`
+    subject: rows.length === 1 ? `Fuelstat: lange kein Eintrag für ${rows[0].vehicle}` : 'Fuelstat: lange kein Eintrag',
+    text: `Hallo,\n\nfür diese Fahrzeuge wurde länger nichts erfasst:\n\n${lines.map((l) => '- ' + l).join('\n')}\n\nWenn du getankt hast oder gefahren bist, trag es nach. Dann stimmen Verbrauch und Kosten.\n\nDeine Fuelstat-App`,
+    html: `<p>Hallo,</p><p>für diese Fahrzeuge wurde länger nichts erfasst:</p><ul>${lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ul><p>Wenn du getankt hast oder gefahren bist, trag es nach. Dann stimmen Verbrauch und Kosten.</p><p>Deine Fuelstat-App</p>`
   };
 }
 
@@ -285,12 +285,12 @@ function reportMail(report) {
       ...s.energy.map((x) => [x.label, `${x.fillups} (${fmt(x.amount)} ${x.unit}, ${fmt(x.cost)} €)`]),
       ...s.expenses.map((x) => [x.category, `${fmt(x.cost)} €`]),
       ['Kosten gesamt', `${fmt(s.cost)} €`],
-      ['Gefahrene Strecke', s.km !== null ? `${fmt(s.km, 0)} km` : '–'],
+      ['Gefahrene Strecke', s.km !== null ? `${fmt(s.km, 0)} km` : 'keine Angabe'],
       ...(s.costPer100km != null ? [['Energiekosten je 100 km', `${fmt(s.costPer100km)} €`]] : []),
       // Ohne Tank-/Ladevorgang im Monat bleibt es bei einer Zeile mit „–“
       ...(s.energy.length ? s.energy : [{ consumption: null }]).map((x) => [
         s.energy.length > 1 ? `Ø Verbrauch (${x.unit})` : 'Ø Verbrauch',
-        x.consumption !== null ? `${fmt(x.consumption)} ${x.unit}/100km` : '–'
+        x.consumption !== null ? `${fmt(x.consumption)} ${x.unit}/100km` : 'keine Angabe'
       ])
     ];
     const due = s.reminders.map((r) => `${r.title}: ${r.status === 'ueberfaellig' ? 'überfällig' : 'fällig am ' + fmtDate(r.due_date)}`);

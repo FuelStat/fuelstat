@@ -21,7 +21,7 @@ try {
 $fuelType = (string)($fahrzeug['fuel_type'] ?? 'other');
 $gruppen = kategorieGruppen();
 $f2 = fn($v) => number_format((float)$v, 2, ',', '.');
-$datum = fn($d) => $d ? date('d.m.Y', strtotime($d)) : '–';
+$datum = fn($d) => $d ? date('d.m.Y', strtotime($d)) : 'unbekannt';
 $details = array_filter([
     trim(($fahrzeug['brand'] ?? '') . ' ' . ($fahrzeug['model'] ?? '')),
     !empty($fahrzeug['year']) ? 'Baujahr ' . (int)$fahrzeug['year'] : '',
@@ -56,10 +56,10 @@ $shareName = fn(string $k) => $k === 'wertverlust' ? 'Wertverlust' : ($gruppen[$
     <table class="table table-sm table-bordered mb-4">
         <tbody>
             <tr><th scope="row">Gesamtkosten<?= $tco['complete'] ? '' : ' (ohne Wertverlust)' ?></th><td class="text-end"><?= $f2($tco['total']) ?> €</td></tr>
-            <tr><th scope="row">Pro Monat</th><td class="text-end"><?= $tco['perMonth'] !== null ? $f2($tco['perMonth']) . ' €' : '–' ?></td></tr>
-            <tr><th scope="row">Pro Kilometer</th><td class="text-end"><?= $tco['perKm'] !== null ? $f2($tco['perKm']) . ' €/km' : '–' ?></td></tr>
-            <tr><th scope="row">Gefahrene Kilometer</th><td class="text-end"><?= $tco['distanceKm'] ? number_format((int)$tco['distanceKm'], 0, ',', '.') . ' km' : '–' ?></td></tr>
-            <tr><th scope="row">Wertverlust pro Jahr</th><td class="text-end"><?= $tco['valueLossPerYear'] !== null ? $f2($tco['valueLossPerYear']) . ' €' : '–' ?></td></tr>
+            <tr><th scope="row">Pro Monat</th><td class="text-end"><?= $tco['perMonth'] !== null ? $f2($tco['perMonth']) . ' €' : leerWert() ?></td></tr>
+            <tr><th scope="row">Pro Kilometer</th><td class="text-end"><?= $tco['perKm'] !== null ? $f2($tco['perKm']) . ' €/km' : leerWert() ?></td></tr>
+            <tr><th scope="row">Gefahrene Kilometer</th><td class="text-end"><?= $tco['distanceKm'] ? number_format((int)$tco['distanceKm'], 0, ',', '.') . ' km' : leerWert() ?></td></tr>
+            <tr><th scope="row">Wertverlust pro Jahr</th><td class="text-end"><?= $tco['valueLossPerYear'] !== null ? $f2($tco['valueLossPerYear']) . ' €' : leerWert() ?></td></tr>
         </tbody>
     </table>
 
@@ -81,7 +81,7 @@ $shareName = fn(string $k) => $k === 'wertverlust' ? 'Wertverlust' : ($gruppen[$
         <thead><tr><th>Gruppe</th><th class="text-end">Einträge</th><th class="text-end">Anteil</th><th class="text-end">Summe</th></tr></thead>
         <tbody>
         <?php foreach ($tco['running']['groups'] as $g): if ($g['count'] === 0) continue; ?>
-            <tr><td><?= htmlspecialchars($gruppen[$g['key']]['name'] ?? $g['key']) ?></td><td class="text-end"><?= $g['count'] ?></td><td class="text-end"><?= $g['share'] !== null ? $f2($g['share']) . ' %' : '–' ?></td><td class="text-end"><?= $f2($g['total']) ?> €</td></tr>
+            <tr><td><?= htmlspecialchars($gruppen[$g['key']]['name'] ?? $g['key']) ?></td><td class="text-end"><?= $g['count'] ?></td><td class="text-end"><?= $g['share'] !== null ? $f2($g['share']) . ' %' : leerWert() ?></td><td class="text-end"><?= $f2($g['total']) ?> €</td></tr>
         <?php endforeach; ?>
         </tbody>
         <tfoot><tr><th colspan="3">Laufende Kosten</th><th class="text-end"><?= $f2($tco['running']['total']) ?> €</th></tr></tfoot>
@@ -92,10 +92,10 @@ $shareName = fn(string $k) => $k === 'wertverlust' ? 'Wertverlust' : ($gruppen[$
         <thead><tr><th>Kategorie</th><th class="text-end">Einträge</th><th class="text-end">Anteil an den Gesamtkosten</th><th class="text-end">Summe</th></tr></thead>
         <tbody>
         <?php foreach ($tco['categories'] as $k): [$kat, $einheit] = str_starts_with($k['key'], 'Tankfuellung:') ? ['Tankfuellung', substr($k['key'], 13)] : [$k['key'], null]; ?>
-            <tr><td><?= htmlspecialchars(getKategorieName($kat, $fuelType, $einheit)) ?></td><td class="text-end"><?= $k['count'] ?></td><td class="text-end"><?= $k['share'] !== null ? $f2($k['share']) . ' %' : '–' ?></td><td class="text-end"><?= $f2($k['total']) ?> €</td></tr>
+            <tr><td><?= htmlspecialchars(getKategorieName($kat, $fuelType, $einheit)) ?></td><td class="text-end"><?= $k['count'] ?></td><td class="text-end"><?= $k['share'] !== null ? $f2($k['share']) . ' %' : leerWert() ?></td><td class="text-end"><?= $f2($k['total']) ?> €</td></tr>
         <?php endforeach; ?>
         <?php if ($tco['valueLoss'] !== null && $tco['valueLoss'] > 0): ?>
-            <tr><td>Wertverlust</td><td class="text-end">–</td><td class="text-end"><?= $tco['total'] > 0 ? $f2($tco['valueLoss'] / $tco['total'] * 100) . ' %' : '–' ?></td><td class="text-end"><?= $f2($tco['valueLoss']) ?> €</td></tr>
+            <tr><td>Wertverlust</td><td class="text-end"><?= leerWert() ?></td><td class="text-end"><?= $tco['total'] > 0 ? $f2($tco['valueLoss'] / $tco['total'] * 100) . ' %' : leerWert() ?></td><td class="text-end"><?= $f2($tco['valueLoss']) ?> €</td></tr>
         <?php endif; ?>
         </tbody>
         <tfoot><tr><th colspan="3">Gesamtkosten</th><th class="text-end"><?= $f2($tco['total']) ?> €</th></tr></tfoot>

@@ -181,11 +181,11 @@ $bearbeitbar = isset($eintrag['filled_at']) && strtotime($eintrag['filled_at']) 
             <div class="col-12 col-sm-7">
                 <label class="form-label fw-semibold" for="tachostand">Tachostand (km)</label>
                 <input type="number" class="form-control form-control-lg" id="tachostand" name="tachostand" min="0" step="1" inputmode="numeric" pattern="[0-9]*"
-                       value="<?= $tachostand !== null ? (int)$tachostand : '' ?>" placeholder="fehlt – kann leer bleiben">
+                       value="<?= $tachostand !== null ? (int)$tachostand : '' ?>" placeholder="fehlt, kann leer bleiben">
                 <?php if ($tachoGeschaetzt): ?>
                     <!-- Bleibt der Wert unverändert, bleibt er als Schätzung markiert -->
                     <input type="hidden" name="tachostand_geschaetzt_wert" value="<?= (int)$tachostand ?>">
-                    <div class="form-text text-warning-emphasis">Geschätzter Wert – bitte durch den echten Tachostand ersetzen.</div>
+                    <div class="form-text text-warning-emphasis">Geschätzter Wert. Bitte durch den echten Tachostand ersetzen.</div>
                 <?php endif; ?>
             </div>
             <div class="col-12 col-sm-5">

@@ -7,6 +7,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 ## [Unreleased]
 
 ### Verbessert
+- Ruhigere Texte: Gedankenstriche sind aus Oberfläche, Mails, Push-Nachrichten und Neuigkeiten verschwunden, dort stehen jetzt Punkt, Komma oder Doppelpunkt. Fehlende Werte zeigen überall einen kurzen Strich, den Screenreader als „keine Angabe“ vorlesen; mitten im Satz steht ein Wort wie „noch nie“ oder „ohne Datum“ (#209).
 - Profil in Gruppen: Konto, Fahrzeuge, Daten, Benachrichtigungen, Über und Darstellung. Passwort und Zwei-Faktor-Schutz findest du unter „Profil und Sicherheit“. Berichte, CSV-Export (auch das Fahrtenbuch) und Import stehen gesammelt im Menü „Berichte und Export“ bei den Einträgen, erreichbar auch über Profil → Daten. Status (verkauft, stillgelegt) und Löschen eines Fahrzeugs stehen nur noch in den Fahrzeugdaten, „Fahrzeug bearbeiten“ enthält nur die Stammdaten (#206).
 - Flotten-Tarif: Ab zwei aktiven Fahrzeugen zeigt Start alle Fahrzeuge als Karten mit Tachostand, Verbrauch und fälligen Terminen. Ein Tipp öffnet die Übersicht des Fahrzeugs, „Alle Fahrzeuge“ führt zurück (#206).
 - Neuer Aufbau, gleich wie in den Apps: Die untere Leiste heißt **Start · Einträge · ＋ · Statistik · Profil**. Statt einer Fahrzeugseite mit sieben Reitern gibt es eigene Seiten: Einträge, Statistik (Verbrauch und Kosten), dazu Service mit allen Terminen, Fahrten und Fahrzeugdaten unter „Mehr zum Fahrzeug“ auf Start bzw. am PC im Menü „Fahrzeug“. Die Liste der Fahrzeuge steht im Profil. Alte Lesezeichen führen weiter an die richtige Stelle (#206).
@@ -46,7 +47,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 ## [0.13.0] - 2026-11-15
 
 ### Neu
-- **Anmelden mit Passkey** (#2): Unter „Profil“ → „Passkeys“ richtest du Face ID, Fingerabdruck, Windows Hello oder einen Sicherheitsschlüssel ein. Danach meldest du dich mit „Mit Passkey anmelden“ oder direkt aus den Vorschlägen im E-Mail-Feld an – ohne Passwort und ohne 2FA-Code. Das Passwort bleibt als Rückfallweg. Fuelstat speichert nur den öffentlichen Schlüssel.
+- **Anmelden mit Passkey** (#2): Unter „Profil“ → „Passkeys“ richtest du Face ID, Fingerabdruck, Windows Hello oder einen Sicherheitsschlüssel ein. Danach meldest du dich mit „Mit Passkey anmelden“ oder direkt aus den Vorschlägen im E-Mail-Feld an, ohne Passwort und ohne 2FA-Code. Das Passwort bleibt als Rückfallweg. Fuelstat speichert nur den öffentlichen Schlüssel.
 - **Gesamtkosten und Wertverlust** (#79): Im Reiter „Ausgaben“ zeigt die Karte „Gesamtkosten“, was das Fahrzeug über die ganze Besitzzeit gekostet hat: laufende Kosten (Tanken/Laden, Versicherung, Steuer, Wartung, Reparatur, Reifen, Sonstiges, auch gebuchte Leasing- und Finanzierungsraten) plus Wertverlust (Kaufpreis minus geschätzter Restwert bzw. Verkaufserlös), dazu Kosten pro Monat und pro km, Wertverlust pro Jahr und die Anteile der Kostengruppen. Fehlen Kaufpreis oder Restwert/Erlös, bleibt der Wertverlust leer und die Karte sagt es, nichts wird geschätzt. Neues Feld „Geschätzter Restwert“ unter „Fahrzeug bearbeiten“ → „Kauf und Termine“; der „Gesamtkosten-Bericht“ lässt sich drucken oder als PDF speichern (Menü „Export und Import“ im Reiter „Einträge“ bzw. Knopf „Bericht“ an der Karte). Für alle Tarife.
 
 ### Verbessert
@@ -57,7 +58,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - **Verbrauch auch ohne „voll geladen“** (#25): Mit dem **Ladestand nachher** rechnet Fuelstat den Verbrauch zwischen zwei Ladungen aus, auch wenn du nie auf 100 % lädst. Wie viele kWh ein Prozent sind, ergibt sich aus deinen eigenen Ladungen (Wallbox-Menge inklusive Ladeverlusten). Wo es keinen einzigen Abschnitt gibt, zeigt Fuelstat den Verbrauch aus der Summe aller Ladungen ÷ Strecke und sagt das dazu. Bisherige Verbrauchswerte ändern sich nicht.
 - **Ladevorgänge genauer erfassen** (#25): Beim Laden kannst du jetzt die **Ladeart** (zu Hause/Wallbox, AC öffentlich, DC-Schnelllader), den **Ladestand vorher und nachher** und die **Ladedauer** angeben, alles freiwillig. Die Eintragsliste zeigt sie an. „Statistiken“ wertet Ladungen nach Ladeart aus (Anteil, Ø Preis je kWh, Ø Leistung, zu Hause gegen unterwegs). Ladungen ohne Angabe stehen als eigene Zeile, bestehende Auswertungen ändern sich nicht. CSV-Export und -Import kennen die neuen Spalten; ältere Dateien funktionieren weiter.
 - **Plug-in-Hybride: Energiekosten je 100 km als Hauptkennzahl** (#156): Bei Plug-in-Hybriden stehen auf Start, Fahrzeugkarte, „Allgemein“, „Statistiken“ und im Bericht die Energiekosten in €/100 km über Benzin und Strom vorn; l/100 km und kWh/100 km bleiben daneben. „Statistiken“ zeigt dazu €/100 km je Monat und Jahr sowie den günstigsten und teuersten Monat, der Monatsbericht per E-Mail eine Zeile „Energiekosten je 100 km“. Benziner, Diesel, Elektro und Vollhybride bleiben unverändert.
-- **Neue Startseite** (#158): Start zeigt jetzt wie in der iOS-App ein Fahrzeug – das zuletzt genutzte bzw. gewählte – mit großem Foto, Kennzeichen und Tachostand, drei Kennzahlen (Ø Verbrauch, Kosten je km, Kosten diesen Monat), den nächsten drei Terminen und den letzten fünf Einträgen. Oben wechselst du das Fahrzeug; alle Fahrzeuge als Karten (mit „Ordnen“) findest du unter „Fahrzeuge“ → „Alle Fahrzeuge“.
+- **Neue Startseite** (#158): Start zeigt jetzt wie in der iOS-App ein Fahrzeug (das zuletzt genutzte bzw. gewählte) mit großem Foto, Kennzeichen und Tachostand, drei Kennzahlen (Ø Verbrauch, Kosten je km, Kosten diesen Monat), den nächsten drei Terminen und den letzten fünf Einträgen. Oben wechselst du das Fahrzeug; alle Fahrzeuge als Karten (mit „Ordnen“) findest du unter „Fahrzeuge“ → „Alle Fahrzeuge“.
 - **Mail-Links aus der iOS-App** (#175): Bestätigungs- und Passwort-Mails, die du in der App angefordert hast, bieten auf iPhone und iPad zusätzlich „Zurück zur Fuelstat-App“ bzw. „In der Fuelstat-App fortsetzen“. Im Browser geht beides weiterhin.
 
 ### Behoben
@@ -92,7 +93,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 ## [0.12.1] - 2026-11-13
 
 ### Neu
-- **Push-Benachrichtigungen** (#136): Termine, „Kilometerstand nachtragen“ und den Monatsbericht gibt es jetzt auch als Push-Benachrichtigung der installierten Web-App – auf Android, am Computer und auf dem iPhone/iPad ab iOS 16.4 (dort nach „Zum Home-Bildschirm“). Unter „Benachrichtigungen“ wählst du je Anlass E-Mail, Push oder beides, aktivierst Push auf dem Gerät mit einem Klick und schickst eine Testnachricht. Ein Tipp auf die Nachricht öffnet die passende Seite; anstehende Termine zeigt das App-Symbol als Zahl.
+- **Push-Benachrichtigungen** (#136): Termine, „Kilometerstand nachtragen“ und den Monatsbericht gibt es jetzt auch als Push-Benachrichtigung der installierten Web-App: auf Android, am Computer und auf dem iPhone/iPad ab iOS 16.4 (dort nach „Zum Home-Bildschirm“). Unter „Benachrichtigungen“ wählst du je Anlass E-Mail, Push oder beides, aktivierst Push auf dem Gerät mit einem Klick und schickst eine Testnachricht. Ein Tipp auf die Nachricht öffnet die passende Seite; anstehende Termine zeigt das App-Symbol als Zahl.
 - **Hinweis „Lange kein Eintrag“** (#136): Wurde für ein Fahrzeug 30 Tage nichts erfasst, kommt auf Wunsch eine Erinnerung per E-Mail oder Push.
 - **Angemeldete Apps** (#117): Unter Einstellungen → Sicherheit siehst du, auf welchen Geräten die iPhone- bzw. Android-App angemeldet ist (Name, App-Version, zuletzt genutzt), und kannst einzelne Geräte abmelden. „Auf allen Geräten abmelden“ und eine Passwortänderung melden auch alle Apps ab.
 
@@ -110,12 +111,12 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ### Behoben
 - Fahrzeugseite: Das Diagramm „Letzte 6 Monate“ unter „Allgemein“ blieb seit 0.12.0 leer.
-- Startseite: Die ganze Fahrzeugkarte führt wieder zum Fahrzeug – auch das Foto und die Kennzahlen, nicht nur der Name.
+- Startseite: Die ganze Fahrzeugkarte führt wieder zum Fahrzeug, auch das Foto und die Kennzahlen, nicht nur der Name.
 
 ## [0.12.0] - 2026-11-12
 
 ### Neu
-- **Mehrere Kraftstoffe je Fahrzeug** (#140): Unter „Antriebsart“ → „Erweitert“ wählst du, was ein Fahrzeug tankt bzw. lädt, z. B. Benzin und Autogas, Diesel und Premium-Diesel oder E5 und E10; einer davon ist der Standard. Beim Tanken wählst du die Sorte (bei nur einer Sorte bleibt alles wie bisher), die Tankstellensuche zeigt den Preis dieser Sorte. Verbrauch wird je Energieart gerechnet – E5, E10 und Super Plus zusammen als Benzin, Benzin und Autogas getrennt –, nur nebenbei getanktes Benzin beim Autogas-Auto zählt nicht als eigener Verbrauch. Die Statistik zeigt Preise je Sorte und den Mehrpreis von Premium-Sorten. Bestehende Fahrzeuge und Einträge bekommen ihre Sorte automatisch. CSV-Export und -Import mit Spalte „Sorte“.
+- **Mehrere Kraftstoffe je Fahrzeug** (#140): Unter „Antriebsart“ → „Erweitert“ wählst du, was ein Fahrzeug tankt bzw. lädt, z. B. Benzin und Autogas, Diesel und Premium-Diesel oder E5 und E10; einer davon ist der Standard. Beim Tanken wählst du die Sorte (bei nur einer Sorte bleibt alles wie bisher), die Tankstellensuche zeigt den Preis dieser Sorte. Verbrauch wird je Energieart gerechnet: E5, E10 und Super Plus zusammen als Benzin, Benzin und Autogas getrennt –, nur nebenbei getanktes Benzin beim Autogas-Auto zählt nicht als eigener Verbrauch. Die Statistik zeigt Preise je Sorte und den Mehrpreis von Premium-Sorten. Bestehende Fahrzeuge und Einträge bekommen ihre Sorte automatisch. CSV-Export und -Import mit Spalte „Sorte“.
 
 ### Verbessert
 - **Neues Design der Web-App** nach dem gemeinsamen Design-Dokument (`docs/design.md`): Petrol als Markenfarbe, ruhige Karten ohne Rahmen und Schatten, größere Kennzahlen, Dunkelmodus in Navy wie das App-Icon. Gilt für alle Seiten, hell und dunkel, am Handy und am PC.
@@ -131,7 +132,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 ### Technik
 - **API: alle Listen seitenweise** (#160): `GET /vehicles`, `/fillups`, `/entries`, `/trips`, `/media`, `/invitations`, `/auth/tokens`, `/auth/users` und `/feedback` liefern `{ data, pagination }` statt einer reinen Liste, mit `?page=` und `?per_page=` (Standard 25, höchstens 100; `limit` als Alias, `offset` entfällt). `/trips` liefert zusätzlich `months` (Anzahl und km der Monate auf der Seite) und `years`. Neu `GET /vehicles/:id/timeline`: Tank-/Ladevorgänge, Ausgaben und Fahrten gemischt mit Filter, Suche und Monatssummen. Die iOS-App ist im selben Zug angepasst (FuelStat/fuelstat-ios). Verbrauchsabschnitte per laufender Summe statt Unterabfrage je Abschnitt.
 - Gemeinsames Design-Dokument `docs/design.md` (#153) für Web, PWA, iOS und Android: Farben für hell und dunkel, Schriftrollen, Abstände, Radien, Zuordnung zu CSS, SwiftUI und Compose, Plattform-Leitplanken und Barrierefreiheit. Die Farb- und Abstandswerte stehen als `--fs-*`-Variablen in `css/style.css` bereit; sichtbar ändert sich noch nichts, die Umstellung folgt mit der Neugestaltung.
-- Ausrollen: `sudo infra/ausrollen.sh main` rollt den neuesten Stand von `main` zwischen zwei Releases aus – in derselben Reihenfolge wie ein Release (Migrationen vor dem Neustart), die API wird dabei aus dem Code gebaut. Zurück auf ein Release mit `sudo infra/ausrollen.sh X.Y.Z`.
+- Ausrollen: `sudo infra/ausrollen.sh main` rollt den neuesten Stand von `main` zwischen zwei Releases aus, in derselben Reihenfolge wie ein Release (Migrationen vor dem Neustart), die API wird dabei aus dem Code gebaut. Zurück auf ein Release mit `sudo infra/ausrollen.sh X.Y.Z`.
 - Aufgeräumt: 16 nicht genutzte Font-Awesome-Stylesheets (≈ 490 KB, genutzt wird nur `css/all.min.css`), ungenutzte Funktionen in PHP und API, Reste der nie gültigen Antriebsart `petrol`. Altlasten für ältere Installationen entfernt: Migrationen 002–020 (in `postgres_init.sql` enthalten), die Umwandlung unverschlüsselter 2FA-Schlüssel beim Start, `scripts/bilder-optimieren.js` (#103) und die einmaligen Umstiegsanleitungen in `docs/betrieb.md`.
 - API: Die alten Feldnamen `liters` und `priceTotalEur` (Anfrage) sowie `liters`, `price_total_eur` und `price_per_liter` (Antwort der Tank-/Ladevorgänge) entfallen; es gelten `amount`, `totalCostEur`, `total_cost_eur` und `price_per_unit`. Web-App und iOS-App nutzen sie nicht. Während der Beta dürfen solche Felder entfallen, ab 1.0.0 nicht mehr (`CLAUDE.md`).
 - API (#140, abwärtskompatibel): `GET /fuels`, `fuels`/`defaultFuel` an Fahrzeugen, `fuel` an Tank-/Ladevorgängen und im Import, `energies`/`byEnergy`/`byFuel`/`costPer100km` in `/consumption`, `energies` in `/stats` und `/costs`. Bisherige Felder je Einheit bleiben.
@@ -139,7 +140,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 ## [0.11.0] - 2026-11-09
 
 ### Neu
-- **Fahrzeuge teilen** (#53): Fahrzeuge lassen sich per E-Mail mit anderen Konten teilen – als Mitfahrer (sehen und erfassen, eigene Einträge ändern) oder nur zum Ansehen. Einladungen gelten 14 Tage und nur für die eingeladene, bestätigte Adresse. Bei jedem Eintrag steht, wer ihn erfasst hat. Mitglieder können ein Fahrzeug verlassen, der Besitzer kann Rollen ändern und Mitglieder entfernen; Einträge bleiben beim Fahrzeug. Teilen ist eine Plus-Funktion des Besitzers.
+- **Fahrzeuge teilen** (#53): Fahrzeuge lassen sich per E-Mail mit anderen Konten teilen: als Mitfahrer (sehen und erfassen, eigene Einträge ändern) oder nur zum Ansehen. Einladungen gelten 14 Tage und nur für die eingeladene, bestätigte Adresse. Bei jedem Eintrag steht, wer ihn erfasst hat. Mitglieder können ein Fahrzeug verlassen, der Besitzer kann Rollen ändern und Mitglieder entfernen; Einträge bleiben beim Fahrzeug. Teilen ist eine Plus-Funktion des Besitzers.
 - **Fahrtenbuch** (#52): eigener Reiter „Fahrten“ mit Tachostand Start und Ende, Von/Nach, Zweck (privat, dienstlich, Arbeitsweg) und Notiz; km je Monat und Zweck, Anteil dienstlich, geschätzte Kosten je Zweck, Filter nach Jahr und Zweck, CSV-Export (Plus). Bisherige Fahrten werden übernommen. Fahrten liefern Tachostände für Prüfung, aktuellen Stand und Termine. Ein Fahrtenbuch zur eigenen Übersicht, kein vom Finanzamt anerkanntes.
 - **E-Mail-Adresse bestätigen** (#135): Neue Konten bestätigen ihre Adresse über einen Link (24 Stunden gültig). Bis dahin sind ein Fahrzeug und ein Eintrag möglich. Eine geänderte Adresse gilt erst nach Bestätigung. Bestehende Konten gelten als bestätigt.
 - **Passwort vergessen** (#141): Link per Mail, eine Stunde gültig und nur einmal verwendbar. Danach ist man auf allen Geräten abgemeldet; eine aktive 2FA bleibt aktiv. Die Seite verrät nicht, ob es ein Konto mit der Adresse gibt.
@@ -157,14 +158,14 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - Release-Prozess (#134): Ein Tag baut das API-Image `ghcr.io/fuelstat/fuelstat-api:X.Y.Z`; `infra/ausrollen.sh X.Y.Z` rollt eine veröffentlichte Version aus (Hinweise anzeigen, Image laden, Code aufs Tag, Migrationen vor dem Neustart, API starten, PHP-FPM neu laden, Health prüfen) und rollt genauso zurück. Die CI verlangt in jedem PR einen Eintrag unter `[Unreleased]` (Label `kein changelog` zum Überspringen).
 - Zentrale Zugriffsprüfung für Fahrzeuge (`services/vehicleAccess.js`) statt „gehört mir“ an rund 40 Stellen; Statistik, Kosten, Verbrauch, Termine und Monatsbericht rechnen über alle Einträge eines Fahrzeugs (#53).
 - `manifest.json` mit `id`, `scope`, Sprache und Kategorien.
-- API-Dokumentation (`docs/openapi.1.0.0.yaml`): Login mit 2FA vollständig beschrieben (Beispiele mit und ohne Code, Antworten `mfa_required` mit `mfaToken`, `invalid_mfa_code`, `429 too_many_attempts`); fehlende Felder in `/health` (`version`, `registration_enabled`, `beta_phase`), Benutzer, Fahrzeugen und Einträgen ergänzt – strenge Validatoren und Code-Generatoren lehnten echte Antworten bisher ab. Pfade nach Bereichen sortiert.
+- API-Dokumentation (`docs/openapi.1.0.0.yaml`): Login mit 2FA vollständig beschrieben (Beispiele mit und ohne Code, Antworten `mfa_required` mit `mfaToken`, `invalid_mfa_code`, `429 too_many_attempts`); fehlende Felder in `/health` (`version`, `registration_enabled`, `beta_phase`), Benutzer, Fahrzeugen und Einträgen ergänzt. Strenge Validatoren und Code-Generatoren lehnten echte Antworten bisher ab. Pfade nach Bereichen sortiert.
 - Die CI prüft, dass jede API-Route in der OpenAPI dokumentiert ist (`tests/openapi_abgleich.py`).
 - Neue API-Endpunkte unter `/api/v1`, alle abwärtskompatibel: `/auth/verify-email`, `/auth/resend-verification`, `/auth/accept-terms`, `/auth/forgot-password`, `/auth/reset-password`, `/vehicles/:id/members`, `/vehicles/:id/invitations`, `/invitations`, `/trips`, `/vehicles/:id/trips` (mit `summary` und `export`); neue Felder in `/health`, `/whoami`, Fahrzeugen und Einträgen (siehe `docs/api.md`).
 
 ## [0.10.0] - 2026-11-08
 
 ### Sicherheit
-- Gelöschte Konten: Bereits ausgestellte Tokens gelten nicht mehr – die API prüft bei jeder Anfrage, ob das Konto noch existiert. Vorher blieb ein Token bis zu 7 Tage gültig, bei Admins aus `ADMIN_USER_IDS` sogar mit Admin-Rechten.
+- Gelöschte Konten: Bereits ausgestellte Tokens gelten nicht mehr: Die API prüft bei jeder Anfrage, ob das Konto noch existiert. Vorher blieb ein Token bis zu 7 Tage gültig, bei Admins aus `ADMIN_USER_IDS` sogar mit Admin-Rechten.
 - Login-Sperre je IP-Adresse und E-Mail statt nur je E-Mail, dazu ein Limit je IP über alle Konten: Fremde können ein Konto nicht mehr durch absichtliche Fehlversuche 15 Minuten lang aussperren. Das PHP-Frontend gibt dafür die Besucher-IP an die API weiter.
 - 2FA-Codes gelten nur noch einmal (RFC 6238); ein abgefangener Code lässt sich nicht innerhalb seines Zeitfensters erneut verwenden.
 - Abgewiesene Admin-Zugriffe werden mit dem Routenmuster statt der aufgerufenen Adresse protokolliert, damit keine Eingaben des Clients ins Log gelangen (Code-Scanning, Log-Injection).
@@ -174,7 +175,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ### Neu
 - API: `GET /api/v1/vehicles/:vehicleId/consumption` liefert Verbrauch je Einheit (Abschnitte, Monate, Jahre, Ø/Min/Max), gekaufte Mengen, CO₂ und den Stromanteil; `/stats` zusätzlich die Fahrleistung, `/costs` Summen je Kategorie und die Jahre mit Kosten (#82).
-- API: `GET /api/v1/vehicles/:vehicleId/costs` liefert Kosten je Fahrzeug – Summen nach Energie und Ausgaben, Kosten pro km, Ø je Monat, laufender Monat und Vormonat sowie Monatssummen je Eintragsart, optional für ein Jahr (#124).
+- API: `GET /api/v1/vehicles/:vehicleId/costs` liefert Kosten je Fahrzeug: Summen nach Energie und Ausgaben, Kosten pro km, Ø je Monat, laufender Monat und Vormonat sowie Monatssummen je Eintragsart, optional für ein Jahr (#124).
 - API: `GET /api/v1/charging-stations` liefert Ladestationen in der Nähe (Open Charge Map) für Web-App und Apps (#123).
 - Betreiber können Tarife auch ohne Web-Oberfläche setzen: `node scripts/tarif-setzen.js` im API-Container (siehe `docs/betrieb.md`, „Tarife verwalten“).
 
@@ -187,7 +188,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 - API aufgeteilt (#110): `server.js` startet nur noch, `app.js` baut die Middleware-Kette, Endpunkte liegen je Fachbereich unter `backend/src/routes/`, Querschnitt unter `middleware/` und `lib/`, 2FA als Service. Verhalten und Endpunkte unverändert; Aufbau beschrieben in `docs/backend.md`.
 - Die doppelte Verbrauchsrechnung im PHP-Frontend ist entfernt; ihre Testfälle laufen jetzt als API-Tests (#82).
 - Die Web-App ruft Tankerkönig und Open Charge Map nicht mehr selbst auf; die API-Keys liegen nur noch in `infra/.env` statt in `api/key.key` und `api/ocm.key` (#123).
-- Betriebsdoku: Reihenfolge beim Aktualisieren korrigiert – Datenbank-Migrationen werden jetzt ausdrücklich **vor** dem Neustart der API eingespielt, mit Sicherung vorab und Kontrolle der Version danach (`docs/betrieb.md`, README).
+- Betriebsdoku: Reihenfolge beim Aktualisieren korrigiert: Datenbank-Migrationen werden jetzt ausdrücklich **vor** dem Neustart der API eingespielt, mit Sicherung vorab und Kontrolle der Version danach (`docs/betrieb.md`, README).
 
 ## [0.9.1] - 2026-11-06
 

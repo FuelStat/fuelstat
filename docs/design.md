@@ -63,7 +63,7 @@ wirken: ruhig, sachlich, Zahlen zuerst. Die Liste gilt auf **allen Plattformen**
 | **Zähler 01 / 02 / 03** als Gestaltung für Abschnitte, Funktionen oder Karten | Täuscht eine Reihenfolge vor; führende Nullen sind Zierde | Nummern nur, wenn eine Reihenfolge gilt, dann als echter Schritt („Schritt 2 von 4“, ohne führende Null), z. B. im Assistenten „Fahrzeug anlegen“. Sonst eine Liste. |
 | **Leuchtende Kugeln** („Orbs“), unscharfe Farbflecken, Glühen um Elemente, Verlauf als Hintergrund | Nur Stimmung; kostet Kontrast und Rechenleistung | Kein Glühen, keine Blur-Flecken, kein Verlaufstext, **keine farbigen Schatten**. Schatten nur neutral und weich (Abschnitt 5.4). Der Verlauf auf Fotos für die Lesbarkeit bleibt, ebenso der Fokusring (Barrierefreiheit). Hintergrundunschärfe nur auf Leisten, die Inhalt überlagern (Kopf- und Tab-Leiste), nie auf Karten. |
 | **Schockwellen-Ringe:** Wellen und Pulse, die aus Knöpfen und Karten springen, Endlos-Animationen | Lenkt ohne Anlass ab; Bewegung ohne Funktion | Standardübergänge und Touch-Rückmeldung der Plattform (Abschnitt 5.5), Ladeanzeige per Spinner oder Platzhalter. Keine Dauerbewegung ohne Funktion; „Bewegung reduzieren“ wird respektiert. |
-| **Geviertstrich „—“** als Stilmittel in Texten | Bekanntestes Erkennungszeichen KI-erzeugter Texte; im Deutschen ist der Gedankenstrich der Halbgeviertstrich mit Leerzeichen | Kurze Sätze, Punkt, Komma, Doppelpunkt. Wenn nötig „ – “ (Halbgeviertstrich mit Leerzeichen, wie in diesem Dokument), sparsam. Kein „—“ in Oberflächentexten, Mails, Release-Notes und Store-Texten. Leerer Wert in einer Kachel: „–“ mit Screenreader-Text „keine Angabe“. |
+| **Gedankenstriche** („—“ und „ – “) als Stilmittel in Texten | Bekanntestes Erkennungszeichen KI-erzeugter Texte; Einschübe mit Strich machen Sätze lang | Kurze Sätze, Punkt, Komma, Doppelpunkt, Klammer. **Kein Gedankenstrich** in Texten, die Nutzer lesen: Oberfläche, Mails, Push, Release-Notes, Store-Texte. Erlaubt sind nur: „–“ als **leerer Wert** (mit Screenreader-Text „keine Angabe“, `leerWert()`), „–“ als „bis“ ohne Leerzeichen (08–18 Uhr) und der Trenner im Seitentitel „Seite – {App}“ (Abschnitt 11). In Aufzählungen auf einer Zeile trennt „ · “. Diese Dokumente selbst sind davon ausgenommen. |
 
 **Verwandte Muster, gleiche Ursache:**
 
@@ -79,8 +79,9 @@ Rückmeldung)? Würde die Stelle unverändert auch in einer anderen App stehen? 
 
 **Stand im Web (zum Nachziehen, kein Blocker):** Der „+“-Knopf hat noch einen farbigen Schatten
 (`rgba(var(--fs-brand-rgb), .4)`), er wird neutral (Abschnitt 5.4, #209). Leere Werte zeigen „–“ mit
-Screenreader-Text „keine Angabe“ (`leerWert()` in `includes/functions.php`); `tests/GeviertstrichTest.php` hält
-„—“ aus Code, API-Texten und Mails fern. Kennzeichen in Monospace und die Hintergrundunschärfe der Leisten sind
+Screenreader-Text „keine Angabe“ (`leerWert()` in `includes/functions.php`, wo ein Wert mitten im Text fehlt, ein Wort wie
+„noch nie“ oder „ohne Datum“); `tests/GeviertstrichTest.php` hält „—“, Gedankenstriche „ – “ in Texten und nackte
+„–“-Leerwerte aus Oberfläche, API-Texten, Mails und Release-Notes fern. Kennzeichen in Monospace und die Hintergrundunschärfe der Leisten sind
 bewusste Ausnahmen.
 
 ## 2. Marke

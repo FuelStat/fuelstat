@@ -16,7 +16,7 @@ try {
 $teile = $service['parts'] ?? [];
 $eigene = array_values(array_filter($katalog['parts'] ?? [], fn($p) => empty($p['builtin'])));
 $zahl = fn($wert, int $stellen = 0) => number_format((float)$wert, $stellen, ',', '.');
-$tag = fn(?string $d) => $d ? date('d.m.Y', strtotime($d)) : '–';
+$tag = fn(?string $d) => $d ? date('d.m.Y', strtotime($d)) : 'ohne Datum';
 $euroText = fn($v) => $v === null ? 'Kosten unbekannt' : $zahl($v, 2) . ' €';
 $serviceUrl = '../pages/service_speichern.php';
 ?>
@@ -63,7 +63,7 @@ $serviceUrl = '../pages/service_speichern.php';
                     </div>
                     <?php if ($naechster):
                         $text = $naechster['source'] === 'lifetime'
-                            ? 'ca. ' . ($naechster['due_date'] ? $tag($naechster['due_date']) : ($naechster['due_km'] !== null ? 'bei ' . $zahl($naechster['due_km']) . ' km' : '–'))
+                            ? ($naechster['due_date'] ? 'ca. ' . $tag($naechster['due_date']) : ($naechster['due_km'] !== null ? 'ca. bei ' . $zahl($naechster['due_km']) . ' km' : 'Zeitpunkt offen'))
                             : ($naechster['days'] !== null ? terminAbstand((int)$naechster['days']) : 'bei ' . $zahl($naechster['due_km']) . ' km');
                         echo statusBadge($naechster['status'], $text, 'text-nowrap');
                     endif; ?>
@@ -73,8 +73,8 @@ $serviceUrl = '../pages/service_speichern.php';
                     <div class="row g-2 mt-1">
                         <div class="col-6 col-md-3"><div class="fs-label">Wechsel</div><div class="zahl"><?= (int)$t['changes'] ?>×</div></div>
                         <div class="col-6 col-md-3"><div class="fs-label">Kosten bekannt</div><div class="zahl"><?= $zahl($t['total_cost'] ?? 0, 2) ?> €</div></div>
-                        <div class="col-6 col-md-3"><div class="fs-label">Ø Lebensdauer</div><div class="zahl"><?= $lebensdauer && $lebensdauer['avgKm'] !== null ? $zahl($lebensdauer['avgKm']) . ' km' : '–' ?></div></div>
-                        <div class="col-6 col-md-3"><div class="fs-label">Ø Monate</div><div class="zahl"><?= $lebensdauer && $lebensdauer['avgMonths'] !== null ? $zahl($lebensdauer['avgMonths'], 1) : '–' ?></div></div>
+                        <div class="col-6 col-md-3"><div class="fs-label">Ø Lebensdauer</div><div class="zahl"><?= $lebensdauer && $lebensdauer['avgKm'] !== null ? $zahl($lebensdauer['avgKm']) . ' km' : leerWert() ?></div></div>
+                        <div class="col-6 col-md-3"><div class="fs-label">Ø Monate</div><div class="zahl"><?= $lebensdauer && $lebensdauer['avgMonths'] !== null ? $zahl($lebensdauer['avgMonths'], 1) : leerWert() ?></div></div>
                     </div>
                     <?php if ($naechster): ?>
                     <p class="fs-label mt-2 mb-0">

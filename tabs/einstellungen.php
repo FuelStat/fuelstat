@@ -54,11 +54,11 @@ $bearbeitenUrl = '../pages/fahrzeug_bearbeiten.php?id=' . urlencode($fahrzeug_id
                     <dl class="row mb-0">
                         <?php foreach ($zeilen as $label => $w): ?>
                             <dt class="col-5"><?= htmlspecialchars($label) ?></dt>
-                            <dd class="col-7"><?= $w !== '' && $w !== null ? htmlspecialchars((string)$w) : '<span class="text-body-tertiary">–</span>' ?></dd>
+                            <dd class="col-7"><?= $w !== '' && $w !== null ? htmlspecialchars((string)$w) : '<span class="text-body-tertiary">' . leerWert() . '</span>' ?></dd>
                         <?php endforeach; ?>
                     </dl>
                     <?php if ($leer >= 3 && $darfAendern): ?>
-                        <p class="small text-body-secondary mb-2"><a class="tipp-link" href="<?= htmlspecialchars($bearbeitenUrl . '#' . $abschnitt) ?>">Fehlende Angaben ergänzen</a> – sie verbessern Termine und Auswertungen.</p>
+                        <p class="small text-body-secondary mb-2"><a class="tipp-link" href="<?= htmlspecialchars($bearbeitenUrl . '#' . $abschnitt) ?>">Fehlende Angaben ergänzen</a>: Sie verbessern Termine und Auswertungen.</p>
                     <?php endif; ?>
                 </div>
             </div>

@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     . ($bleibt !== '' ? ' Du bleibst hier als ' . $bleibt . ' angemeldet.' : '');
                 header('Location: ../index.php');
             } else {
-                $_SESSION['success_message'] = 'Dein Passwort' . ($konto !== '' ? ' für ' . $konto : '') . ' ist geändert. Du wurdest auf allen Geräten abgemeldet – bitte melde dich neu an.';
+                $_SESSION['success_message'] = 'Dein Passwort' . ($konto !== '' ? ' für ' . $konto : '') . ' ist geändert. Du wurdest auf allen Geräten abgemeldet. Bitte melde dich neu an.';
                 header('Location: login.php');
             }
             exit;

@@ -91,7 +91,7 @@ include '../includes/header.php';
 <div class="container mt-4 mt-lg-5" style="max-width: 36rem;">
     <h1 class="h3">Tachostand nachtragen</h1>
     <p class="text-body-secondary">
-        <?= htmlspecialchars($begriffe['vorgang']) ?> vom <?= $datum ? date('d.m.Y', strtotime($datum)) : '–' ?>:
+        <?= htmlspecialchars($begriffe['vorgang']) ?> <?= $datum ? 'vom ' . date('d.m.Y', strtotime($datum)) : 'ohne Datum' ?>:
         <?= number_format($menge, 2, ',', '.') ?> <?= einheitKurz($einheit) ?>,
         <?= number_format((float)($eintrag['total_cost_eur'] ?? 0), 2, ',', '.') ?> €<?= !empty($eintrag['station']) ? ' · ' . htmlspecialchars($eintrag['station']) : '' ?>
     </p>

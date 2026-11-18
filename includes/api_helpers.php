@@ -748,7 +748,8 @@ function fahrtBeschreibung(array $post): string
     $km = trim(str_replace(',', '.', (string)($post['gefahrene_km'] ?? '')));
 
     $strecke = implode(' → ', array_filter([$start, $ziel], fn($t) => $t !== ''));
-    $text = implode(' – ', array_filter([$strecke, $zweck], fn($t) => $t !== ''));
+    // Trenner „ · “ (#209: keine Gedankenstriche in Texten); ältere Einträge mit „ – “ liest fahrtAusBeschreibung() weiter
+    $text = implode(' · ', array_filter([$strecke, $zweck], fn($t) => $t !== ''));
     if (is_numeric($km) && (float)$km > 0) {
         $text .= ($text !== '' ? ' ' : '') . '(' . number_format((float)$km, fmod((float)$km, 1) ? 1 : 0, ',', '.') . ' km)';
     }
@@ -770,7 +771,7 @@ function fahrtAusBeschreibung(?string $text): array
         $ergebnis['gefahrene_km'] = str_replace(',', '.', str_replace('.', '', $m[2]));
         $text = $m[1];
     }
-    $teile = explode(' – ', $text, 2);
+    $teile = preg_split('/ [·–] /u', $text, 2);
     $strecke = $teile[0];
     $zweck = $teile[1] ?? '';
     if (str_contains($strecke, ' → ')) {

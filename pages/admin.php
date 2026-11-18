@@ -1,6 +1,7 @@
 <?php
 include '../includes/session.php';
 require_once __DIR__ . '/../includes/api_helpers.php';
+require_once __DIR__ . '/../includes/functions.php';
 if (!isApiAuthenticated()) {
     header('Location: login.php');
     exit;
@@ -90,7 +91,7 @@ function zeitpunkt(?string $wert): string
 {
     $ts = $wert ? strtotime($wert) : false;
     if (!$ts) {
-        return '<span class="text-body-secondary">–</span>';
+        return '<span class="text-body-secondary">' . leerWert() . '</span>';
     }
     $tage = (int)floor((strtotime('today') - strtotime(date('Y-m-d', $ts))) / 86400);
     $text = match (true) {
@@ -159,7 +160,7 @@ include '../includes/header.php';
                     <td><?= zeitpunkt($u['last_seen_at'] ?? null) ?></td>
                     <td><?= zeitpunkt($u['last_login_at'] ?? null) ?></td>
                     <td><?= zeitpunkt($u['last_entry_at'] ?? null) ?></td>
-                    <td><?= !empty($u['mfa_enabled']) ? '<i class="fas fa-check text-success"></i>' : '–' ?></td>
+                    <td><?= !empty($u['mfa_enabled']) ? '<i class="fas fa-check text-success"></i>' : leerWert() ?></td>
                     <td>
                         <form method="post" class="form-check form-switch mb-0">
                             <input type="hidden" name="aktion" value="beta">

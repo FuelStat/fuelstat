@@ -101,7 +101,7 @@
   testKnopf.addEventListener('click', function () {
     testKnopf.disabled = true;
     senden({ aktion: 'test' }).then(function (r) {
-      meldung(r.sent ? 'Testnachricht verschickt – sie sollte gleich erscheinen.' : 'Kein Gerät erreicht. Push auf diesem Gerät einmal ab- und wieder anschalten.');
+      meldung(r.sent ? 'Testnachricht verschickt. Sie sollte gleich erscheinen.' : 'Kein Gerät erreicht. Push auf diesem Gerät einmal ab- und wieder anschalten.');
     }).catch(function (e) {
       meldung(e.message === 'too_many_attempts' ? 'Bitte ein paar Minuten warten, bevor du noch eine Testnachricht schickst.' : 'Senden hat nicht geklappt (' + e.message + ').');
     }).finally(function () { testKnopf.disabled = false; });

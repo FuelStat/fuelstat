@@ -12,10 +12,10 @@ try {
 $beta = istBetaPhase();
 
 $funktionen = [
-    ['fa-gas-pump', 'Tanken & Laden', 'Tankfüllungen und Ladevorgänge in Sekunden erfassen – beim Tanken mit Tankstellen in der Nähe und aktuellen Spritpreisen.'],
+    ['fa-gas-pump', 'Tanken & Laden', 'Tankfüllungen und Ladevorgänge in Sekunden erfassen, beim Tanken mit Tankstellen in der Nähe und aktuellen Spritpreisen.'],
     ['fa-chart-line', 'Verbrauch & Statistiken', 'Verbrauch pro Tank- oder Ladevorgang, Monat und Jahr, Trends und Diagramme für jedes Fahrzeug.'],
     ['fa-euro-sign', 'Alle Kosten im Blick', 'Versicherung, Werkstatt, Steuer, Reifen: alle Ausgaben, Kosten pro Kilometer und Fixkosten.'],
-    ['fa-bell', 'Erinnerungen', 'Rechtzeitig an TÜV, Wartung, Versicherung und Steuer denken – auf Wunsch per E-Mail.'],
+    ['fa-bell', 'Erinnerungen', 'Rechtzeitig an TÜV, Wartung, Versicherung und Steuer denken, auf Wunsch per E-Mail.'],
     ['fa-leaf', 'CO₂-Bilanz', 'Wie viel CO₂ dein Fahrzeug ausstößt, insgesamt, pro Kilometer und pro Jahr.'],
     ['fa-file-import', 'Import & Export', 'Daten aus Excel oder anderen Apps übernehmen und jederzeit als CSV oder PDF-Bericht mitnehmen.'],
 ];
@@ -29,7 +29,7 @@ $funktionen = [
     <?php endif; ?>
     <h1 class="mb-3">Willkommen bei Fuelstat</h1>
     <p class="willkommen-text mx-auto mb-4">
-        Behalte Verbrauch, Kosten und Termine deiner Fahrzeuge im Blick – für Benzin, Diesel, Gas und Elektro.
+        Behalte Verbrauch, Kosten und Termine deiner Fahrzeuge im Blick. Für Benzin, Diesel, Gas und Elektro.
     </p>
     <div class="d-flex flex-column flex-sm-row justify-content-center gap-2">
         <?php if ($registrierungOffen): ?>
@@ -70,7 +70,7 @@ $funktionen = [
             $registrierungOffen
                 ? ['Konto anlegen', 'Mit E-Mail und Passwort, auf Wunsch zusätzlich mit Zwei-Faktor-Schutz.']
                 : ['Zugang erhalten', 'Mit den Zugangsdaten anmelden, die du vom Betreiber bekommen hast.'],
-            ['Fahrzeug hinzufügen', 'Name, Antriebsart und gern ein Foto – bisherige Daten lassen sich per CSV übernehmen.'],
+            ['Fahrzeug hinzufügen', 'Name, Antriebsart und gern ein Foto. Bisherige Daten lassen sich per CSV übernehmen.'],
             ['Losfahren & erfassen', 'Nach jedem Tank- oder Ladestopp kurz eintragen, den Rest rechnet Fuelstat für dich aus.'],
         ] as $nr => [$titel, $text]): ?>
         <div class="col-md-4">
@@ -97,7 +97,7 @@ $funktionen = [
                     <p class="text-body-secondary mb-3">Alle Funktionen sind schon nutzbar, und du kannst mitbestimmen, wie es weitergeht. Als Beta-Tester hilfst du, Fuelstat besser zu machen.</p>
                     <ul class="list-unstyled mb-0 small">
                         <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Kostenlos während der gesamten Beta</li>
-                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Feedback direkt aus der App senden – Fehler, Ideen, Lob</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Feedback direkt aus der App senden: Fehler, Ideen, Lob</li>
                         <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Deine Daten kannst du jederzeit als CSV exportieren</li>
                         <li><i class="fas fa-info-circle text-body-secondary me-2"></i>Einzelne Funktionen können sich noch ändern</li>
                     </ul>

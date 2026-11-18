@@ -8,6 +8,8 @@ Was beim Ausrollen einer Version zu tun ist, soweit es über `sudo infra/ausroll
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-18
+
 - **Textgrenzen (#197):** Die API nimmt Freitexte nur noch bis zu einer Länge an (Fahrzeugname, Marke, Modell, Benutzername 100; Tankstelle/Ort/Anbieter 200; Beschreibung 2000). Vorhandene längere Werte bleiben lesbar, lassen sich aber erst nach dem Kürzen wieder speichern. Ob es solche Werte gibt (erwartet: überall 0):
 
   ```bash

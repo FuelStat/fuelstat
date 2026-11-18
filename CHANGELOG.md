@@ -6,6 +6,8 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-18
+
 ### Verbessert
 - Ruhigere Texte: Gedankenstriche sind aus Oberfläche, Mails, Push-Nachrichten und Neuigkeiten verschwunden, dort stehen jetzt Punkt, Komma oder Doppelpunkt. Fehlende Werte zeigen überall einen kurzen Strich, den Screenreader als „keine Angabe“ vorlesen; mitten im Satz steht ein Wort wie „noch nie“ oder „ohne Datum“ (#209).
 - Profil in Gruppen: Konto, Fahrzeuge, Daten, Benachrichtigungen, Über und Darstellung. Passwort und Zwei-Faktor-Schutz findest du unter „Profil und Sicherheit“. Berichte, CSV-Export (auch das Fahrtenbuch) und Import stehen gesammelt im Menü „Berichte und Export“ bei den Einträgen, erreichbar auch über Profil → Daten. Status (verkauft, stillgelegt) und Löschen eines Fahrzeugs stehen nur noch in den Fahrzeugdaten, „Fahrzeug bearbeiten“ enthält nur die Stammdaten (#206).
@@ -236,7 +238,8 @@ Erste Version mit Versionsnummer: alles, was Fuelstat bis zu diesem Stand kann.
 - Automatische Tests (PHP und API) und Prüfung der YAML-Dateien bei jedem Pull Request
 - Datensicherung mit Verschlüsselung und Wiederherstellungsprobe
 
-[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/FuelStat/fuelstat/compare/v0.13.1...v0.14.0
 [0.13.1]: https://github.com/FuelStat/fuelstat/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/FuelStat/fuelstat/compare/v0.12.2...v0.13.0
 [0.12.2]: https://github.com/FuelStat/fuelstat/compare/v0.12.1...v0.12.2

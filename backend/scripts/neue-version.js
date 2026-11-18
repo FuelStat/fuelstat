@@ -30,7 +30,7 @@ let cl = fs.readFileSync(clPfad, 'utf8');
 const UNRELEASED = /^## \[Unreleased\][ \t]*$/m;
 if (!UNRELEASED.test(cl)) fehler('CHANGELOG.md: Abschnitt "## [Unreleased]" fehlt');
 const nachUnreleased = cl.slice(cl.search(UNRELEASED) + '## [Unreleased]'.length).split(/\n## \[/)[0];
-if (!/^\s*- /m.test(nachUnreleased)) fehler('CHANGELOG.md: unter [Unreleased] steht noch nichts – erst die Änderungen eintragen');
+if (!/^\s*- /m.test(nachUnreleased)) fehler('CHANGELOG.md: unter [Unreleased] steht noch nichts. Erst die Änderungen eintragen.');
 cl = cl.replace(UNRELEASED, `## [Unreleased]\n\n## [${version}] - ${datum}`);
 cl = cl.replace(/^\[Unreleased\]: .*$/m, `[Unreleased]: https://github.com/FuelStat/fuelstat/compare/v${version}...HEAD\n[${version}]: https://github.com/FuelStat/fuelstat/compare/v${alt}...v${version}`);
 fs.writeFileSync(clPfad, cl);

@@ -26,7 +26,7 @@ test('Push-Texte für Termine: einer, mehrere', () => {
   process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://x@localhost/x';
   const { reminderPush } = require('../src/services/notifier');
   const t = (status, days, vehicle = 'Golf', id = 'v1', title = 'HU') => ({ status, days, vehicle, vehicle_id: id, title });
-  assert.deepEqual(reminderPush([t('bald', 12)]), { title: 'Termin bald fällig', body: 'Golf: HU – fällig in 12 Tagen', url: 'pages/service.php?id=v1', tag: 'termine', badge: 1, ttl: 259200, urgency: 'normal' });
+  assert.deepEqual(reminderPush([t('bald', 12)]), { title: 'Termin bald fällig', body: 'Golf: HU, fällig in 12 Tagen', url: 'pages/service.php?id=v1', tag: 'termine', badge: 1, ttl: 259200, urgency: 'normal' });
   assert.equal(reminderPush([t('ueberfaellig', -3)]).title, 'Termin überfällig');
   const viele = reminderPush([t('bald', 1), t('ueberfaellig', -1, 'Polo', 'v2', 'Ölwechsel'), t('bald', 5), t('bald', 9)]);
   assert.equal(viele.title, '4 Termine, davon überfällige');

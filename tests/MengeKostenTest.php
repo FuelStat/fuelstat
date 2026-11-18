@@ -31,7 +31,9 @@ $r = $f(['menge' => 'abc', 'preis_pro_einheit' => '', 'kosten' => '5']);
 assert($r['fehler'] !== null, 'keine Zahl: Fehler');
 
 // Fahrt: gefahrene km landen in der Beschreibung (#43)
-assert(fahrtBeschreibung(['startort' => 'Bolbingen', 'zielort' => 'Aalen', 'zweck' => 'Arbeit', 'gefahrene_km' => '42']) === 'Bolbingen → Aalen – Arbeit (42 km)');
+assert(fahrtBeschreibung(['startort' => 'Bolbingen', 'zielort' => 'Aalen', 'zweck' => 'Arbeit', 'gefahrene_km' => '42']) === 'Bolbingen → Aalen · Arbeit (42 km)');
+// Ältere Einträge mit Gedankenstrich als Trenner lassen sich weiter bearbeiten
+assert(fahrtAusBeschreibung('Bolbingen → Aalen – Arbeit (42 km)') === ['startort' => 'Bolbingen', 'zielort' => 'Aalen', 'zweck' => 'Arbeit', 'gefahrene_km' => '42']);
 assert(fahrtBeschreibung(['startort' => '', 'zielort' => 'Ulm', 'zweck' => '', 'gefahrene_km' => '12,5']) === 'Ulm (12,5 km)');
 assert(fahrtBeschreibung(['startort' => 'A', 'zielort' => 'B', 'zweck' => '', 'gefahrene_km' => '']) === 'A → B');
 assert(fahrtBeschreibung([]) === 'Fahrt');

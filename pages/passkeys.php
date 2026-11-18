@@ -41,7 +41,7 @@ try {
 }
 
 $datum = function (?string $wert): string {
-    return $wert ? (new DateTime($wert))->setTimezone(new DateTimeZone('Europe/Berlin'))->format('d.m.Y') : '–';
+    return $wert ? (new DateTime($wert))->setTimezone(new DateTimeZone('Europe/Berlin'))->format('d.m.Y') : 'noch nie';
 };
 
 include '../includes/header.php';
@@ -52,7 +52,7 @@ include '../includes/header.php';
             <div class="card shadow">
                 <div class="card-body p-4">
                     <h1 class="h4 mb-3"><i class="fas fa-fingerprint me-2 text-primary" aria-hidden="true"></i>Passkeys</h1>
-                    <p>Mit einem Passkey meldest du dich per Face ID, Fingerabdruck, Windows Hello oder Sicherheitsschlüssel an – ohne Passwort und ohne Zwei-Faktor-Code. Dein Passwort bleibt als Rückfallweg.</p>
+                    <p>Mit einem Passkey meldest du dich per Face ID, Fingerabdruck, Windows Hello oder Sicherheitsschlüssel an, ohne Passwort und ohne Zwei-Faktor-Code. Dein Passwort bleibt als Rückfallweg.</p>
                     <p class="fs-label">Fuelstat speichert nur den öffentlichen Schlüssel. Der private Schlüssel bleibt auf deinem Gerät bzw. in deinem Passwort-Manager (z. B. iCloud-Schlüsselbund, Google, 1Password).</p>
 
                     <?php if (isset($_SESSION['success_message'])): ?>

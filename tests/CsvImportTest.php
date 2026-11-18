@@ -102,7 +102,7 @@ $daten = importLeseCsv("Datum;Kategorie;Kosten (EUR);Beschreibung\n"
 $basis = importWandleUm($daten['zeilen'], importErkenneZuordnung($daten['kopf']), 'Werkstatt');
 $r = importKategorienZuordnen($basis, $katalog, true);
 assert(array_column($r['entries'], 'category') === ['TUV', 'custom:1', 'Sonstiges', 'neu:Schlüsseldienst', 'Sonstiges', 'Fahrt'], json_encode(array_column($r['entries'], 'category')));
-assert($r['entries'][2]['description'] === 'Parken – Bahnhof', 'gesperrte Kategorie bleibt in der Beschreibung');
+assert($r['entries'][2]['description'] === 'Parken: Bahnhof', 'gesperrte Kategorie bleibt in der Beschreibung');
 assert($r['entries'][4]['description'] === 'Glasbruch', 'nur noch ein Platz frei');
 assert($r['kategorien']['neu'] === ['Schlüsseldienst']);
 assert($r['vorschau'][3]['kategorie_text'] === 'Schlüsseldienst (neue eigene Kategorie)');

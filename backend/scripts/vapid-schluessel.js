@@ -8,7 +8,7 @@
 const webpush = require('web-push');
 
 const k = webpush.generateVAPIDKeys();
-console.log('# Push-Benachrichtigungen (#136) – in infra/.env eintragen, dann: sudo docker compose up -d');
+console.log('# Push-Benachrichtigungen (#136): in infra/.env eintragen, dann sudo docker compose up -d');
 console.log(`VAPID_PUBLIC_KEY=${k.publicKey}`);
 console.log(`VAPID_PRIVATE_KEY=${k.privateKey}`);
 console.log('# Kontakt für die Push-Dienste (mailto: oder https-Adresse), sonst gilt APP_URL');

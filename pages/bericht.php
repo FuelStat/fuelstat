@@ -101,7 +101,7 @@ $f2 = fn($v) => number_format((float)$v, 2, ',', '.');
                 <td><?= $d['anzahl_tankstops'] ?></td>
                 <td><?= $f2($d['gekauft_menge']) ?></td>
                 <td><?= $f2($d['gekauft_ausgaben']) ?> €</td>
-                <td><?= $d['verbrauch_l100km'] > 0 ? $f2($d['verbrauch_l100km']) : '–' ?></td>
+                <td><?= $d['verbrauch_l100km'] > 0 ? $f2($d['verbrauch_l100km']) : leerWert() ?></td>
                 <?php if ($t['faktor'] !== null): ?><td><?= number_format((float)($d['co2_kg'] ?? 0), 0, ',', '.') ?> kg</td><?php endif; ?>
             </tr>
         <?php endforeach; ?>
@@ -134,8 +134,8 @@ $f2 = fn($v) => number_format((float)$v, 2, ',', '.');
             <tr>
                 <td><?= htmlspecialchars($st['name']) ?></td>
                 <td><?= (int)$st['changes'] ?></td>
-                <td><?= $l && $l['avgKm'] !== null ? number_format($l['avgKm'], 0, ',', '.') . ' km' : '–' ?><?= $l && $l['avgMonths'] !== null ? ' / ' . $f2($l['avgMonths']) . ' Monate' : '' ?></td>
-                <td><?php if ($n): ?><?= $n['source'] === 'lifetime' ? 'ca. ' : '' ?><?= $n['due_date'] ? date('d.m.Y', strtotime($n['due_date'])) : '' ?><?= $n['due_date'] && $n['due_km'] !== null ? ' oder ' : '' ?><?= $n['due_km'] !== null ? 'bei ' . number_format($n['due_km'], 0, ',', '.') . ' km' : '' ?><?php else: ?>–<?php endif; ?></td>
+                <td><?= $l && $l['avgKm'] !== null ? number_format($l['avgKm'], 0, ',', '.') . ' km' : leerWert() ?><?= $l && $l['avgMonths'] !== null ? ' / ' . $f2($l['avgMonths']) . ' Monate' : '' ?></td>
+                <td><?php if ($n): ?><?= $n['source'] === 'lifetime' ? 'ca. ' : '' ?><?= $n['due_date'] ? date('d.m.Y', strtotime($n['due_date'])) : '' ?><?= $n['due_date'] && $n['due_km'] !== null ? ' oder ' : '' ?><?= $n['due_km'] !== null ? 'bei ' . number_format($n['due_km'], 0, ',', '.') . ' km' : '' ?><?php else: ?><?= leerWert() ?><?php endif; ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>

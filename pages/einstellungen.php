@@ -153,7 +153,7 @@ include '../includes/header.php';
                     <ul class="list-group mb-3">
                         <?php foreach ($geraete as $g):
                             [$plattform, $symbol] = $plattformen[$g['platform'] ?? ''] ?? $plattformen['other'];
-                            $zuletzt = !empty($g['last_used_at']) ? (new DateTime($g['last_used_at']))->setTimezone(new DateTimeZone('Europe/Berlin'))->format('d.m.Y, H:i') : '–'; ?>
+                            $zuletzt = !empty($g['last_used_at']) ? (new DateTime($g['last_used_at']))->setTimezone(new DateTimeZone('Europe/Berlin'))->format('d.m.Y, H:i') : 'noch nie'; ?>
                         <li class="list-group-item d-flex align-items-center gap-3">
                             <i class="fas <?= $symbol ?> fa-fw" aria-hidden="true"></i>
                             <div class="flex-grow-1 min-w-0">

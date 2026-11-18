@@ -19,7 +19,7 @@
 <div class="cookie-hinweis" id="cookieHinweis" role="region" aria-label="Hinweis zu Cookies" hidden>
   <p class="mb-2 mb-sm-0 small">
     <i class="fas fa-cookie-bite me-1" aria-hidden="true"></i>
-    Fuelstat verwendet nur technisch notwendige Cookies und Browser-Speicher, z. B. für die Anmeldung und die gewählte Darstellung – kein Tracking, keine Werbung.
+    Fuelstat verwendet nur technisch notwendige Cookies und Browser-Speicher, z. B. für die Anmeldung und die gewählte Darstellung. Kein Tracking, keine Werbung.
     <a href="<?php echo htmlspecialchars($baseUrl); ?>pages/datenschutz.php#cookies">Mehr erfahren</a>
   </p>
   <button type="button" class="btn btn-primary btn-sm flex-shrink-0" id="cookieHinweisOk">Verstanden</button>

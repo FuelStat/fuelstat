@@ -38,11 +38,13 @@ if (!empty($currentUser['is_admin'])) {
 
 $erste = true;
 foreach ($gruppen as $titel => $eintraege):
+    // Eine Gruppe mit nur einem gleichnamigen Eintrag (Fahrzeuge, Benachrichtigungen) braucht keine Überschrift
+    $ueberschrift = (count($eintraege) === 1 && $eintraege[0][2] === $titel) ? '' : $titel;
     if ($alsListe): ?>
-    <div class="profil-gruppe<?= $erste ? ' mt-0' : '' ?>" role="presentation"><?= htmlspecialchars($titel) ?></div>
+    <div class="profil-gruppe<?= $erste ? ' mt-0' : '' ?>" role="presentation"><?= htmlspecialchars($ueberschrift) ?></div>
     <?php else: ?>
     <?php if (!$erste): ?><li><hr class="dropdown-divider"></li><?php endif; ?>
-    <li><h6 class="dropdown-header"><?= htmlspecialchars($titel) ?></h6></li>
+    <?php if ($ueberschrift !== ''): ?><li><h6 class="dropdown-header"><?= htmlspecialchars($ueberschrift) ?></h6></li><?php endif; ?>
     <?php endif;
     $erste = false;
     foreach ($eintraege as [$ziel, $symbol, $text]): ?>

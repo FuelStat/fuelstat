@@ -459,8 +459,9 @@ Profil ist gruppiert, sechs Gruppen in dieser Reihenfolge:
 | **Über** | Neuigkeiten, Feedback, Rechtliches, Version |
 | **Darstellung** | Hell, Dunkel, System |
 
-Betreiber-Einstellungen (E-Mail-Server, Administration) gehören nicht ins Profil der Nutzer, sondern in den
-Bereich für Betreiber (Umsetzung im Web: #206, Etappe 3).
+Betreiber-Seiten (Benutzerverwaltung, Feedback) sehen nur Admins, in einer eigenen Gruppe **Betrieb** unter den
+anderen. Ein eigener Mailserver je Konto ist keine Betreiber-Einstellung: Er steht unter Benachrichtigungen und ist
+zugeklappt, solange der Betreiber einen Standard-Mailserver anbietet; der Server eines Admins dient als dieser Standard.
 
 ### 7.5 Begriffe (Glossar)
 
@@ -503,7 +504,7 @@ siehe 1.1. Fachwörter nur aus dem Glossar.
 | Stammdaten bearbeiten, Status, Teilen, Löschen | Fahrzeugdaten | „Fehlende Angaben ergänzen“ auf Start |
 | Eintrag erfassen | ＋ | Start, Termin, Service |
 | Einträge ansehen, suchen, filtern, bearbeiten | Einträge | Start („Alle anzeigen“) |
-| Berichte, Export, Import (Einträge, Gesamtkosten, Fahrtenbuch) | Einträge → „Berichte und Export“ | Profil → Daten, Fahrten |
+| Berichte, Export, Import (Einträge, Gesamtkosten, Fahrtenbuch) | Einträge → „Berichte und Export“ | Profil → Daten, Fahrten, „Bericht“ an der Gesamtkosten-Karte |
 | Verbrauch, Kosten, Gesamtkosten, Kostenstruktur, Jahresvergleich | Statistik | Start (eine Kennzahl, Tipp führt hierher) |
 | Termine (vollständig) | Service | Start (höchstens drei, „Alle anzeigen“) |
 | Bauteile, Intervalle, Wechsel | Service | |
@@ -533,8 +534,9 @@ Reihenfolgen und Heimaten (7.1 bis 7.6) sind gleich.
 Statistik (Teile „Verbrauch“ und „Kosten“), Service, Fahrten und Fahrzeugdaten sind eigene Seiten
 (`pages/eintraege.php` usw., Adressen über `fahrzeugSeite()`), Start hat „Mehr zum Fahrzeug“, die Fahrzeuge stehen im
 Profil. Alte Links auf `pages/fahrzeug_detail.php` (auch mit `#Reiter`) leiten weiter. Die Fahrzeugwahl gilt nur für die Sitzung
-(7.2): Sie liegt in der PHP-Sitzung, ohne Wahl zeigt Start das Standardfahrzeug. **Noch offen:** Flotten-Start, gruppiertes Profil (7.4), ein Menü „Berichte und Export“, Löschen und Status nur in
-Fahrzeugdaten. iOS (#84) und Android (#62) folgen.
+(7.2): Sie liegt in der PHP-Sitzung, ohne Wahl zeigt Start das Standardfahrzeug. Profil ist gruppiert (7.4),
+Berichte, Export und Import stehen im Menü „Berichte und Export“ an den Einträgen, Status und Löschen nur in den
+Fahrzeugdaten. **Noch offen:** Flotten-Start. iOS (#84) und Android (#62) folgen.
 
 ### 7.8 Start – Beispielinhalt
 

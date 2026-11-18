@@ -148,7 +148,11 @@
     // Kopfleiste: Tooltips für die Symbole (#145) und Trennlinie, sobald gescrollt ist
     if (window.bootstrap && window.matchMedia('(hover: hover)').matches) {
       document.querySelectorAll('[data-tipp]').forEach(function (el) {
-        new bootstrap.Tooltip(el, { title: function () { return el.getAttribute('data-tipp'); }, placement: 'bottom', trigger: 'hover focus', delay: { show: 300, hide: 0 } });
+        // Bootstrap erlaubt nur ein Bauteil je Element: bei Dropdown-Knöpfen (Profil, Fahrzeug) hängt der Tooltip am
+        // umgebenden Element; focusin kommt dort beim Fokus auf den Knopf an
+        var ziel = el.matches('[data-bs-toggle="dropdown"]') ? el.parentElement : el;
+        var tipp = new bootstrap.Tooltip(ziel, { title: function () { return el.getAttribute('data-tipp'); }, placement: 'bottom', trigger: 'hover focus', delay: { show: 300, hide: 0 } });
+        if (ziel !== el) el.addEventListener('show.bs.dropdown', function () { tipp.hide(); });
       });
     }
     var kopf = document.querySelector('.kopfleiste');

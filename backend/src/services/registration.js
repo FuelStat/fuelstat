@@ -1,9 +1,15 @@
 // Registrierung mit Mailserver (#141, #198).
 //
 // Ablauf: POST /auth/register antwortet immer gleich (202, ohne Token), ob es die Adresse schon gibt oder nicht. Das
-// Konto entsteht erst, wenn der Link aus der Mail geöffnet wird (POST /auth/verify-email). Bis dahin liegt die Anfrage
-// in pending_registrations (Passwort als bcrypt-Hash, Tokens als SHA-256-Hash). Gibt es die Adresse schon, bekommt ihr
-// Inhaber stattdessen eine Mail mit dem Weg zur Anmeldung und zu „Passwort vergessen?“.
+// Konto entsteht erst, wenn der Link aus der Mail geöffnet und dort das Passwort eingegeben wird (POST /auth/verify-email
+// mit token und password). Bis dahin liegt die Anfrage in pending_registrations (Passwort als bcrypt-Hash, Tokens als
+// SHA-256-Hash). Gibt es die Adresse schon, bekommt ihr Inhaber stattdessen eine Mail mit dem Weg zur Anmeldung und zu
+// „Passwort vergessen?“.
+//
+// Warum das Passwort beim Bestätigen: Jeder kann sich mit einer fremden Adresse registrieren. Ohne diese Abfrage könnte
+// jemand nach dem Inhaber eine zweite Anfrage mit eigenem Passwort stellen; öffnet der Inhaber dann den neueren Link,
+// gehörte das Konto dem Fremden. Deshalb behält jede Anfrage ihr Passwort, und der Link legt das Konto nur mit dem
+// Passwort einer offenen Anfrage dieser Adresse an.
 //
 // Fristen (#141, Entscheidung des Maintainers): Eine offene Registrierung gilt 7 Tage, nach 5 Tagen kommt eine
 // Erinnerung mit einem zweiten Link. Konten, die vor dieser Umstellung unbestätigt angelegt wurden, bekommen nach
@@ -16,14 +22,18 @@
 // Ohne Mailserver bzw. mit EMAIL_VERIFICATION=false gibt es keine Mail und damit keinen Nachweis: Dann entsteht das
 // Konto wie bisher sofort (routes/auth.js).
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const { sendUserMail, loadDefaultSmtp, withDefaultSmtp } = require('./mail');
 const emailVerification = require('./emailVerification');
 const { deleteAccount } = require('./accounts');
+const { clearFailures, isLockedOut, recordFailure } = require('../lib/attempts');
 
 const PENDING_DAYS = 7;
 const REMINDER_AFTER_DAYS = 5;
 const DELETE_AFTER_REMINDER_DAYS = 2;
 const LOG_DAYS = 2;
+// Höchstens so viele Erinnerungen je Lauf (der erste Lauf nach dem Ausrollen erinnert alle alten Konten)
+const MAX_REMINDERS_PER_RUN = 50;
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hash = (s) => crypto.createHash('sha256').update(String(s)).digest('hex');
@@ -52,7 +62,7 @@ function confirmMail(email, token, { app = false, expiresAt = null, reminder = f
   const subject = reminder ? 'Fuelstat: Registrierung noch nicht abgeschlossen' : 'Fuelstat: Registrierung abschließen';
   const anlass = reminder
     ? `du hast dich bei Fuelstat mit ${email} registriert, die Adresse aber noch nicht bestätigt. Ohne Bestätigung verfällt die Registrierung am ${bis}.`
-    : `willkommen bei Fuelstat! Bitte bestätige noch deine E-Mail-Adresse ${email}. Erst dann legen wir dein Konto an.`;
+    : `willkommen bei Fuelstat! Bitte bestätige noch deine E-Mail-Adresse ${email}. Öffne dazu den Link und gib dein Passwort ein, dann legen wir dein Konto an.`;
   const gueltig = bis ? `gültig bis ${bis}` : `gültig ${PENDING_DAYS} Tage`;
   const weg = link
     ? `Zum Bestätigen diesen Link öffnen (${gueltig}):\n${link}`
@@ -132,14 +142,11 @@ async function register(db, { email, passwordHash, termsVersion = null, app = fa
     return 'exists';
   }
 
-  // Erneute Registrierung derselben Adresse ersetzt die offene Anfrage (neues Passwort, neuer Link, neue Frist)
+  // Jede Anfrage bekommt eine eigene Zeile mit ihrem Passwort; frühere Anfragen derselben Adresse bleiben gültig
   const token = newToken();
   const r = await db.query(
     `INSERT INTO pending_registrations (email, password_hash, terms_version, terms_accepted_at, token_hash, from_app, expires_at)
      VALUES ($1, $2, $3, CASE WHEN $3::text IS NULL THEN NULL ELSE now() END, $4, $5, now() + make_interval(days => $6))
-     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, terms_version = EXCLUDED.terms_version,
-       terms_accepted_at = EXCLUDED.terms_accepted_at, token_hash = EXCLUDED.token_hash, reminder_token_hash = NULL,
-       from_app = EXCLUDED.from_app, created_at = now(), expires_at = EXCLUDED.expires_at, reminder_sent_at = NULL
      RETURNING expires_at`,
     [email, passwordHash, termsVersion, hash(token), app, PENDING_DAYS]
   );
@@ -149,11 +156,12 @@ async function register(db, { email, passwordHash, termsVersion = null, app = fa
 }
 
 /**
- * Link aus der Mail einlösen: legt das Konto an (Adresse bestätigt).
- * @returns null (kein offenes Token, weiter mit emailVerification.verify), { userId, email } oder
- *          { error: 'token_expired' | 'email_already_exists' }
+ * Link aus der Mail einlösen: legt das Konto an (Adresse bestätigt), aber nur mit dem Passwort einer offenen Anfrage
+ * dieser Adresse.
+ * @returns null (kein offenes Token, weiter mit emailVerification.verify), { userId, email, created } oder
+ *          { error: 'password_required' (mit email) | 'invalid_password' | 'token_expired' | 'email_already_exists' }
  */
-async function confirm(pool, token, { betaTester = false } = {}) {
+async function confirm(pool, token, password, { betaTester = false } = {}) {
   const t = String(token || '').trim();
   if (!t || t.length > 200) return null;
   const h = hash(t);
@@ -161,7 +169,7 @@ async function confirm(pool, token, { betaTester = false } = {}) {
   try {
     await client.query('BEGIN');
     const r = await client.query(
-      `SELECT * FROM pending_registrations WHERE token_hash = $1 OR reminder_token_hash = $1 FOR UPDATE`,
+      'SELECT id, email, expires_at FROM pending_registrations WHERE token_hash = $1 OR reminder_token_hash = $1 FOR UPDATE',
       [h]
     );
     const p = r.rows[0];
@@ -174,14 +182,43 @@ async function confirm(pool, token, { betaTester = false } = {}) {
       await client.query('COMMIT');
       return { error: 'token_expired' };
     }
-    await client.query('DELETE FROM pending_registrations WHERE id = $1', [p.id]);
+    const pw = String(password || '');
+    if (!pw) {
+      await client.query('ROLLBACK');
+      return { error: 'password_required', email: p.email };
+    }
+    // Durchprobieren bremsen: 10 falsche Passwörter je Adresse, dann 15 Minuten Pause
+    const sperre = 'register-confirm:' + p.email;
+    if (isLockedOut(sperre, 10)) {
+      await client.query('ROLLBACK');
+      return { error: 'too_many_attempts' };
+    }
+    // Alle offenen Anfragen dieser Adresse: das Konto bekommt die, deren Passwort passt
+    const alle = await client.query(
+      `SELECT * FROM pending_registrations WHERE email = $1 AND expires_at > now() ORDER BY created_at DESC FOR UPDATE`,
+      [p.email]
+    );
+    let passend = null;
+    for (const a of alle.rows) {
+      if (await bcrypt.compare(pw, a.password_hash)) {
+        passend = a;
+        break;
+      }
+    }
+    if (!passend) {
+      await client.query('ROLLBACK');
+      recordFailure(sperre);
+      return { error: 'invalid_password' };
+    }
+    clearFailures(sperre);
+    await client.query('DELETE FROM pending_registrations WHERE email = $1', [p.email]);
     // Gleichzeitig angelegt (z. B. Adresse inzwischen per Änderung übernommen): kein zweites Konto
     const u = await client.query(
       `INSERT INTO users (email, password_hash, beta_tester, email_verified_at, terms_version, terms_accepted_at)
        VALUES ($1, $2, $3, now(), $4, $5)
        ON CONFLICT (email) DO NOTHING
        RETURNING id, email`,
-      [p.email, p.password_hash, betaTester, p.terms_version, p.terms_accepted_at]
+      [passend.email, passend.password_hash, betaTester, passend.terms_version, passend.terms_accepted_at]
     );
     await client.query('COMMIT');
     if (u.rowCount === 0) return { error: 'email_already_exists' };
@@ -210,11 +247,15 @@ async function runCleanup(pool, { sender = sendUserMail } = {}) {
   if (!(await emailVerification.required(pool))) return ergebnis;
   const defaults = await loadDefaultSmtp(pool);
 
-  // Erinnerung an offene Registrierungen: zweiter Link, der erste bleibt gültig
+  // Erinnerung an offene Registrierungen: einmal je Adresse (an die neueste fällige Anfrage), zweiter Link, der erste
+  // bleibt gültig
   const offen = await pool.query(
-    `SELECT id, email, from_app, expires_at FROM pending_registrations
-     WHERE reminder_sent_at IS NULL AND created_at <= now() - make_interval(days => $1) AND expires_at > now()`,
-    [REMINDER_AFTER_DAYS]
+    `SELECT DISTINCT ON (p.email) p.id, p.email, p.from_app, p.expires_at FROM pending_registrations p
+     WHERE p.reminder_sent_at IS NULL AND p.created_at <= now() - make_interval(days => $1) AND p.expires_at > now()
+       AND NOT EXISTS (SELECT 1 FROM pending_registrations q WHERE q.email = p.email AND q.reminder_sent_at IS NOT NULL)
+     ORDER BY p.email, p.created_at DESC
+     LIMIT $2`,
+    [REMINDER_AFTER_DAYS, MAX_REMINDERS_PER_RUN]
   );
   for (const p of offen.rows) {
     const token = newToken();
@@ -233,8 +274,10 @@ async function runCleanup(pool, { sender = sendUserMail } = {}) {
   const erinnern = await pool.query(
     `SELECT id, email, created_at FROM users
      WHERE email_verified_at IS NULL AND unverified_reminder_sent_at IS NULL
-       AND created_at <= now() - make_interval(days => $1) AND NOT (id::text = ANY($2))`,
-    [REMINDER_AFTER_DAYS, admins]
+       AND created_at <= now() - make_interval(days => $1) AND NOT (id::text = ANY($2))
+     ORDER BY created_at
+     LIMIT $3`,
+    [REMINDER_AFTER_DAYS, admins, MAX_REMINDERS_PER_RUN]
   );
   for (const u of erinnern.rows) {
     const loeschen = new Date(Math.max(
@@ -294,7 +337,7 @@ async function status(pool) {
     `SELECT (SELECT COUNT(*) FROM registration_mails WHERE kind <> 'blocked' AND created_at > now() - interval '1 hour')::int AS stunde,
             (SELECT COUNT(*) FROM registration_mails WHERE kind = 'blocked' AND created_at > now() - interval '24 hours')::int AS blockiert,
             (SELECT MAX(created_at) FROM registration_mails WHERE kind = 'blocked') AS zuletzt,
-            (SELECT COUNT(*) FROM pending_registrations WHERE expires_at > now())::int AS offen,
+            (SELECT COUNT(DISTINCT email) FROM pending_registrations WHERE expires_at > now())::int AS offen,
             (SELECT COUNT(*) FROM users WHERE email_verified_at IS NULL)::int AS unbestaetigt`
   );
   const z = r.rows[0];

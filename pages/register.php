@@ -15,8 +15,8 @@ try {
 
         // Honigtopf gegen Formular-Roboter (#198): Das Feld ist für Menschen unsichtbar. Gefüllt: dieselbe Rückmeldung wie
         // bei einer echten Registrierung, aber keine Anfrage an die API.
-        if (trim((string)($_POST['webseite'] ?? '')) !== '') {
-            $_SESSION['success_message'] = 'Fast geschafft! Wir haben dir eine Mail geschickt. Öffne den Link darin, dann legen wir dein Konto an. Der Link gilt 7 Tage.';
+        if (trim((string)($_POST['hp_kontrolle'] ?? '')) !== '') {
+            $_SESSION['success_message'] = 'Fast geschafft! Wir haben dir eine Mail geschickt. Öffne den Link darin und gib dein Passwort ein, dann legen wir dein Konto an. Der Link gilt 7 Tage.';
             header('Location: login.php');
             exit;
         }
@@ -35,7 +35,7 @@ try {
                 // Mit Mailserver (#141): Das Konto entsteht erst mit dem Link aus der Mail. Die Antwort ist für jede Adresse
                 // gleich, auch für eine schon registrierte (deren Inhaber bekommt stattdessen einen Hinweis per Mail).
                 $_SESSION['success_message'] = !empty($response['verificationRequired'])
-                    ? 'Fast geschafft! Wir haben dir eine Mail geschickt. Öffne den Link darin, dann legen wir dein Konto an. Der Link gilt 7 Tage.'
+                    ? 'Fast geschafft! Wir haben dir eine Mail geschickt. Öffne den Link darin und gib dein Passwort ein, dann legen wir dein Konto an. Der Link gilt 7 Tage.'
                     : 'Registrierung erfolgreich! Du kannst dich jetzt anmelden.';
                 header('Location: login.php');
                 exit;
@@ -103,8 +103,8 @@ try {
                         </div>
                         <!-- Honigtopf (#198): für Menschen unsichtbar, Roboter füllen es aus -->
                         <div class="visually-hidden" aria-hidden="true">
-                            <label for="webseite">Webseite (bitte leer lassen)</label>
-                            <input type="text" id="webseite" name="webseite" tabindex="-1" autocomplete="off">
+                            <label for="hp_kontrolle">Dieses Feld leer lassen</label>
+                            <input type="text" id="hp_kontrolle" name="hp_kontrolle" tabindex="-1" autocomplete="off" data-1p-ignore data-lpignore="true">
                         </div>
                         <?php if ($termsVersion !== null): ?>
                         <div class="form-check mb-2">

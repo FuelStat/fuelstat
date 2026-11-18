@@ -46,7 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_email_verifications_user ON email_verifications(u
 -- Passwort und Tokens; verfällt nach 7 Tagen, nach 5 Tagen kommt eine Erinnerung mit einem zweiten Link.
 CREATE TABLE IF NOT EXISTS pending_registrations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  email text NOT NULL UNIQUE,
+  email text NOT NULL,                     -- nicht eindeutig: jede Anfrage behält ihr Passwort (#141)
   password_hash text NOT NULL,
   terms_version text NULL,
   terms_accepted_at timestamptz NULL,
@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS pending_registrations (
   reminder_sent_at timestamptz NULL
 );
 CREATE INDEX IF NOT EXISTS idx_pending_registrations_expires ON pending_registrations(expires_at);
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_email ON pending_registrations(email);
 
 -- Mails, die eine Registrierung auslöst (#198): Grenzen je Adresse (nur ihr Hash) und je Stunde; nach 2 Tagen gelöscht
 CREATE TABLE IF NOT EXISTS registration_mails (

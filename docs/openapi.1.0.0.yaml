@@ -298,7 +298,8 @@ paths:
       description: >
         Ohne Anmeldung, das Token aus der Mail ist der Nachweis. Gilt 24 Stunden und nur einmal. Bestätigt die
         Konto-Adresse bzw. übernimmt eine ausstehende neue Adresse (pending_email). Token einer offenen Registrierung
-        (#141, 7 Tage gültig) legen das Konto an: Antwort mit accountCreated true.
+        (#141, 7 Tage gültig) legen das Konto an, aber nur mit dem Passwort der Registrierung in password: ohne 400
+        password_required (mit email), falsch 400 invalid_password, nach 10 Fehlversuchen 429; Erfolg mit accountCreated true.
       operationId: postVerifyEmail
       security: []
       requestBody:
@@ -310,6 +311,7 @@ paths:
               additionalProperties: false
               properties:
                 token: { type: string }
+                password: { type: string, description: "Nur für offene Registrierungen (#141): das Passwort der Registrierung" }
               required: [token]
       responses:
         "200":
@@ -323,7 +325,7 @@ paths:
                   email: { type: string, format: email }
                   accountCreated: { type: boolean, description: "Nur bei einer offenen Registrierung (#141): das Konto ist jetzt angelegt" }
         "400":
-          description: invalid_token (falsch oder schon benutzt) | token_expired
+          description: invalid_token (falsch oder schon benutzt) | token_expired | password_required (mit email) | invalid_password
           content:
             application/json:
               schema:

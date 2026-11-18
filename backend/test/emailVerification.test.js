@@ -343,14 +343,15 @@ test('Mail-Links (#175): mit quelle=app nur, wenn die Anfrage aus der App kommt'
   }
 });
 
-// --- Registrierung mit Mailserver (#141, #198): Konto erst mit dem Link, gleiche Antwort für jede Adresse ---
+// --- Registrierung mit Mailserver (#141, #198): Konto erst mit Link und Passwort, gleiche Antwort für jede Adresse ---
 const registration = require('../src/services/registration');
 const mailsAn = (adresse) => postfach.filter((m) => m.includes(adresse));
 async function warteAufMails(adresse, n) {
   for (let i = 0; i < 60 && mailsAn(adresse).length < n; i++) await warte(50);
 }
+const bestaetigen = (token, password) => api('POST', '/auth/verify-email', { body: password === undefined ? { token } : { token, password } });
 
-test('Registrierung (#141): 202 ohne Token, Konto erst mit dem Link aus der Mail', async () => {
+test('Registrierung (#141): 202 ohne Token, Konto erst mit Link und Passwort', async () => {
   const email = `offen-${unique()}@example.test`;
   const r = await api('POST', '/auth/register', { body: { email: email.toUpperCase(), password: 'Passwort123' } });
   assert.equal(r.status, 202, JSON.stringify(r.body));
@@ -365,14 +366,17 @@ test('Registrierung (#141): 202 ohne Token, Konto erst mit dem Link aus der Mail
   assert.notEqual(offen.rows[0].token_hash, token);
   assert.match(offen.rows[0].password_hash, /^\$2[aby]\$/);
 
-  const ok = await api('POST', '/auth/verify-email', { body: { token } });
+  // Ohne bzw. mit falschem Passwort entsteht nichts, der Link bleibt gültig
+  assert.deepEqual((await bestaetigen(token)).body, { error: 'password_required', email });
+  assert.equal((await bestaetigen(token, 'Falsch12345')).body.error, 'invalid_password');
+  const ok = await bestaetigen(token, 'Passwort123');
   assert.equal(ok.status, 200, JSON.stringify(ok.body));
   assert.deepEqual(ok.body, { verified: true, email, accountCreated: true });
   assert.equal((await pool.query('SELECT 1 FROM pending_registrations WHERE email = $1', [email])).rowCount, 0);
   const login = await api('POST', '/auth/login', { body: { email, password: 'Passwort123' } });
   assert.equal(login.status, 200);
   assert.equal(login.body.user.email_verified, true);
-  assert.equal((await api('POST', '/auth/verify-email', { body: { token } })).body.error, 'invalid_token', 'nur einmal');
+  assert.equal((await bestaetigen(token, 'Passwort123')).body.error, 'invalid_token', 'nur einmal');
 });
 
 test('Registrierung (#141): vorhandene Adresse bekommt dieselbe Antwort, der Inhaber einen Hinweis', async () => {
@@ -392,19 +396,31 @@ test('Registrierung (#141): vorhandene Adresse bekommt dieselbe Antwort, der Inh
   assert.equal((await api('POST', '/auth/login', { body: { email: u.email, password: 'AnderesPasswort1' } })).status, 401);
 });
 
-test('Registrierung (#198): höchstens 3 Mails je Adresse und Tag, erneute Registrierung ersetzt die Anfrage', async () => {
+test('Registrierung (#141): eine fremde zweite Anfrage übernimmt das Konto nicht', async () => {
+  const email = `opfer-${unique()}@example.test`;
+  await api('POST', '/auth/register', { body: { email, password: 'MeinPasswort1' } });
+  await warteAufMails(email, 1);
+  await api('POST', '/auth/register', { body: { email, password: 'FremdesPasswort1' } });
+  await warteAufMails(email, 2);
+  // Der Inhaber öffnet den neueren Link (den der Fremde ausgelöst hat) und gibt sein eigenes Passwort ein
+  const neuester = tokenAus(email);
+  assert.equal((await bestaetigen(neuester, 'MeinPasswort1')).status, 200);
+  assert.equal((await api('POST', '/auth/login', { body: { email, password: 'MeinPasswort1' } })).status, 200);
+  assert.equal((await api('POST', '/auth/login', { body: { email, password: 'FremdesPasswort1' } })).status, 401);
+  assert.equal((await pool.query('SELECT 1 FROM pending_registrations WHERE email = $1', [email])).rowCount, 0, 'alle Anfragen erledigt');
+});
+
+test('Registrierung (#198): höchstens 3 Mails je Adresse und Tag', async () => {
   const email = `oft-${unique()}@example.test`;
   for (let i = 0; i < 5; i++) {
     const r = await api('POST', '/auth/register', { body: { email, password: `Passwort${i}xx` } });
     assert.equal(r.status, 202);
-    await warte(150);
+    // Nacheinander: jede Anfrage erst zu Ende verarbeiten lassen
+    await warteAufMails(email, Math.min(i + 1, 3));
+    if (i >= 3) await warte(300);
   }
-  await warte(300);
   assert.equal(mailsAn(email).length, 3);
-  assert.equal((await pool.query('SELECT 1 FROM pending_registrations WHERE email = $1', [email])).rowCount, 1);
-  // Der letzte verschickte Link gilt, das Passwort ist das der dritten Anfrage
-  assert.equal((await api('POST', '/auth/verify-email', { body: { token: tokenAus(email) } })).status, 200);
-  assert.equal((await api('POST', '/auth/login', { body: { email, password: 'Passwort2xx' } })).status, 200);
+  assert.equal((await pool.query('SELECT 1 FROM pending_registrations WHERE email = $1', [email])).rowCount, 3);
 });
 
 test('Registrierung (#198): Notbremse je Stunde hält Mails zurück, Admin sieht den Hinweis', async () => {
@@ -444,19 +460,22 @@ test('Aufräumen (#141): Erinnerung nach 5 Tagen mit zweitem Link, nach 7 Tagen 
   assert.equal((await pool.query('SELECT 1 FROM pending_registrations WHERE email = $1', [weg])).rowCount, 0);
   await warteAufMails(email, 2);
   assert.match(mailsAn(email).at(-1), /verf=C3=A4llt|verfällt/);
-  // Ein zweiter Lauf erinnert nicht noch einmal; der erste Link gilt weiter
+  const zweiter = tokenAus(email);
+  assert.notEqual(zweiter, erster);
+  // Ein zweiter Lauf erinnert nicht noch einmal; beide Links gelten
   const n = mailsAn(email).length;
   await registration.runCleanup(pool);
   await warte(300);
   assert.equal(mailsAn(email).length, n);
-  assert.equal((await api('POST', '/auth/verify-email', { body: { token: erster } })).status, 200);
+  assert.equal((await bestaetigen(erster)).body.error, 'password_required');
+  assert.equal((await bestaetigen(zweiter, 'Passwort123')).status, 200);
 });
 
 test('Aufräumen (#141): unbestätigte Konten erst erinnern, frühestens 2 Tage danach löschen', async () => {
   const alt = await registrieren();
   const bestaetigt = await registrieren();
   await api('POST', '/auth/verify-email', { body: { token: tokenAus(bestaetigt.email) } });
-  await pool.query(`UPDATE users SET created_at = now() - interval '30 days' WHERE id = ANY($1)`, [[alt.id, bestaetigt.id]]);
+  await pool.query(`UPDATE users SET created_at = now() - interval '3 years' WHERE id = ANY($1)`, [[alt.id, bestaetigt.id]]);
 
   const vorher = mailsAn(alt.email).length;
   await registration.runCleanup(pool);

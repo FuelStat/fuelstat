@@ -104,9 +104,11 @@ router.post('/auth/register', registerLimiter, async (req, res) => {
 // E-Mail-Adresse bestätigen (#135): Token aus der Mail. Ohne Anmeldung, das Token selbst ist der Nachweis.
 router.post('/auth/verify-email', async (req, res) => {
   try {
-    // Zuerst offene Registrierungen (#141): Der Link legt das Konto an
-    const neu = await registration.confirm(pool, req.body?.token, { betaTester: isBetaPhase() });
+    // Zuerst offene Registrierungen (#141): Der Link legt das Konto an, aber nur mit dem Passwort der Registrierung
+    const neu = await registration.confirm(pool, req.body?.token, req.body?.password, { betaTester: isBetaPhase() });
     if (neu?.error === 'email_already_exists') return res.status(409).json({ error: neu.error });
+    if (neu?.error === 'password_required') return res.status(400).json({ error: neu.error, email: neu.email });
+    if (neu?.error === 'too_many_attempts') return tooManyAttempts(res);
     if (neu?.error) return res.status(400).json({ error: neu.error });
     if (neu) return res.json({ verified: true, email: neu.email, accountCreated: true });
     const r = await emailVerification.verify(pool, req.body?.token);

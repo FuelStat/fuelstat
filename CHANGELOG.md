@@ -7,7 +7,7 @@ Kategorien je Version: **Neu**, **Verbessert**, **Behoben**, **Sicherheit**, **T
 ## [Unreleased]
 
 ### Sicherheit
-- Registrieren verrät nicht mehr, ob es für eine Adresse schon ein Konto gibt: Fuelstat schickt einen Link per Mail, und erst mit diesem Link entsteht dein Konto. Der Link gilt 7 Tage, nach 5 Tagen kommt eine Erinnerung. Gibt es die Adresse schon, bekommt ihr Inhaber stattdessen einen Hinweis mit dem Weg zur Anmeldung und zu „Passwort vergessen?“ (#141).
+- Registrieren verrät nicht mehr, ob es für eine Adresse schon ein Konto gibt: Fuelstat schickt einen Link per Mail. Erst wenn du ihn öffnest und dein Passwort eingibst, entsteht dein Konto. Der Link gilt 7 Tage, nach 5 Tagen kommt eine Erinnerung. Gibt es die Adresse schon, bekommt ihr Inhaber stattdessen einen Hinweis mit dem Weg zur Anmeldung und zu „Passwort vergessen?“ (#141).
 - Konten, deren Adresse nie bestätigt wurde, werden nach einer Erinnerung gelöscht, frühestens 2 Tage danach (#141).
 - Schutz vor Massen-Registrierungen und Mail-Fluten: Von einem Anschluss gehen nur noch wenige Registrierungen je Stunde und Tag, an eine Adresse höchstens 3 Registrierungsmails am Tag (#198).
 

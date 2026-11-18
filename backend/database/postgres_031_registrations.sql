@@ -2,7 +2,8 @@
 -- Registrierung (#141, #198):
 -- - pending_registrations: Mit Mailserver entsteht ein Konto erst, wenn der Link aus der Mail geöffnet wird. Bis dahin
 --   liegt die Anfrage hier (nur Hashes von Passwort und Tokens). Sie verfällt nach 7 Tagen, nach 5 Tagen kommt eine
---   Erinnerung mit einem zweiten Link.
+--   Erinnerung mit einem zweiten Link. Mehrere Anfragen je Adresse sind möglich; der Link legt das Konto nur mit dem
+--   Passwort einer dieser Anfragen an, damit niemand fremde Anfragen übernehmen kann.
 -- - registration_mails: Protokoll der Mails, die eine Registrierung auslöst, für die Grenzen je Adresse und je Stunde
 --   (#198). Statt der Adresse steht nur ihr Hash darin; Einträge werden nach 2 Tagen gelöscht.
 -- - users.unverified_reminder_sent_at: Erinnerung an noch nicht bestätigte Konten von früher; gelöscht wird
@@ -12,7 +13,7 @@ BEGIN;
 
 CREATE TABLE IF NOT EXISTS pending_registrations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  email text NOT NULL UNIQUE,
+  email text NOT NULL,                     -- nicht eindeutig: jede Anfrage behält ihr Passwort (#141)
   password_hash text NOT NULL,
   terms_version text NULL,
   terms_accepted_at timestamptz NULL,
@@ -24,6 +25,7 @@ CREATE TABLE IF NOT EXISTS pending_registrations (
   reminder_sent_at timestamptz NULL
 );
 CREATE INDEX IF NOT EXISTS idx_pending_registrations_expires ON pending_registrations(expires_at);
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_email ON pending_registrations(email);
 
 CREATE TABLE IF NOT EXISTS registration_mails (
   id bigserial PRIMARY KEY,

@@ -125,11 +125,13 @@ Adresse gleich und verrät nicht, ob es schon ein Konto gibt.
 ```
 
 Es gibt **kein Token** und noch **kein Konto**. Die Mail enthält einen Link (`{APP_URL}/pages/email_bestaetigen.php?token=…`),
-der 7 Tage gilt; erst `POST /auth/verify-email` mit diesem Token legt das Konto an (Adresse bestätigt). Bis dahin
-antwortet `/auth/login` mit 401 `invalid_credentials` wie bei einer unbekannten Adresse. Nach 5 Tagen kommt eine
-Erinnerung mit einem zweiten Link, nach 7 Tagen verfällt die Anfrage. Wer sich erneut mit derselben Adresse registriert,
-ersetzt die offene Anfrage (neues Passwort, neuer Link). Gibt es die Adresse schon, bekommt ihr Inhaber statt des Links
-eine Mail mit dem Weg zur Anmeldung und zu „Passwort vergessen?“; am bestehenden Konto ändert sich nichts.
+der 7 Tage gilt. Erst `POST /auth/verify-email` mit diesem Token **und dem Passwort der Registrierung** legt das Konto an
+(Adresse bestätigt), siehe „E-Mail-Adresse bestätigen“. Bis dahin antwortet `/auth/login` mit 401 `invalid_credentials`
+wie bei einer unbekannten Adresse. Nach 5 Tagen kommt eine Erinnerung mit einem zweiten Link, nach 7 Tagen verfällt die
+Anfrage. Wer sich erneut mit derselben Adresse registriert, stellt eine weitere Anfrage mit eigenem Passwort; jeder Link
+dieser Adresse legt das Konto mit dem Passwort an, das beim Bestätigen eingegeben wird und zu einer der Anfragen passt.
+So kann niemand die Anfrage eines anderen übernehmen. Gibt es die Adresse schon, bekommt ihr Inhaber statt des Links eine
+Mail mit dem Weg zur Anmeldung und zu „Passwort vergessen?“; am bestehenden Konto ändert sich nichts.
 
 **Ohne Mailserver** bzw. mit `EMAIL_VERIFICATION=false` gibt es keinen Nachweis per Mail. Dann entsteht das Konto wie
 bisher sofort:
@@ -239,7 +241,7 @@ Grundgerüst für ein späteres Premium-Modell. Was ein Tarif darf, steht an ein
 
 ## E-Mail-Adresse bestätigen (#135)
 
-Neue Konten bekommen nach der Registrierung eine Mail mit einem Link (`{APP_URL}/pages/email_bestaetigen.php?token=…`, ohne `APP_URL` steht nur der Code in der Mail). Das Token gilt 24 Stunden und nur einmal; in der Datenbank liegt nur sein SHA-256-Hash. Eingelöst wird es mit `POST /auth/verify-email` `{ "token" }` – ohne Anmeldung, das Token selbst ist der Nachweis. Antworten: 200 `{ verified, email }` (bei einer offenen Registrierung zusätzlich `accountCreated: true`: das Konto ist jetzt angelegt, #141), 400 `invalid_token` bzw. `token_expired`, 409 `email_already_exists`. `POST /auth/resend-verification` schickt eine neue Mail (frühestens nach 60 s: 429 `resend_too_soon`; höchstens 5 je Tag: 429 `too_many_attempts`; schon bestätigt: 409 `already_verified`).
+Neue Konten bekommen nach der Registrierung eine Mail mit einem Link (`{APP_URL}/pages/email_bestaetigen.php?token=…`, ohne `APP_URL` steht nur der Code in der Mail). Das Token gilt 24 Stunden und nur einmal; in der Datenbank liegt nur sein SHA-256-Hash. Eingelöst wird es mit `POST /auth/verify-email` `{ "token" }` – ohne Anmeldung, das Token selbst ist der Nachweis. Antworten: 200 `{ verified, email }`, 400 `invalid_token` bzw. `token_expired`, 409 `email_already_exists`. **Offene Registrierung (#141):** Das Token einer Registrierung braucht zusätzlich `password` (das Passwort der Registrierung). Ohne antwortet die API mit 400 `{ "error": "password_required", "email" }`, mit falschem mit 400 `invalid_password` (nach 10 Fehlversuchen je Adresse 429 `too_many_attempts` für 15 Minuten); der Link bleibt dabei gültig. Mit passendem Passwort: 200 `{ verified, email, accountCreated: true }`. `POST /auth/resend-verification` schickt eine neue Mail (frühestens nach 60 s: 429 `resend_too_soon`; höchstens 5 je Tag: 429 `too_many_attempts`; schon bestätigt: 409 `already_verified`).
 
 **Unbestätigte Konten** gibt es nur noch aus der Zeit vor #141 und von iOS-Apps vor 0.2.3. Sie bekommen nach 5 Tagen eine Erinnerung und werden frühestens 2 Tage danach samt Fahrzeugen und Einträgen gelöscht (nie ohne Erinnerung, Admins ausgenommen; stündlicher Lauf, abschaltbar mit `ACCOUNT_CLEANUP_ENABLED=false`).
 

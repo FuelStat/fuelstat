@@ -97,7 +97,7 @@ curl -sk -D - -o /dev/null --resolve fuelstat.example.de:443:127.0.0.1 "https://
   80 und 443 nur für die [IP-Bereiche von Cloudflare](https://www.cloudflare.com/ips/) öffnen. Sonst erreicht jeder
   nginx direkt über die IP des Servers, an Cloudflare vorbei (#231). Port 22 bleibt für die eigene Verwaltung offen.
 - **Kein HTTP/2 zum Server nötig:** Cloudflare spricht mit den Besuchern HTTP/2, mit dem Server reicht HTTP/1.1. Im
-  Beispiel ist `http2 on;` deshalb auskommentiert; einschalten nur mit nginx ab 1.30.6-4 (CVE-2026-123007 behoben).
+  Beispiel ist `http2 on;` deshalb auskommentiert; einschalten nur mit einem nginx, in dem CVE-2026-123007 behoben ist (ab 1.30.6-4 bzw. dem Debian-Sicherheitsupdate der eigenen Version).
   In Cloudflare unter Speed → Optimization → Protocol Optimization „HTTP/2 to Origin“ aus lassen.
 - **Sicherheitsupdates automatisch:** `sudo apt install unattended-upgrades` (Debian spielt damit Sicherheitsupdates
   wie die für nginx selbst ein), sonst regelmäßig `sudo apt update && sudo apt upgrade`.

@@ -26,7 +26,7 @@ server {
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
-    # HTTP/2 nur mit nginx ab 1.30.6-4 einschalten (CVE-2026-123007 behoben, #231). Hinter einem Proxy wie Cloudflare
+    # HTTP/2 nur mit nginx ohne CVE-2026-123007 einschalten (ab 1.30.6-4 bzw. Debian-Sicherheitsupdate, #231). Hinter einem Proxy wie Cloudflare
     # wird es nicht gebraucht: Cloudflare spricht mit den Besuchern HTTP/2, mit dem Server reicht HTTP/1.1.
     # http2 on;
     server_name fuelstat.example.de;

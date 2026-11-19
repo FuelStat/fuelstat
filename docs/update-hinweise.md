@@ -9,7 +9,10 @@ Was beim Ausrollen einer Version zu tun ist, soweit es über `sudo infra/ausroll
 ## [Unreleased]
 
 - **nginx, HTTP/2 abschalten (CVE-2026-123007, #231):** Ein Fehler in nginx mit HTTP/2 kann den Server abstürzen lassen
-  oder Schlimmeres. Solange Debian keinen Fix liefert, HTTP/2 auf dem Server abschalten (hinter Cloudflare merkt das
+  oder Schlimmeres. Behoben ist er ab dem Paket **nginx 1.30.6-4**. Ältere Debian-Versionen bekommen den Fix als
+  Sicherheitsupdate ihrer eigenen Version (z. B. `1.22.1-9+deb12uN`); ob es das schon gibt, zeigt der
+  [Debian Security Tracker](https://security-tracker.debian.org/tracker/CVE-2026-123007). Welche Version läuft:
+  `dpkg-query -W -f='${Version}\n' nginx`. Ohne Fix HTTP/2 auf dem Server abschalten (hinter Cloudflare merkt das
   niemand). Vorher sichern, dann `http2` aus den `listen`-Zeilen entfernen bzw. `http2 on;` auskommentieren:
 
   ```bash
@@ -19,8 +22,7 @@ Was beim Ausrollen einer Version zu tun ist, soweit es über `sudo infra/ausroll
   sudo nginx -t && sudo systemctl reload nginx
   ```
 
-  `grep` darf danach nur auskommentierte Zeilen zeigen. Ob der Fix da ist:
-  `zgrep -n "CVE-2026-123007" /usr/share/doc/nginx-common/changelog.Debian.gz`. Dann
+  `grep` darf danach nur auskommentierte Zeilen zeigen. Liefert `apt` den Fix:
   `sudo apt update && sudo apt install --only-upgrade nginx nginx-common && sudo nginx -t && sudo systemctl restart nginx`.
   Hinter Cloudflare zusätzlich die Firewall auf die Cloudflare-Adressen beschränken (`docs/installation.md`,
   „Hinter Cloudflare“).
